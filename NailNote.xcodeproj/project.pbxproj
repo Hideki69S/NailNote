@@ -6,17 +6,47 @@
 	objectVersion = 77;
 	objects = {
 
+/* Begin PBXBuildFile section */
+		EEDC660D2F460A940024C3F3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EEDC66062F460A940024C3F3 /* Assets.xcassets */; };
+		EEDC660E2F460A940024C3F3 /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC660A2F460A940024C3F3 /* Persistence.swift */; };
+		EEDC660F2F460A940024C3F3 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC66072F460A940024C3F3 /* ContentView.swift */; };
+		EEDC66102F460A940024C3F3 /* NailNote.xcdatamodeld in Sources */ = {isa = PBXBuildFile; fileRef = EEDC66082F460A940024C3F3 /* NailNote.xcdatamodeld */; };
+		EEDC66112F460A940024C3F3 /* NailNoteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC66092F460A940024C3F3 /* NailNoteApp.swift */; };
+		EEDC661F2F4616400024C3F3 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC661E2F4616330024C3F3 /* RootView.swift */; };
+		EEDC66262F4617010024C3F3 /* EntryListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC66242F4617010024C3F3 /* EntryListView.swift */; };
+		EEDC66282F4617400024C3F3 /* SimHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC66272F46173A0024C3F3 /* SimHomeView.swift */; };
+		EEDC662C2F46177E0024C3F3 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC662B2F46177C0024C3F3 /* SettingsView.swift */; };
+		EEDC662E2F461DEF0024C3F3 /* AddEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC662D2F461DED0024C3F3 /* AddEntryView.swift */; };
+		EEDC66302F46A9A40024C3F3 /* EditEntryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC662F2F46A9A10024C3F3 /* EditEntryView.swift */; };
+		EEDC66332F46AEF50024C3F3 /* NailProductCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC66322F46AEF30024C3F3 /* NailProductCategory.swift */; };
+		EEDC66392F46B7140024C3F3 /* ProductListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC66382F46B70E0024C3F3 /* ProductListView.swift */; };
+		EEDC663B2F46B7450024C3F3 /* AddOrEditProductView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC663A2F46B7410024C3F3 /* AddOrEditProductView.swift */; };
+		EEDC664B2F474C0E0024C3F3 /* ProductMultiSelectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC664A2F474C0A0024C3F3 /* ProductMultiSelectView.swift */; };
+		EEDC66512F475C650024C3F3 /* EntryPhotoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC66502F475C580024C3F3 /* EntryPhotoStore.swift */; };
+		EEDC66532F475FDA0024C3F3 /* ProductPhotoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC66522F475FD70024C3F3 /* ProductPhotoStore.swift */; };
+/* End PBXBuildFile section */
+
 /* Begin PBXFileReference section */
 		EEDC65F22F4607920024C3F3 /* NailNote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NailNote.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		EEDC66062F460A940024C3F3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		EEDC66072F460A940024C3F3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		EEDC66092F460A940024C3F3 /* NailNoteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NailNoteApp.swift; sourceTree = "<group>"; };
+		EEDC660A2F460A940024C3F3 /* Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence.swift; sourceTree = "<group>"; };
+		EEDC660C2F460A940024C3F3 /* NailNote.xcdatamodel */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcdatamodel; path = NailNote.xcdatamodel; sourceTree = "<group>"; };
+		EEDC661E2F4616330024C3F3 /* RootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RootView.swift; sourceTree = "<group>"; };
+		EEDC66242F4617010024C3F3 /* EntryListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntryListView.swift; sourceTree = "<group>"; };
+		EEDC66272F46173A0024C3F3 /* SimHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SimHomeView.swift; sourceTree = "<group>"; };
+		EEDC662B2F46177C0024C3F3 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		EEDC662D2F461DED0024C3F3 /* AddEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddEntryView.swift; sourceTree = "<group>"; };
+		EEDC662F2F46A9A10024C3F3 /* EditEntryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EditEntryView.swift; sourceTree = "<group>"; };
+		EEDC66322F46AEF30024C3F3 /* NailProductCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NailProductCategory.swift; sourceTree = "<group>"; };
+		EEDC66382F46B70E0024C3F3 /* ProductListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductListView.swift; sourceTree = "<group>"; };
+		EEDC663A2F46B7410024C3F3 /* AddOrEditProductView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddOrEditProductView.swift; sourceTree = "<group>"; };
+		EEDC664A2F474C0A0024C3F3 /* ProductMultiSelectView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductMultiSelectView.swift; sourceTree = "<group>"; };
+		EEDC664E2F474F150024C3F3 /* NailProduct+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NailProduct+CoreDataClass.swift"; sourceTree = "<group>"; };
+		EEDC66502F475C580024C3F3 /* EntryPhotoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntryPhotoStore.swift; sourceTree = "<group>"; };
+		EEDC66522F475FD70024C3F3 /* ProductPhotoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductPhotoStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
-
-/* Begin PBXFileSystemSynchronizedRootGroup section */
-		EEDC65F42F4607920024C3F3 /* NailNote */ = {
-			isa = PBXFileSystemSynchronizedRootGroup;
-			path = NailNote;
-			sourceTree = "<group>";
-		};
-/* End PBXFileSystemSynchronizedRootGroup section */
 
 /* Begin PBXFrameworksBuildPhase section */
 		EEDC65EF2F4607920024C3F3 /* Frameworks */ = {
@@ -32,8 +62,8 @@
 		EEDC65E92F4607920024C3F3 = {
 			isa = PBXGroup;
 			children = (
-				EEDC65F42F4607920024C3F3 /* NailNote */,
 				EEDC65F32F4607920024C3F3 /* Products */,
+				EEDC660B2F460A940024C3F3 /* NailNote */,
 			);
 			sourceTree = "<group>";
 		};
@@ -43,6 +73,95 @@
 				EEDC65F22F4607920024C3F3 /* NailNote.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		EEDC660B2F460A940024C3F3 /* NailNote */ = {
+			isa = PBXGroup;
+			children = (
+				EEDC66152F460BA90024C3F3 /* Design */,
+				EEDC66142F460B9D0024C3F3 /* Features */,
+				EEDC66132F460B920024C3F3 /* Core */,
+				EEDC66122F460B7E0024C3F3 /* App */,
+				EEDC66062F460A940024C3F3 /* Assets.xcassets */,
+			);
+			path = NailNote;
+			sourceTree = "<group>";
+		};
+		EEDC66122F460B7E0024C3F3 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				EEDC661E2F4616330024C3F3 /* RootView.swift */,
+				EEDC66072F460A940024C3F3 /* ContentView.swift */,
+				EEDC66092F460A940024C3F3 /* NailNoteApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		EEDC66132F460B920024C3F3 /* Core */ = {
+			isa = PBXGroup;
+			children = (
+				EEDC66522F475FD70024C3F3 /* ProductPhotoStore.swift */,
+				EEDC66502F475C580024C3F3 /* EntryPhotoStore.swift */,
+				EEDC664E2F474F150024C3F3 /* NailProduct+CoreDataClass.swift */,
+				EEDC660A2F460A940024C3F3 /* Persistence.swift */,
+				EEDC66082F460A940024C3F3 /* NailNote.xcdatamodeld */,
+			);
+			path = Core;
+			sourceTree = "<group>";
+		};
+		EEDC66142F460B9D0024C3F3 /* Features */ = {
+			isa = PBXGroup;
+			children = (
+				EEDC66312F46AED90024C3F3 /* Products */,
+				EEDC66252F4617010024C3F3 /* Entries */,
+				EEDC66292F4617540024C3F3 /* Sim */,
+				EEDC662A2F46176C0024C3F3 /* Settings */,
+			);
+			path = Features;
+			sourceTree = "<group>";
+		};
+		EEDC66152F460BA90024C3F3 /* Design */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = Design;
+			sourceTree = "<group>";
+		};
+		EEDC66252F4617010024C3F3 /* Entries */ = {
+			isa = PBXGroup;
+			children = (
+				EEDC664A2F474C0A0024C3F3 /* ProductMultiSelectView.swift */,
+				EEDC662F2F46A9A10024C3F3 /* EditEntryView.swift */,
+				EEDC662D2F461DED0024C3F3 /* AddEntryView.swift */,
+				EEDC66242F4617010024C3F3 /* EntryListView.swift */,
+			);
+			path = Entries;
+			sourceTree = "<group>";
+		};
+		EEDC66292F4617540024C3F3 /* Sim */ = {
+			isa = PBXGroup;
+			children = (
+				EEDC66272F46173A0024C3F3 /* SimHomeView.swift */,
+			);
+			path = Sim;
+			sourceTree = "<group>";
+		};
+		EEDC662A2F46176C0024C3F3 /* Settings */ = {
+			isa = PBXGroup;
+			children = (
+				EEDC662B2F46177C0024C3F3 /* SettingsView.swift */,
+			);
+			path = Settings;
+			sourceTree = "<group>";
+		};
+		EEDC66312F46AED90024C3F3 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				EEDC663A2F46B7410024C3F3 /* AddOrEditProductView.swift */,
+				EEDC66382F46B70E0024C3F3 /* ProductListView.swift */,
+				EEDC66322F46AEF30024C3F3 /* NailProductCategory.swift */,
+			);
+			path = Products;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -59,9 +178,6 @@
 			buildRules = (
 			);
 			dependencies = (
-			);
-			fileSystemSynchronizedGroups = (
-				EEDC65F42F4607920024C3F3 /* NailNote */,
 			);
 			name = NailNote;
 			packageProductDependencies = (
@@ -109,6 +225,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EEDC660D2F460A940024C3F3 /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -119,6 +236,22 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				EEDC660E2F460A940024C3F3 /* Persistence.swift in Sources */,
+				EEDC660F2F460A940024C3F3 /* ContentView.swift in Sources */,
+				EEDC66302F46A9A40024C3F3 /* EditEntryView.swift in Sources */,
+				EEDC66512F475C650024C3F3 /* EntryPhotoStore.swift in Sources */,
+				EEDC66102F460A940024C3F3 /* NailNote.xcdatamodeld in Sources */,
+				EEDC661F2F4616400024C3F3 /* RootView.swift in Sources */,
+				EEDC663B2F46B7450024C3F3 /* AddOrEditProductView.swift in Sources */,
+				EEDC66112F460A940024C3F3 /* NailNoteApp.swift in Sources */,
+				EEDC66332F46AEF50024C3F3 /* NailProductCategory.swift in Sources */,
+				EEDC662C2F46177E0024C3F3 /* SettingsView.swift in Sources */,
+				EEDC664B2F474C0E0024C3F3 /* ProductMultiSelectView.swift in Sources */,
+				EEDC66392F46B7140024C3F3 /* ProductListView.swift in Sources */,
+				EEDC66282F4617400024C3F3 /* SimHomeView.swift in Sources */,
+				EEDC66532F475FDA0024C3F3 /* ProductPhotoStore.swift in Sources */,
+				EEDC662E2F461DEF0024C3F3 /* AddEntryView.swift in Sources */,
+				EEDC66262F4617010024C3F3 /* EntryListView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -261,6 +394,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -293,6 +427,7 @@
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 18.6;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -332,6 +467,19 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCVersionGroup section */
+		EEDC66082F460A940024C3F3 /* NailNote.xcdatamodeld */ = {
+			isa = XCVersionGroup;
+			children = (
+				EEDC660C2F460A940024C3F3 /* NailNote.xcdatamodel */,
+			);
+			currentVersion = EEDC660C2F460A940024C3F3 /* NailNote.xcdatamodel */;
+			path = NailNote.xcdatamodeld;
+			sourceTree = "<group>";
+			versionGroupType = wrapper.xcdatamodel;
+		};
+/* End XCVersionGroup section */
 	};
 	rootObject = EEDC65EA2F4607920024C3F3 /* Project object */;
 }

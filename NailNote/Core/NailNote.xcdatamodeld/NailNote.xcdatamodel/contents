@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<model type="com.apple.IDECoreDataModeler.DataModel" documentVersion="1.0" lastSavedToolsVersion="24512" systemVersion="24G419" minimumToolsVersion="Automatic" sourceLanguage="Swift" userDefinedModelVersionIdentifier="">
+    <entity name="NailEntry" representedClassName="NailEntry" syncable="YES" codeGenerationType="class">
+        <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="date" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="note" optional="YES" attributeType="String"/>
+        <attribute name="photoId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="title" optional="YES" attributeType="String"/>
+        <attribute name="updatedAt" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="usedItems" optional="YES" toMany="YES" deletionRule="Nullify" ordered="YES" destinationEntity="NailEntryUsedItem" inverseName="entry" inverseEntity="NailEntryUsedItem"/>
+    </entity>
+    <entity name="NailEntryUsedItem" representedClassName="NailEntryUsedItem" syncable="YES" codeGenerationType="class">
+        <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="orderIndex" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <relationship name="entry" maxCount="1" deletionRule="Nullify" destinationEntity="NailEntry" inverseName="usedItems" inverseEntity="NailEntry"/>
+        <relationship name="product" maxCount="1" deletionRule="Nullify" destinationEntity="NailProduct" inverseName="usedInEntries" inverseEntity="NailProduct"/>
+    </entity>
+    <entity name="NailProduct" representedClassName="NailProduct" syncable="YES" codeGenerationType="class">
+        <attribute name="category" attributeType="String"/>
+        <attribute name="createdAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="name" attributeType="String"/>
+        <attribute name="photoId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="priceYenTaxIn" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="purchasedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="purchasePlace" optional="YES" attributeType="String"/>
+        <attribute name="samplePhotoId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="updatedAt" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="usedInEntries" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="NailEntryUsedItem" inverseName="product" inverseEntity="NailEntryUsedItem"/>
+    </entity>
+    <entity name="UsageQuota" representedClassName="UsageQuota" syncable="YES" codeGenerationType="class">
+        <attribute name="freeSimRemaining" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="monthKey" attributeType="String"/>
+        <attribute name="updatedAt" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
+</model>
