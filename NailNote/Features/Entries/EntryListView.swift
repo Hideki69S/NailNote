@@ -13,50 +13,37 @@ struct EntryListView: View {
 
     @State private var showingAddSheet = false
     @AppStorage("EntryDesignFilter") private var designFilterRaw: String = "all"
+    @AppStorage("EntryColorFilter") private var colorFilterRaw: String = "allColor"
 
     var body: some View {
         GlassBackgroundView {
             NavigationStack {
-                List {
-                    if filteredEntries.isEmpty {
-                        ContentUnavailableView("記録がありません", systemImage: "note.text")
-                            .frame(maxWidth: .infinity, alignment: .center)
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                    } else {
-                        ForEach(filteredEntries, id: \.objectID) { entry in
-                            NavigationLink {
-                                EditEntryView(entry: entry)
-                            } label: {
-                                EntryRowView(entry: entry)
-                            }
-                            .listRowBackground(Color.clear)
-                            .listRowSeparator(.hidden)
-                        }
-                        .onDelete(perform: deleteEntries)
+                VStack(spacing: 10) {
+                    EntryAdPlaceholderRow()
+                        .padding(.top, 12)
+                        .padding(.horizontal, 16)
+
+                    VStack(alignment: .leading, spacing: 8) {
+                        filterControlRow
                     }
+                    .padding(.horizontal, 16)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+
+                    entryList
                 }
-                .listStyle(.plain)
-                .scrollContentBackground(.hidden)
-                .padding(.vertical, 8)
-                .navigationTitle("記録")
-                .toolbar {
-                    ToolbarItem(placement: .topBarLeading) {
-                        EditButton()
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .toolbar(.hidden, for: .navigationBar)
+                .overlay(alignment: .bottomTrailing) {
+                    FloatingAddButton {
+                        showingAddSheet = true
                     }
-                    ToolbarItemGroup(placement: .topBarTrailing) {
-                        designFilterMenu
-                        Button {
-                            showingAddSheet = true
-                        } label: {
-                            Image(systemName: "plus")
-                        }
-                    }
+                    .padding(.bottom, 24)
+                    .padding(.trailing, 24)
                 }
-                .sheet(isPresented: $showingAddSheet) {
-                    AddEntryView()
-                        .environment(\.managedObjectContext, viewContext)
-                }
+            }
+            .sheet(isPresented: $showingAddSheet) {
+                AddEntryView()
+                    .environment(\.managedObjectContext, viewContext)
             }
         }
     }
@@ -104,9 +91,10 @@ struct EntryRowView: View {
                         Spacer()
                         if entry.rating > 0 {
                             StarRatingView(rating: entry.rating, size: 12)
-                                .frame(maxWidth: .infinity, alignment: .trailing)
+                                .padding(.trailing, -2)
                         }
                     }
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
                     HStack(spacing: 6) {
                         designBadge
@@ -171,14 +159,63 @@ struct EntryThumbnailView: View {
     }
 }
 
+private struct EntryAdPlaceholderRow: View {
+    var body: some View {
+        GlassCard {
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("広告枠（将来用）")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text("ここにキャンペーンやお知らせが入る予定。現在はプレースホルダです。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "megaphone")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
 // MARK: - Filter Helpers
 
 private extension EntryListView {
-    var filteredEntries: [NailEntry] {
-        guard let selectedDesign = selectedDesignCategory else {
-            return Array(entries)
+    var entryList: some View {
+        List {
+            if filteredEntries.isEmpty {
+                ContentUnavailableView("記録がありません", systemImage: "note.text")
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            } else {
+                Section {
+                    ForEach(filteredEntries, id: \.objectID) { entry in
+                        NavigationLink {
+                            EditEntryView(entry: entry)
+                        } label: {
+                            EntryRowView(entry: entry)
+                        }
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
+                    }
+                    .onDelete(perform: deleteEntries)
+                }
+                .listRowBackground(Color.clear)
+            }
         }
-        return entries.filter { $0.designCategory == selectedDesign.rawValue }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
+        .padding(.horizontal, 0)
+    }
+
+    var filteredEntries: [NailEntry] {
+        entries.filter { entry in
+            matchesDesign(entry) && matchesColor(entry)
+        }
     }
 
     var selectedDesignCategory: NailDesignCategory? {
@@ -186,8 +223,31 @@ private extension EntryListView {
         return NailDesignCategory(rawValue: designFilterRaw)
     }
 
+    var selectedColorTone: NailColorTone? {
+        guard colorFilterRaw != "allColor" else { return nil }
+        return NailColorTone(rawValue: colorFilterRaw)
+    }
+
     var filterTitle: String {
-        selectedDesignCategory?.displayName ?? "すべて"
+        selectedDesignCategory?.displayName ?? "デザイン"
+    }
+
+    var colorFilterTitle: String {
+        selectedColorTone?.displayName ?? "カラー"
+    }
+
+    var filterControlRow: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("フィルタ")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 12) {
+                designFilterMenu
+                colorFilterMenu
+            }
+        }
+        .padding(.vertical, 4)
     }
 
     var designFilterMenu: some View {
@@ -224,6 +284,40 @@ private extension EntryListView {
         .accessibilityLabel("デザイン絞り込み")
     }
 
+    var colorFilterMenu: some View {
+        Menu {
+            Button {
+                colorFilterRaw = "allColor"
+            } label: {
+                labelRow(title: "すべて", isSelected: selectedColorTone == nil)
+            }
+
+            ForEach(NailColorTone.allCases) { tone in
+                Button {
+                    colorFilterRaw = tone.rawValue
+                } label: {
+                    labelRow(title: tone.displayName, isSelected: selectedColorTone == tone)
+                }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "drop.fill")
+                    .font(.body.weight(.semibold))
+                Text(colorFilterTitle)
+                    .font(.subheadline.weight(.semibold))
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 14)
+            .background(.ultraThinMaterial)
+            .overlay(
+                Capsule()
+                    .stroke(Color.white.opacity(0.4), lineWidth: 1)
+            )
+            .clipShape(Capsule())
+        }
+        .accessibilityLabel("カラー絞り込み")
+    }
+
     func labelRow(title: String, isSelected: Bool) -> some View {
         HStack {
             Text(title)
@@ -231,6 +325,16 @@ private extension EntryListView {
                 Image(systemName: "checkmark")
             }
         }
+    }
+
+    func matchesDesign(_ entry: NailEntry) -> Bool {
+        guard let selectedDesign = selectedDesignCategory else { return true }
+        return entry.designCategory == selectedDesign.rawValue
+    }
+
+    func matchesColor(_ entry: NailEntry) -> Bool {
+        guard let selectedTone = selectedColorTone else { return true }
+        return entry.colorCategory == selectedTone.rawValue
     }
 }
 
@@ -326,5 +430,26 @@ private extension EntryRowView {
                 endPoint: .bottomTrailing
             )
         }
+    }
+}
+
+// MARK: - Floating Button
+
+private struct FloatingAddButton: View {
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "plus")
+                .font(.title2.bold())
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(
+                    Circle()
+                        .fill(Color.accentColor)
+                        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 6)
+                )
+        }
+        .accessibilityLabel("新規記録を追加")
     }
 }

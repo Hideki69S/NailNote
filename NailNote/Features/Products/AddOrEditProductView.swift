@@ -42,6 +42,12 @@ struct AddOrEditProductView: View {
     @State private var purchasedAt: Date = Date()
     @State private var purchasePlace: String = ""
     @State private var priceText: String = ""   // 空スタート
+    @State private var productURLText: String = ""
+    @FetchRequest(
+        sortDescriptors: [NSSortDescriptor(keyPath: \NailProduct.purchasePlace, ascending: true)],
+        animation: .default
+    )
+    private var existingProducts: FetchedResults<NailProduct>
 
     // 写真（商品）
     @State private var mainPhotoItem: PhotosPickerItem?
@@ -52,6 +58,20 @@ struct AddOrEditProductView: View {
     @State private var samplePhotoItem: PhotosPickerItem?
     @State private var sampleUIImage: UIImage?
     @State private var removeSample: Bool = false
+    private static let currencyFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.groupingSeparator = ","
+        formatter.maximumFractionDigits = 0
+        return formatter
+    }()
+    private static let gregorianCalendar: Calendar = {
+        var calendar = Calendar(identifier: .gregorian)
+        calendar.locale = Locale(identifier: "ja_JP")
+        return calendar
+    }()
+    private static let japaneseLocale = Locale(identifier: "ja_JP")
 
     var body: some View {
         NavigationStack {
@@ -68,12 +88,43 @@ struct AddOrEditProductView: View {
                     Toggle("購入日を記録する", isOn: $purchasedAtEnabled)
                     if purchasedAtEnabled {
                         DatePicker("購入日", selection: $purchasedAt, displayedComponents: .date)
+                        .environment(\.calendar, Self.gregorianCalendar)
+                        .environment(\.locale, Self.japaneseLocale)
                     }
 
-                    TextField("購入場所", text: $purchasePlace)
+                    ShopSelectionField(title: "購入場所", options: shopOptions, selection: $purchasePlace)
 
-                    TextField("価格（税込）", text: $priceText)
-                        .keyboardType(.numberPad)
+                    TextField("商品ページURL（任意）", text: $productURLText)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        .disableAutocorrection(true)
+
+                    if linkURL != nil || shareItem != nil {
+                        HStack(spacing: 12) {
+                            if let linkURL {
+                                Link(destination: linkURL) {
+                                    Label("開く", systemImage: "safari")
+                                }
+                            }
+                            if let shareItem {
+                                ShareLink(item: shareItem) {
+                                    Label("共有", systemImage: "square.and.arrow.up")
+                                }
+                            }
+                        }
+                        .font(.subheadline)
+                        .foregroundStyle(Color.accentColor)
+                    }
+
+                    HStack {
+                        Text("購入金額")
+                            .font(.body)
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        TextField("¥0", text: formattedPriceBinding)
+                            .multilineTextAlignment(.trailing)
+                            .keyboardType(.numberPad)
+                    }
                 }
 
                 // MARK: - 商品写真
@@ -216,6 +267,7 @@ struct AddOrEditProductView: View {
             purchasedAt = Date()
             purchasePlace = ""
             priceText = ""
+            productURLText = ""
 
             mainUIImage = nil
             mainPhotoItem = nil
@@ -242,6 +294,7 @@ struct AddOrEditProductView: View {
 
         purchasePlace = p.purchasePlace ?? ""
         priceText = p.priceYenTaxIn == 0 ? "" : "\(p.priceYenTaxIn)"
+        productURLText = p.productUrl ?? ""
 
         mainUIImage = nil
         mainPhotoItem = nil
@@ -283,6 +336,8 @@ struct AddOrEditProductView: View {
         p.category = category.rawValue
         p.purchasedAt = purchasedAtEnabled ? purchasedAt : nil
         p.purchasePlace = purchasePlace.trimmingCharacters(in: .whitespacesAndNewlines)
+        let trimmedURL = productURLText.trimmingCharacters(in: .whitespacesAndNewlines)
+        p.productUrl = trimmedURL.isEmpty ? nil : trimmedURL
 
         // 価格
         let price = Int32(Int(priceText) ?? 0)
@@ -330,6 +385,141 @@ struct AddOrEditProductView: View {
             let newId = UUID()
             ProductPhotoStore.save(image: img, photoId: newId, kind: "sample")
             p.samplePhotoId = newId
+        }
+    }
+
+    private var shopOptions: [String] {
+        let rawValues = existingProducts.compactMap { product -> String? in
+            guard let place = product.purchasePlace?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !place.isEmpty else { return nil }
+            return place
+        }
+        return Array(Set(rawValues)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    private var linkURL: URL? {
+        let trimmed = productURLText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if let url = URL(string: trimmed), url.scheme != nil {
+            return url
+        }
+        return URL(string: "https://\(trimmed)")
+    }
+
+    private var shareItem: URL? {
+        let trimmed = productURLText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        if let url = URL(string: trimmed) {
+            return url
+        } else if let fallback = URL(string: "https://\(trimmed)") {
+            return fallback
+        }
+        return nil
+    }
+
+    private var formattedPriceBinding: Binding<String> {
+        Binding<String>(
+            get: { formattedPriceFieldText },
+            set: { newValue in
+                let digits = newValue.filter { $0.isNumber }
+                priceText = digits
+            }
+        )
+    }
+
+    private var formattedPriceFieldText: String {
+        guard let value = Int(priceText),
+              let formatted = Self.currencyFormatter.string(from: NSNumber(value: value)) else {
+            return ""
+        }
+        return "¥\(formatted)"
+    }
+}
+
+private struct ShopSelectionField: View {
+    let title: String
+    let options: [String]
+    @Binding var selection: String
+
+    @State private var isAddingCustom = false
+    @State private var customName: String = ""
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Menu {
+                Button {
+                    selection = ""
+                } label: {
+                    labelRow(title: "未選択", isSelected: selection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+
+                ForEach(options, id: \.self) { shop in
+                    Button {
+                        selection = shop
+                        isAddingCustom = false
+                    } label: {
+                        labelRow(title: shop, isSelected: selection == shop)
+                    }
+                }
+
+                Divider()
+
+                Button {
+                    customName = ""
+                    isAddingCustom = true
+                } label: {
+                    Label("新規追加", systemImage: "plus.circle")
+                }
+            } label: {
+                HStack {
+                    Text(title)
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Text(selectionDisplayTitle)
+                        .foregroundStyle(selection.isEmpty ? Color.secondary : Color.primary)
+                        .lineLimit(1)
+                }
+            }
+
+            if isAddingCustom {
+                VStack(alignment: .leading, spacing: 6) {
+                    TextField("ショップ名を入力", text: $customName)
+                        .textInputAutocapitalization(.words)
+                        .disableAutocorrection(true)
+
+                    HStack {
+                        Button("キャンセル", role: .cancel) {
+                            isAddingCustom = false
+                            customName = ""
+                        }
+                        Spacer()
+                        Button("追加") {
+                            let trimmed = customName.trimmingCharacters(in: .whitespacesAndNewlines)
+                            guard !trimmed.isEmpty else { return }
+                            selection = trimmed
+                            customName = ""
+                            isAddingCustom = false
+                        }
+                        .disabled(customName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                    }
+                }
+                .padding(.top, 4)
+            }
+        }
+    }
+
+    private var selectionDisplayTitle: String {
+        let trimmed = selection.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "未選択" : trimmed
+    }
+
+    @ViewBuilder
+    private func labelRow(title: String, isSelected: Bool) -> some View {
+        HStack {
+            Text(title)
+            if isSelected {
+                Image(systemName: "checkmark")
+            }
         }
     }
 }

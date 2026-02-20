@@ -28,6 +28,7 @@
         <attribute name="priceYenTaxIn" attributeType="Integer 32" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="purchasedAt" optional="YES" attributeType="Date" usesScalarValueType="NO"/>
         <attribute name="purchasePlace" optional="YES" attributeType="String"/>
+        <attribute name="productUrl" optional="YES" attributeType="String"/>
         <attribute name="samplePhotoId" optional="YES" attributeType="UUID" usesScalarValueType="NO"/>
         <attribute name="updatedAt" attributeType="Date" usesScalarValueType="NO"/>
         <relationship name="usedInEntries" optional="YES" toMany="YES" deletionRule="Nullify" destinationEntity="NailEntryUsedItem" inverseName="product" inverseEntity="NailEntryUsedItem"/>

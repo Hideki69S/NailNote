@@ -26,6 +26,7 @@ extension NailProduct {
     @NSManaged public var priceYenTaxIn: Int32
     @NSManaged public var purchasedAt: Date?
     @NSManaged public var purchasePlace: String?
+    @NSManaged public var productUrl: String?
     @NSManaged public var samplePhotoId: UUID?
     @NSManaged public var updatedAt: Date?
     @NSManaged public var usedInEntries: NSSet?

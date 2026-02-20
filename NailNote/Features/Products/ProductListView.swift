@@ -16,49 +16,33 @@ struct ProductListView: View {
     @State private var showingAddSheet = false
     @State private var editingProduct: NailProduct?
     @State private var selectedCategory: NailProductCategory = .color
+    @State private var shopFilterText: String = ""
+    @State private var keywordFilterText: String = ""
 
     var body: some View {
         GlassBackgroundView {
             NavigationStack {
-                VStack(spacing: 0) {
-                    List {
-                        Section {
-                            if filteredProducts.isEmpty {
-                                ContentUnavailableView("該当する用品がありません", systemImage: "cube.box")
-                                    .frame(maxWidth: .infinity, alignment: .center)
-                            } else {
-                                ForEach(filteredProducts) { product in
-                                    Button {
-                                        editingProduct = product
-                                    } label: {
-                                        ProductRow(product: product)
-                                    }
-                                    .buttonStyle(.plain)
-                                    .listRowSeparator(.hidden)
-                                    .listRowBackground(Color.clear)
-                                }
-                                .onDelete(perform: deleteSelectedProducts)
-                            }
-                        }
-                    }
-                    .listStyle(.insetGrouped)
-                    .scrollContentBackground(.hidden)
-                    .padding(.top, 8)
-                }
-                .safeAreaInset(edge: .bottom) {
-                    CategoryTabBar(selected: $selectedCategory)
-                        .padding(.bottom, 8)
+                VStack(spacing: 10) {
+                    AdPlaceholderRow()
+                        .padding(.top, 12)
                         .padding(.horizontal, 16)
-                }
-                .navigationTitle("用品")
-                .toolbar {
-                    ToolbarItem(placement: .topBarTrailing) {
-                        Button {
-                            showingAddSheet = true
-                        } label: {
-                            Image(systemName: "plus")
-                        }
+
+                    VStack(spacing: 8) {
+                        filterControls
+                        CategoryTabBar(selected: $selectedCategory)
                     }
+                    .padding(.horizontal, 16)
+
+                    productList
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+                .toolbar(.hidden, for: .navigationBar)
+                .overlay(alignment: .bottomTrailing) {
+                    FloatingAddButton {
+                        showingAddSheet = true
+                    }
+                    .padding(.bottom, 24)
+                    .padding(.trailing, 24)
                 }
             }
             .sheet(isPresented: $showingAddSheet) {
@@ -78,13 +62,16 @@ struct ProductListView: View {
 
     private var filteredProducts: [NailProduct] {
         products.filter { product in
-            category(for: product) == selectedCategory
+            matchesCategory(product) &&
+            matchesShop(product) &&
+            matchesKeyword(product)
         }
     }
 
     private func category(for product: NailProduct) -> NailProductCategory {
         let raw = (product.category ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-        return NailProductCategory(rawValue: raw) ?? .other
+        let normalized = raw.isEmpty ? "other" : raw
+        return NailProductCategory(rawValue: normalized) ?? .other
     }
 
     // MARK: - Delete
@@ -107,6 +94,59 @@ struct ProductListView: View {
     }
 }
 
+private extension ProductListView {
+    var productList: some View {
+        List {
+            if filteredProducts.isEmpty {
+                ContentUnavailableView("該当する用品がありません", systemImage: "cube.box")
+                    .frame(maxWidth: .infinity, alignment: .center)
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            } else {
+                Section {
+                    ForEach(filteredProducts) { product in
+                        Button {
+                            editingProduct = product
+                        } label: {
+                            ProductRow(product: product)
+                        }
+                        .buttonStyle(.plain)
+                        .listRowSeparator(.hidden)
+                        .listRowBackground(Color.clear)
+                    }
+                    .onDelete(perform: deleteSelectedProducts)
+                }
+                .listRowBackground(Color.clear)
+            }
+        }
+        .listStyle(.insetGrouped)
+        .scrollContentBackground(.hidden)
+        .padding(.horizontal, 0)
+    }
+}
+
+private struct AdPlaceholderRow: View {
+    var body: some View {
+        GlassCard {
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("広告枠（将来用）")
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text("ここにバナーやキャンペーン情報を表示予定。現在はプレースホルダのみ。")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "megaphone")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
+        .frame(maxWidth: .infinity)
+    }
+}
+
 // MARK: - Row
 
 private struct ProductRow: View {
@@ -118,51 +158,91 @@ private struct ProductRow: View {
         formatter.locale = Locale(identifier: "ja_JP")
         return formatter
     }()
+    private static let priceFormatter: NumberFormatter = {
+        let formatter = NumberFormatter()
+        formatter.numberStyle = .decimal
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.maximumFractionDigits = 0
+        formatter.groupingSeparator = ","
+        return formatter
+    }()
 
     var body: some View {
         GlassCard {
-            HStack(spacing: 16) {
-                ThumbnailPair(mainId: product.photoId, sampleId: product.samplePhotoId)
+            VStack(alignment: .leading, spacing: 8) {
+                Text(displayName)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(nil)
+                    .fixedSize(horizontal: false, vertical: true)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    let name = (product.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                    Text(name.isEmpty ? "（名称未設定）" : name)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                        .lineLimit(2)
-                        .multilineTextAlignment(.leading)
-                        .lineSpacing(2)
-                        .padding(.trailing, 4)
-                        .layoutPriority(1)
+                Text(purchasedAtDisplayText)
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
 
-                    VStack(alignment: .leading, spacing: 2) {
-                        if let place = product.purchasePlace,
-                           !place.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                            Text(place)
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(2)
-                                .multilineTextAlignment(.leading)
-                        }
+                Text(placeDisplayText)
+                    .font(.subheadline)
+                    .foregroundStyle(hasPlace ? Color.secondary : Color.secondary.opacity(0.6))
+                    .lineLimit(1)
 
-                        if let purchasedAt = product.purchasedAt {
-                            Text(Self.dateFormatter.string(from: purchasedAt))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                        }
-                    }
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("購入金額")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(priceDisplayText)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(hasPrice ? Color.primary : Color.secondary)
                 }
-
-                Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color.accentColor.opacity(0.7))
             }
             .contentShape(Rectangle())
         }
     }
+
+    private var formattedPrice: String? {
+        guard product.priceYenTaxIn > 0 else { return nil }
+        let value = NSNumber(value: product.priceYenTaxIn)
+        let formatted = Self.priceFormatter.string(from: value) ?? "\(product.priceYenTaxIn)"
+        return "¥\(formatted)"
+    }
+
+    private var placeText: String? {
+        guard let place = product.purchasePlace?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !place.isEmpty else { return nil }
+        return place
+    }
+
+    private var displayName: String {
+        let name = (product.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? "（名称未設定）" : name
+    }
+
+    private var purchasedAtDisplayText: String {
+        if let purchasedAt = product.purchasedAt {
+            return Self.dateFormatter.string(from: purchasedAt)
+        } else {
+            return "購入日未設定"
+        }
+    }
+
+    private var placeDisplayText: String {
+        placeText ?? "ショップ未設定"
+    }
+
+    private var priceDisplayText: String {
+        formattedPrice ?? "金額未設定"
+    }
+
+    private var hasPlace: Bool {
+        placeText != nil
+    }
+
+    private var hasPrice: Bool {
+        formattedPrice != nil
+    }
+
+    // Share/Link buttons are shown only in the registration/editing screen.
 }
 
 // MARK: - Thumbnail
@@ -244,7 +324,7 @@ private struct CategoryTabBar: View {
     @Binding var selected: NailProductCategory
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        ScrollView(.horizontal, showsIndicators: true) {
             HStack(spacing: 10) {
                 ForEach(NailProductCategory.allCases) { category in
                     Button {
@@ -269,5 +349,161 @@ private struct CategoryTabBar: View {
         }
         .background(.ultraThinMaterial)
         .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+    }
+}
+
+// MARK: - Filters & Floating Button
+
+private extension ProductListView {
+    var filterControls: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("フィルタ")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            HStack(spacing: 10) {
+                ShopFilterMenu(
+                    title: shopFilterTitle,
+                    options: shopOptions,
+                    selection: $shopFilterText
+                )
+                StyledFilterField(title: "キーワード", systemImage: "text.magnifyingglass", text: $keywordFilterText)
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    func matchesCategory(_ product: NailProduct) -> Bool {
+        category(for: product) == selectedCategory
+    }
+
+    var shopOptions: [String] {
+        let rawValues = products.compactMap { product -> String? in
+            guard let place = product.purchasePlace?.trimmingCharacters(in: .whitespacesAndNewlines),
+                  !place.isEmpty else { return nil }
+            return place
+        }
+        return Array(Set(rawValues)).sorted { $0.localizedCaseInsensitiveCompare($1) == .orderedAscending }
+    }
+
+    var shopFilterTitle: String {
+        let trimmed = shopFilterText.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "SHOP" : trimmed
+    }
+
+    func matchesShop(_ product: NailProduct) -> Bool {
+        let query = shopFilterText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return true }
+        let place = (product.purchasePlace ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return place == query
+    }
+
+    func matchesKeyword(_ product: NailProduct) -> Bool {
+        let query = keywordFilterText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return true }
+        let name = (product.name ?? "").lowercased()
+        let place = (product.purchasePlace ?? "").lowercased()
+        return name.contains(query.lowercased()) || place.contains(query.lowercased())
+    }
+}
+
+private struct FloatingAddButton: View {
+    var action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: "plus")
+                .font(.title2.bold())
+                .foregroundStyle(.white)
+                .frame(width: 56, height: 56)
+                .background(
+                    Circle()
+                        .fill(Color.accentColor)
+                        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 6)
+                )
+        }
+        .accessibilityLabel("用品を追加")
+    }
+}
+
+private struct StyledFilterField: View {
+    let title: String
+    let systemImage: String
+    @Binding var text: String
+    var keyboard: UIKeyboardType = .default
+
+    var body: some View {
+        HStack(spacing: 10) {
+            Image(systemName: systemImage)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+
+            TextField(title, text: $text)
+                .keyboardType(keyboard)
+                .textInputAutocapitalization(.none)
+                .disableAutocorrection(true)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+        }
+        .padding(.vertical, 10)
+        .padding(.horizontal, 16)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.ultraThinMaterial)
+        .overlay(
+            Capsule()
+                .stroke(Color.white.opacity(0.35), lineWidth: 1)
+        )
+        .clipShape(Capsule())
+    }
+}
+
+private struct ShopFilterMenu: View {
+    let title: String
+    let options: [String]
+    @Binding var selection: String
+
+    var body: some View {
+        Menu {
+            Button {
+                selection = ""
+            } label: {
+                labelRow(title: "すべて", isSelected: selection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+            }
+
+            ForEach(options, id: \.self) { shop in
+                Button {
+                    selection = shop
+                } label: {
+                    labelRow(title: shop, isSelected: selection == shop)
+                }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "building.2")
+                    .font(.subheadline.weight(.semibold))
+                Text(title)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+            }
+            .padding(.vertical, 10)
+            .padding(.horizontal, 16)
+            .frame(maxWidth: .infinity)
+            .background(.ultraThinMaterial)
+            .overlay(
+                Capsule()
+                    .stroke(Color.white.opacity(0.35), lineWidth: 1)
+            )
+            .clipShape(Capsule())
+        }
+        .accessibilityLabel("SHOP絞り込み")
+    }
+
+    private func labelRow(title: String, isSelected: Bool) -> some View {
+        HStack {
+            Text(title)
+            if isSelected {
+                Image(systemName: "checkmark")
+            }
+        }
     }
 }
