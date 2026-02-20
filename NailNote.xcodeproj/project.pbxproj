@@ -24,6 +24,12 @@
 		EEDC664B2F474C0E0024C3F3 /* ProductMultiSelectView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC664A2F474C0A0024C3F3 /* ProductMultiSelectView.swift */; };
 		EEDC66512F475C650024C3F3 /* EntryPhotoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC66502F475C580024C3F3 /* EntryPhotoStore.swift */; };
 		EEDC66532F475FDA0024C3F3 /* ProductPhotoStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC66522F475FD70024C3F3 /* ProductPhotoStore.swift */; };
+		EEFF00012F4A5B6A00A1B234 /* GlassTheme.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEFF00002F4A5B6A00A1B234 /* GlassTheme.swift */; };
+		EEFF00032F4A5B7900A1B234 /* GlassBackgroundView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEFF00022F4A5B7900A1B234 /* GlassBackgroundView.swift */; };
+		EEFF00052F4A5B8700A1B234 /* GlassCard.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEFF00042F4A5B8700A1B234 /* GlassCard.swift */; };
+		EEFF00122F4ABC8400A1B234 /* NailDesignCategory.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEFF00112F4ABC8400A1B234 /* NailDesignCategory.swift */; };
+		EEFF00142F4AC4B200A1B234 /* StarRatingView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEFF00132F4AC4B200A1B234 /* StarRatingView.swift */; };
+		EEFF00162F4AD4F900A1B234 /* NailColorTone.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEFF00152F4AD4F900A1B234 /* NailColorTone.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -46,6 +52,12 @@
 		EEDC664E2F474F150024C3F3 /* NailProduct+CoreDataClass.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "NailProduct+CoreDataClass.swift"; sourceTree = "<group>"; };
 		EEDC66502F475C580024C3F3 /* EntryPhotoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EntryPhotoStore.swift; sourceTree = "<group>"; };
 		EEDC66522F475FD70024C3F3 /* ProductPhotoStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProductPhotoStore.swift; sourceTree = "<group>"; };
+		EEFF00002F4A5B6A00A1B234 /* GlassTheme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassTheme.swift; sourceTree = "<group>"; };
+		EEFF00022F4A5B7900A1B234 /* GlassBackgroundView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassBackgroundView.swift; sourceTree = "<group>"; };
+		EEFF00042F4A5B8700A1B234 /* GlassCard.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassCard.swift; sourceTree = "<group>"; };
+		EEFF00112F4ABC8400A1B234 /* NailDesignCategory.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NailDesignCategory.swift; sourceTree = "<group>"; };
+		EEFF00132F4AC4B200A1B234 /* StarRatingView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StarRatingView.swift; sourceTree = "<group>"; };
+		EEFF00152F4AD4F900A1B234 /* NailColorTone.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NailColorTone.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -100,6 +112,8 @@
 		EEDC66132F460B920024C3F3 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				EEFF00152F4AD4F900A1B234 /* NailColorTone.swift */,
+				EEFF00112F4ABC8400A1B234 /* NailDesignCategory.swift */,
 				EEDC66522F475FD70024C3F3 /* ProductPhotoStore.swift */,
 				EEDC66502F475C580024C3F3 /* EntryPhotoStore.swift */,
 				EEDC664E2F474F150024C3F3 /* NailProduct+CoreDataClass.swift */,
@@ -123,6 +137,10 @@
 		EEDC66152F460BA90024C3F3 /* Design */ = {
 			isa = PBXGroup;
 			children = (
+				EEFF00132F4AC4B200A1B234 /* StarRatingView.swift */,
+				EEFF00042F4A5B8700A1B234 /* GlassCard.swift */,
+				EEFF00022F4A5B7900A1B234 /* GlassBackgroundView.swift */,
+				EEFF00002F4A5B6A00A1B234 /* GlassTheme.swift */,
 			);
 			path = Design;
 			sourceTree = "<group>";
@@ -245,12 +263,18 @@
 				EEDC663B2F46B7450024C3F3 /* AddOrEditProductView.swift in Sources */,
 				EEDC66112F460A940024C3F3 /* NailNoteApp.swift in Sources */,
 				EEDC66332F46AEF50024C3F3 /* NailProductCategory.swift in Sources */,
+				EEFF00122F4ABC8400A1B234 /* NailDesignCategory.swift in Sources */,
+				EEFF00032F4A5B7900A1B234 /* GlassBackgroundView.swift in Sources */,
+				EEFF00142F4AC4B200A1B234 /* StarRatingView.swift in Sources */,
+				EEFF00162F4AD4F900A1B234 /* NailColorTone.swift in Sources */,
 				EEDC662C2F46177E0024C3F3 /* SettingsView.swift in Sources */,
 				EEDC664B2F474C0E0024C3F3 /* ProductMultiSelectView.swift in Sources */,
 				EEDC66392F46B7140024C3F3 /* ProductListView.swift in Sources */,
+				EEFF00012F4A5B6A00A1B234 /* GlassTheme.swift in Sources */,
 				EEDC66282F4617400024C3F3 /* SimHomeView.swift in Sources */,
 				EEDC66532F475FDA0024C3F3 /* ProductPhotoStore.swift in Sources */,
 				EEDC662E2F461DEF0024C3F3 /* AddEntryView.swift in Sources */,
+				EEFF00052F4A5B8700A1B234 /* GlassCard.swift in Sources */,
 				EEDC66262F4617010024C3F3 /* EntryListView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

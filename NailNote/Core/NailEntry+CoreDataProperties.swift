@@ -23,6 +23,9 @@ extension NailEntry {
     @NSManaged public var id: UUID?
     @NSManaged public var note: String?
     @NSManaged public var photoId: UUID?
+    @NSManaged public var designCategory: String?
+    @NSManaged public var colorCategory: String?
+    @NSManaged public var rating: Double
     @NSManaged public var title: String?
     @NSManaged public var updatedAt: Date?
     @NSManaged public var usedItems: NSOrderedSet?
@@ -66,4 +69,18 @@ extension NailEntry {
 
 extension NailEntry : Identifiable {
 
+}
+
+// MARK: - Helper
+
+extension NailEntry {
+    var designCategoryValue: NailDesignCategory {
+        get { NailDesignCategory(rawValue: designCategory ?? "") ?? .oneColor }
+        set { designCategory = newValue.rawValue }
+    }
+
+    var colorCategoryValue: NailColorTone {
+        get { NailColorTone(rawValue: colorCategory ?? "") ?? .pink }
+        set { colorCategory = newValue.rawValue }
+    }
 }

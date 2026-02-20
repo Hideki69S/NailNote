@@ -18,6 +18,10 @@ struct EditEntryView: View {
     @State private var title: String = ""
     @State private var date: Date = Date()
     @State private var note: String = ""
+    @State private var designCategory: NailDesignCategory = .oneColor
+    @State private var colorTone: NailColorTone = .pink
+    @State private var rating: Double = 0
+    @State private var selectedCategory: NailProductCategory = .color
 
     @State private var selectedProductIDs: [UUID] = []
 
@@ -35,6 +39,28 @@ struct EditEntryView: View {
 
                 Section("日付") {
                     DatePicker("施術日", selection: $date, displayedComponents: .date)
+                }
+
+                Section("デザイン") {
+                    Picker("カテゴリ", selection: $designCategory) {
+                        ForEach(NailDesignCategory.allCases) { category in
+                            Text(category.displayName).tag(category)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
+                Section("カラー系統") {
+                    Picker("カラー", selection: $colorTone) {
+                        ForEach(NailColorTone.allCases) { tone in
+                            Text(tone.displayName).tag(tone)
+                        }
+                    }
+                    .pickerStyle(.menu)
+                }
+
+                Section("自己評価") {
+                    StarRatingInputView(rating: $rating)
                 }
 
                 Section("写真") {
@@ -69,28 +95,27 @@ struct EditEntryView: View {
                         .frame(minHeight: 100)
                 }
 
-                // MARK: - カテゴリ別用品表示
-                if products.isEmpty {
-                    Section("使用した用品") {
+                Section("使用した用品") {
+                    if products.isEmpty {
                         Text("用品がまだ登録されていません")
                             .foregroundStyle(.secondary)
-                    }
-                } else {
-                    ForEach(categoryKeys, id: \.self) { category in
-                        Section(category) {
-                            ForEach(products(in: category), id: \.objectID) { product in
+                    } else {
+                        CategoryTabBar(selected: $selectedCategory)
+                            .padding(.bottom, 4)
+
+                        if filteredProducts.isEmpty {
+                            Text("このカテゴリの用品がありません")
+                                .foregroundStyle(.secondary)
+                        } else {
+                            ForEach(filteredProducts, id: \.objectID) { product in
                                 Button {
                                     toggle(product)
                                 } label: {
-                                    HStack {
-                                        Text(product.name ?? "（名称未設定）")
-                                        Spacer()
-                                        if isSelected(product) {
-                                            Image(systemName: "checkmark")
-                                        }
-                                    }
+                                    SelectableProductRow(product: product,
+                                                         isSelected: isSelected(product))
                                 }
                                 .buttonStyle(.plain)
+                                .padding(.vertical, 4)
                             }
                         }
                     }
@@ -100,7 +125,7 @@ struct EditEntryView: View {
                     Section("選択済み（順番）") {
                         ForEach(selectedProductIDs, id: \.self) { pid in
                             if let p = product(for: pid) {
-                                Text(p.name ?? "（名称未設定）")
+                                SelectedProductRow(product: p)
                             }
                         }
                     }
@@ -167,6 +192,9 @@ struct EditEntryView: View {
         title = entry.title ?? ""
         date = entry.date ?? Date()
         note = entry.note ?? ""
+        designCategory = NailDesignCategory(rawValue: entry.designCategory ?? "") ?? .oneColor
+        colorTone = NailColorTone(rawValue: entry.colorCategory ?? "") ?? .pink
+        rating = entry.rating
 
         let ordered = (entry.usedItems?.array as? [NailEntryUsedItem]) ?? []
         let sorted = ordered.sorted { $0.orderIndex < $1.orderIndex }
@@ -179,21 +207,15 @@ struct EditEntryView: View {
 
     // MARK: - Category Logic
 
-    private var categoryKeys: [String] {
-        let keys = products.map {
-            let trimmed = ($0.category ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-            return trimmed.isEmpty ? "未分類" : trimmed
-        }
-        return Array(Set(keys)).sorted()
+    private var filteredProducts: [NailProduct] {
+        products
+            .filter { normalizedCategory(for: $0) == selectedCategory }
+            .sorted { ($0.name ?? "") < ($1.name ?? "") }
     }
 
-    private func products(in category: String) -> [NailProduct] {
-        products
-            .filter {
-                let trimmed = ($0.category ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
-                return (trimmed.isEmpty ? "未分類" : trimmed) == category
-            }
-            .sorted { ($0.name ?? "") < ($1.name ?? "") }
+    private func normalizedCategory(for product: NailProduct) -> NailProductCategory {
+        let raw = (product.category ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return NailProductCategory(rawValue: raw) ?? .other
     }
 
     // MARK: - Selection
@@ -222,6 +244,9 @@ struct EditEntryView: View {
         entry.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         entry.date = date
         entry.note = note
+        entry.designCategory = designCategory.rawValue
+        entry.colorCategory = colorTone.rawValue
+        entry.rating = rating
         entry.updatedAt = Date()
 
         // 用品（既存を削除して作り直す）
@@ -272,5 +297,128 @@ struct EditEntryView: View {
             entry.photoId = newId
         }
         // 3) 何もしてない場合はそのまま
+    }
+}
+
+// MARK: - Product Selection UI
+
+private struct CategoryTabBar: View {
+    @Binding var selected: NailProductCategory
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 10) {
+                ForEach(NailProductCategory.allCases) { category in
+                    Button {
+                        withAnimation(.easeOut(duration: 0.2)) {
+                            selected = category
+                        }
+                    } label: {
+                        Text(category.displayName)
+                            .font(.caption.weight(.semibold))
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 12)
+                            .background(
+                                Capsule()
+                                    .fill(selected == category ? Color.accentColor.opacity(0.95)
+                                                              : Color.white.opacity(0.9))
+                            )
+                            .foregroundStyle(selected == category ? Color.white : .primary)
+                    }
+                }
+            }
+            .padding(.vertical, 4)
+        }
+    }
+}
+
+private struct SelectableProductRow: View {
+    let product: NailProduct
+    let isSelected: Bool
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ProductThumb(photoId: product.photoId)
+
+            VStack(alignment: .leading, spacing: 4) {
+                Text(displayName)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+
+                if let place = product.purchasePlace,
+                   !place.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                    Text(place)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
+            }
+
+            Spacer()
+
+            Image(systemName: isSelected ? "checkmark.circle.fill" : "circle")
+                .foregroundStyle(isSelected ? Color.accentColor : .secondary)
+        }
+    }
+
+    private var displayName: String {
+        let name = (product.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? "（名称未設定）" : name
+    }
+}
+
+private struct SelectedProductRow: View {
+    let product: NailProduct
+
+    var body: some View {
+        HStack(spacing: 12) {
+            ProductThumb(photoId: product.photoId)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(displayName)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                Text(categoryLabel)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+        }
+    }
+
+    private var displayName: String {
+        let name = (product.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return name.isEmpty ? "（名称未設定）" : name
+    }
+
+    private var categoryLabel: String {
+        let raw = (product.category ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return NailProductCategory(rawValue: raw)?.displayName ?? "未分類"
+    }
+}
+
+private struct ProductThumb: View {
+    let photoId: UUID?
+
+    var body: some View {
+        Group {
+            if let photoId,
+               let image = ProductPhotoStore.shared.loadImage(photoId: photoId) {
+                Image(uiImage: image)
+                    .resizable()
+                    .scaledToFill()
+            } else {
+                ZStack {
+                    RoundedRectangle(cornerRadius: 10)
+                        .fill(Color.secondary.opacity(0.18))
+                    Image(systemName: "photo")
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+        .frame(width: 48, height: 48)
+        .clipShape(RoundedRectangle(cornerRadius: 10))
     }
 }
