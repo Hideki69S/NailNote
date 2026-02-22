@@ -18,6 +18,8 @@ struct ProductListView: View {
     @State private var selectedCategory: NailProductCategory = .color
     @State private var shopFilterText: String = ""
     @State private var keywordFilterText: String = ""
+    @AppStorage("FavoriteProductIDs") private var favoriteIDsRaw: String = ""
+    @AppStorage("ProductsShowFavoritesOnly") private var showFavoritesOnly: Bool = false
 
     var body: some View {
         GlassBackgroundView {
@@ -64,7 +66,8 @@ struct ProductListView: View {
         products.filter { product in
             matchesCategory(product) &&
             matchesShop(product) &&
-            matchesKeyword(product)
+            matchesKeyword(product) &&
+            matchesFavoriteFilter(product)
         }
     }
 
@@ -108,7 +111,11 @@ private extension ProductListView {
                         Button {
                             editingProduct = product
                         } label: {
-                            ProductRow(product: product)
+                            ProductRow(
+                                product: product,
+                                isFavorite: isFavorite(product),
+                                toggleFavorite: { toggleFavorite(product) }
+                            )
                         }
                         .buttonStyle(.plain)
                         .listRowSeparator(.hidden)
@@ -151,6 +158,8 @@ private struct AdPlaceholderRow: View {
 
 private struct ProductRow: View {
     let product: NailProduct
+    let isFavorite: Bool
+    let toggleFavorite: () -> Void
 
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -169,34 +178,49 @@ private struct ProductRow: View {
 
     var body: some View {
         GlassCard {
-            VStack(alignment: .leading, spacing: 8) {
-                Text(displayName)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(nil)
-                    .fixedSize(horizontal: false, vertical: true)
+            HStack(alignment: .bottom, spacing: 16) {
+                VStack(alignment: .leading, spacing: 10) {
+                    Text(displayName)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(nil)
+                        .fixedSize(horizontal: false, vertical: true)
 
-                Text(purchasedAtDisplayText)
-                    .font(.footnote)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+                    Divider()
+                        .opacity(0.0)
+                        .frame(height: 4)
 
-                Text(placeDisplayText)
-                    .font(.subheadline)
-                    .foregroundStyle(hasPlace ? Color.secondary : Color.secondary.opacity(0.6))
-                    .lineLimit(1)
-
-                VStack(alignment: .leading, spacing: 2) {
-                    Text("購入金額")
-                        .font(.caption2.weight(.semibold))
+                    Text(purchasedAtDisplayText)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
-                    Text(priceDisplayText)
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(hasPrice ? Color.primary : Color.secondary)
+                        .lineLimit(1)
+
+                    Text(placeDisplayText)
+                        .font(.subheadline)
+                        .foregroundStyle(hasPlace ? Color.secondary : Color.secondary.opacity(0.6))
+                        .lineLimit(1)
+
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text("購入金額")
+                            .font(.caption2.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        Text(priceDisplayText)
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(hasPrice ? Color.primary : Color.secondary)
+                    }
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+                ZStack(alignment: .topTrailing) {
+                    ProductThumbnail(photoId: product.photoId, size: 92)
+                        .frame(width: 92, height: 92)
+
+                    FavoriteButton(isFavorite: isFavorite, action: toggleFavorite)
+                        .offset(x: 6, y: -6)
                 }
             }
-            .contentShape(Rectangle())
+            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -249,6 +273,8 @@ private struct ProductRow: View {
 
 private struct ProductThumbnail: View {
     let photoId: UUID?
+    var size: CGFloat = 52
+    private var cornerRadius: CGFloat { size * 0.27 }
 
     var body: some View {
         Group {
@@ -266,53 +292,10 @@ private struct ProductThumbnail: View {
                 }
             }
         }
-        .frame(width: 52, height: 52)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .frame(width: size, height: size)
+        .clipShape(RoundedRectangle(cornerRadius: cornerRadius))
         .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(GlassTheme.cardStroke, lineWidth: 1)
-        )
-    }
-}
-
-// MARK: - Sample Thumbnail Pair
-
-private struct ThumbnailPair: View {
-    let mainId: UUID?
-    let sampleId: UUID?
-
-    var body: some View {
-        HStack(spacing: 8) {
-            ProductThumbnail(photoId: mainId)
-            SampleThumbnail(photoId: sampleId)
-        }
-    }
-}
-
-private struct SampleThumbnail: View {
-    let photoId: UUID?
-
-    var body: some View {
-        Group {
-            if let photoId,
-               let uiImage = ProductPhotoStore.loadThumbnail(photoId: photoId, kind: "sample") {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 8)
-                        .fill(Color.secondary.opacity(0.12))
-                    Image(systemName: "paintpalette")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            }
-        }
-        .frame(width: 52, height: 52)
-        .clipShape(RoundedRectangle(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
+            RoundedRectangle(cornerRadius: cornerRadius)
                 .stroke(GlassTheme.cardStroke, lineWidth: 1)
         )
     }
@@ -369,6 +352,17 @@ private extension ProductListView {
                 )
                 StyledFilterField(title: "キーワード", systemImage: "text.magnifyingglass", text: $keywordFilterText)
             }
+            Toggle(isOn: $showFavoritesOnly) {
+                HStack {
+                    Spacer()
+                    Image(systemName: "heart.fill")
+                        .font(.subheadline.weight(.semibold))
+                    Text("お気に入りのみ")
+                        .font(.subheadline.weight(.semibold))
+                }
+            }
+            .toggleStyle(SwitchToggleStyle(tint: Color.accentColor))
+            .padding(.horizontal, 4)
         }
         .padding(.vertical, 4)
     }
@@ -404,6 +398,39 @@ private extension ProductListView {
         let name = (product.name ?? "").lowercased()
         let place = (product.purchasePlace ?? "").lowercased()
         return name.contains(query.lowercased()) || place.contains(query.lowercased())
+    }
+
+    func matchesFavoriteFilter(_ product: NailProduct) -> Bool {
+        guard showFavoritesOnly else { return true }
+        return isFavorite(product)
+    }
+
+    private var favoriteIDs: Set<UUID> {
+        get {
+            let components = favoriteIDsRaw.split(separator: ",")
+            let ids = components.compactMap { UUID(uuidString: String($0)) }
+            return Set(ids)
+        }
+        nonmutating set {
+            let list = newValue.map { $0.uuidString }.sorted()
+            favoriteIDsRaw = list.joined(separator: ",")
+        }
+    }
+
+    private func isFavorite(_ product: NailProduct) -> Bool {
+        guard let id = product.id else { return false }
+        return favoriteIDs.contains(id)
+    }
+
+    private func toggleFavorite(_ product: NailProduct) {
+        guard let id = product.id else { return }
+        var ids = favoriteIDs
+        if ids.contains(id) {
+            ids.remove(id)
+        } else {
+            ids.insert(id)
+        }
+        favoriteIDs = ids
     }
 }
 
@@ -479,7 +506,7 @@ private struct ShopFilterMenu: View {
             }
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: "building.2")
+                Image(systemName: "storefront")
                     .font(.subheadline.weight(.semibold))
                 Text(title)
                     .font(.subheadline.weight(.semibold))
@@ -505,5 +532,24 @@ private struct ShopFilterMenu: View {
                 Image(systemName: "checkmark")
             }
         }
+    }
+}
+
+private struct FavoriteButton: View {
+    let isFavorite: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            Image(systemName: isFavorite ? "heart.fill" : "heart")
+                .font(.system(size: 18, weight: .semibold))
+                .foregroundStyle(isFavorite ? Color.red : Color.secondary)
+                .padding(6)
+                .background(.regularMaterial)
+                .clipShape(Circle())
+                .shadow(color: .black.opacity(0.15), radius: 4, x: 0, y: 2)
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(isFavorite ? "お気に入り解除" : "お気に入りに追加")
     }
 }
