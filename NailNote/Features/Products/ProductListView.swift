@@ -106,27 +106,25 @@ private extension ProductListView {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             } else {
-                Section {
-                    ForEach(filteredProducts) { product in
-                        Button {
-                            editingProduct = product
-                        } label: {
-                            ProductRow(
-                                product: product,
-                                isFavorite: isFavorite(product),
-                                toggleFavorite: { toggleFavorite(product) }
-                            )
-                        }
-                        .buttonStyle(.plain)
-                        .listRowSeparator(.hidden)
-                        .listRowBackground(Color.clear)
+                ForEach(filteredProducts) { product in
+                    Button {
+                        editingProduct = product
+                    } label: {
+                        ProductRow(
+                            product: product,
+                            isFavorite: isFavorite(product),
+                            toggleFavorite: { toggleFavorite(product) }
+                        )
                     }
-                    .onDelete(perform: deleteSelectedProducts)
+                    .buttonStyle(.plain)
+                    .listRowSeparator(.hidden)
+                    .listRowBackground(Color.clear)
                 }
-                .listRowBackground(Color.clear)
+                .onDelete(perform: deleteSelectedProducts)
             }
         }
-        .listStyle(.insetGrouped)
+        .listStyle(.plain)
+        .listSectionSpacing(.compact)
         .scrollContentBackground(.hidden)
         .padding(.horizontal, 0)
     }
@@ -178,46 +176,55 @@ private struct ProductRow: View {
 
     var body: some View {
         GlassCard {
-            HStack(alignment: .bottom, spacing: 16) {
-                VStack(alignment: .leading, spacing: 10) {
-                    Text(displayName)
-                        .font(.title3.weight(.semibold))
-                        .foregroundStyle(.primary)
-                        .multilineTextAlignment(.leading)
-                        .lineLimit(nil)
-                        .fixedSize(horizontal: false, vertical: true)
+            VStack(alignment: .leading, spacing: 16) {
+                // 上段：用品名
+                Text(displayName)
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .multilineTextAlignment(.leading)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.65)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .layoutPriority(1)
 
-                    Divider()
-                        .opacity(0.0)
-                        .frame(height: 4)
-
-                    Text(purchasedAtDisplayText)
-                        .font(.footnote)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-
-                    Text(placeDisplayText)
-                        .font(.subheadline)
-                        .foregroundStyle(hasPlace ? Color.secondary : Color.secondary.opacity(0.6))
-                        .lineLimit(1)
-
-                    VStack(alignment: .leading, spacing: 2) {
-                        Text("購入金額")
-                            .font(.caption2.weight(.semibold))
+                // 下段：左・中央・右ブロック
+                HStack(alignment: .bottom, spacing: 16) {
+                    // 左：購入情報
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("[購入情報]")
+                            .font(.caption.weight(.semibold))
                             .foregroundStyle(.secondary)
+
+                        Text(purchasedAtDisplayText)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+
+                        Text(placeDisplayText)
+                            .font(.subheadline)
+                            .foregroundStyle(hasPlace ? Color.secondary : Color.secondary.opacity(0.6))
+                            .lineLimit(1)
+                            .minimumScaleFactor(0.7)
+
                         Text(priceDisplayText)
-                            .font(.subheadline.weight(.semibold))
-                            .foregroundStyle(hasPrice ? Color.primary : Color.secondary)
+                            .font(.subheadline)
+                            .foregroundStyle(hasPrice ? Color.secondary : Color.secondary.opacity(0.6))
                     }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
+                    .frame(maxWidth: .infinity, alignment: .leading)
 
-                ZStack(alignment: .topTrailing) {
-                    ProductThumbnail(photoId: product.photoId, size: 92)
-                        .frame(width: 92, height: 92)
+                    // 中央：使用回数リング
+                    UsageCountRing(count: usageCount)
+                        .frame(width: 82, height: 82)
+                        .frame(maxWidth: .infinity)
 
-                    FavoriteButton(isFavorite: isFavorite, action: toggleFavorite)
-                        .offset(x: 6, y: -6)
+                    // 右：写真＋お気に入り
+                    ZStack(alignment: .topTrailing) {
+                        ProductThumbnail(photoId: product.photoId, size: 92)
+                            .frame(width: 92, height: 92)
+
+                        FavoriteButton(isFavorite: isFavorite, action: toggleFavorite)
+                            .offset(x: 6, y: -6)
+                    }
                 }
             }
             .frame(maxWidth: .infinity, alignment: .leading)
@@ -264,6 +271,15 @@ private struct ProductRow: View {
 
     private var hasPrice: Bool {
         formattedPrice != nil
+    }
+
+    private var usageCount: Int {
+        if let ordered = product.usedInEntries as? Set<NailEntryUsedItem> {
+            return ordered.count
+        } else if let objects = product.usedInEntries?.allObjects {
+            return objects.count
+        }
+        return 0
     }
 
     // Share/Link buttons are shown only in the registration/editing screen.
@@ -340,9 +356,22 @@ private struct CategoryTabBar: View {
 private extension ProductListView {
     var filterControls: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("フィルタ")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+            HStack {
+                Text("フィルタ")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                HStack(spacing: 4) {
+                    Text("❤️お気に入りのみ")
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Toggle("", isOn: $showFavoritesOnly)
+                        .labelsHidden()
+                        .toggleStyle(SwitchToggleStyle(tint: Color.accentColor))
+                        .scaleEffect(0.72)
+                }
+            }
+            .padding(.horizontal, 4)
 
             HStack(spacing: 10) {
                 ShopFilterMenu(
@@ -352,17 +381,6 @@ private extension ProductListView {
                 )
                 StyledFilterField(title: "キーワード", systemImage: "text.magnifyingglass", text: $keywordFilterText)
             }
-            Toggle(isOn: $showFavoritesOnly) {
-                HStack {
-                    Spacer()
-                    Image(systemName: "heart.fill")
-                        .font(.subheadline.weight(.semibold))
-                    Text("お気に入りのみ")
-                        .font(.subheadline.weight(.semibold))
-                }
-            }
-            .toggleStyle(SwitchToggleStyle(tint: Color.accentColor))
-            .padding(.horizontal, 4)
         }
         .padding(.vertical, 4)
     }
@@ -551,5 +569,50 @@ private struct FavoriteButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(isFavorite ? "お気に入り解除" : "お気に入りに追加")
+    }
+}
+
+private struct UsageCountRing: View {
+    let count: Int
+    private let goal: Double = 20
+
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(.ultraThinMaterial)
+                .shadow(color: .black.opacity(0.08), radius: 4, x: 0, y: 2)
+
+            Circle()
+                .stroke(Color.white.opacity(0.5), lineWidth: 1)
+
+            Circle()
+                .trim(from: 0, to: progress)
+                .stroke(
+                    AngularGradient(
+                        colors: [
+                            Color(red: 0.98, green: 0.62, blue: 0.86),
+                            Color(red: 0.74, green: 0.71, blue: 0.99),
+                            Color(red: 0.59, green: 0.87, blue: 0.99)
+                        ],
+                        center: .center
+                    ),
+                    style: StrokeStyle(lineWidth: 6, lineCap: .round)
+                )
+                .rotationEffect(.degrees(-90))
+
+            VStack(spacing: 4) {
+                Text("使用回数")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Text("\(count)")
+                    .font(.title3.bold())
+                    .foregroundStyle(.primary)
+            }
+        }
+    }
+
+    private var progress: CGFloat {
+        let ratio = min(max(Double(count) / goal, 0), 1)
+        return CGFloat(ratio)
     }
 }
