@@ -15,10 +15,10 @@ struct RootView: View {
                     Label("用品", systemImage: "bag")
                 }
 
-            // シミュレーション（Sim）
+            // AIネイルスコア
             SimHomeView()
                 .tabItem {
-                    Label("シミュ", systemImage: "sparkles")
+                    Label("AI", systemImage: "sparkles")
                 }
 
             // 設定（Settings）

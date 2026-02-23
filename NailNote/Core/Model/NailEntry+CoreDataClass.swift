@@ -6,12 +6,17 @@
 //
 //
 
-public import Foundation
-public import CoreData
+import Foundation
+import CoreData
 
 public typealias NailEntryCoreDataClassSet = NSSet
 
 @objc(NailEntry)
 public class NailEntry: NSManagedObject {
+
+}
+
+@objc(EntryAIScore)
+public class EntryAIScore: NSManagedObject {
 
 }

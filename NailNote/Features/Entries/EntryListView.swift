@@ -102,6 +102,18 @@ struct EntryRowView: View {
                         Spacer(minLength: 0)
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
+
+                    if let aiScore = entry.aiScoreBridge {
+                        HStack(spacing: 6) {
+                            Image(systemName: "sparkles")
+                                .foregroundStyle(Color.accentColor)
+                            Text("AI \(aiScore.totalScore) 点")
+                                .font(.caption.weight(.semibold))
+                                .foregroundStyle(.primary)
+                            Spacer(minLength: 0)
+                        }
+                        .padding(.top, 2)
+                    }
                 }
 
                 Spacer()
@@ -238,10 +250,12 @@ private extension EntryListView {
 
     var filterControlRow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("フィルタ")
-                .font(.caption)
-                .foregroundStyle(.secondary)
-
+            HStack {
+                Text("フィルタ")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+            }
             HStack(spacing: 12) {
                 designFilterMenu
                 colorFilterMenu
@@ -451,5 +465,115 @@ private struct FloatingAddButton: View {
                 )
         }
         .accessibilityLabel("新規記録を追加")
+    }
+}
+
+// MARK: - AI スコア橋渡し
+
+extension NailEntry {
+    var aiScoreBridge: EntryAIScoreBridge? {
+        guard let object = aiScore else { return nil }
+        return EntryAIScoreBridge(object: object)
+    }
+
+    func ensureAIScoreBridge(in context: NSManagedObjectContext) -> EntryAIScoreBridge {
+        if let existing = aiScoreBridge {
+            return existing
+        }
+        let object = NSEntityDescription.insertNewObject(forEntityName: "EntryAIScore", into: context)
+        guard let typedObject = object as? EntryAIScore else {
+            fatalError("EntryAIScore entity must be backed by EntryAIScore class")
+        }
+        aiScore = typedObject
+        return EntryAIScoreBridge(object: typedObject)
+    }
+}
+
+struct EntryAIScoreBridge {
+    let object: NSManagedObject
+
+    var totalScore: Int16 {
+        get { object.value(forKey: "totalScore") as? Int16 ?? 0 }
+        set { object.setValue(newValue, forKey: "totalScore") }
+    }
+
+    var finishQuality: Int16 {
+        get { object.value(forKey: "finishQuality") as? Int16 ?? 0 }
+        set { object.setValue(newValue, forKey: "finishQuality") }
+    }
+
+    var edgeAndCuticle: Int16 {
+        get { object.value(forKey: "edgeAndCuticle") as? Int16 ?? 0 }
+        set { object.setValue(newValue, forKey: "edgeAndCuticle") }
+    }
+
+    var thicknessBalance: Int16 {
+        get { object.value(forKey: "thicknessBalance") as? Int16 ?? 0 }
+        set { object.setValue(newValue, forKey: "thicknessBalance") }
+    }
+
+    var designBalance: Int16 {
+        get { object.value(forKey: "designBalance") as? Int16 ?? 0 }
+        set { object.setValue(newValue, forKey: "designBalance") }
+    }
+
+    var durabilityPrediction: Int16 {
+        get { object.value(forKey: "durabilityPrediction") as? Int16 ?? 0 }
+        set { object.setValue(newValue, forKey: "durabilityPrediction") }
+    }
+
+    var caution: String? {
+        get { object.value(forKey: "caution") as? String }
+        set { object.setValue(newValue, forKey: "caution") }
+    }
+
+    var confidence: Double {
+        get { object.value(forKey: "confidence") as? Double ?? 0 }
+        set { object.setValue(newValue, forKey: "confidence") }
+    }
+
+    var evaluatedAt: Date? {
+        get { object.value(forKey: "evaluatedAt") as? Date }
+        set { object.setValue(newValue, forKey: "evaluatedAt") }
+    }
+
+    var photoHash: String? {
+        get { object.value(forKey: "photoHash") as? String }
+        set { object.setValue(newValue, forKey: "photoHash") }
+    }
+
+    var highlightsArray: [String] {
+        get { decodeArray(forKey: "highlights") }
+        set { object.setValue(encodeArray(newValue), forKey: "highlights") }
+    }
+
+    var improvementsArray: [String] {
+        get { decodeArray(forKey: "improvements") }
+        set { object.setValue(encodeArray(newValue), forKey: "improvements") }
+    }
+
+    var nextStepsArray: [String] {
+        get { decodeArray(forKey: "nextSteps") }
+        set { object.setValue(encodeArray(newValue), forKey: "nextSteps") }
+    }
+
+    var assumptionsArray: [String] {
+        get { decodeArray(forKey: "assumptions") }
+        set { object.setValue(encodeArray(newValue), forKey: "assumptions") }
+    }
+
+    private func decodeArray(forKey key: String) -> [String] {
+        guard let text = object.value(forKey: key) as? String,
+              let data = text.data(using: .utf8),
+              let array = try? JSONDecoder().decode([String].self, from: data) else {
+            return []
+        }
+        return array
+    }
+
+    private func encodeArray(_ values: [String]) -> String? {
+        guard !values.isEmpty else { return nil }
+        let data = try? JSONEncoder().encode(values)
+        return data.flatMap { String(data: $0, encoding: .utf8) }
     }
 }

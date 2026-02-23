@@ -6,8 +6,8 @@
 //
 //
 
-public import Foundation
-public import CoreData
+import Foundation
+import CoreData
 
 
 public typealias UsageQuotaCoreDataPropertiesSet = NSSet
@@ -19,6 +19,7 @@ extension UsageQuota {
     }
 
     @NSManaged public var freeSimRemaining: Int16
+    @NSManaged public var aiScoreUsed: Int16
     @NSManaged public var monthKey: String?
     @NSManaged public var updatedAt: Date?
 

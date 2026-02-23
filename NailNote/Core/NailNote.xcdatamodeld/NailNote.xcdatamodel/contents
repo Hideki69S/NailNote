@@ -11,6 +11,7 @@
         <attribute name="colorCategory" optional="YES" attributeType="String"/>
         <attribute name="title" optional="YES" attributeType="String"/>
         <attribute name="updatedAt" attributeType="Date" usesScalarValueType="NO"/>
+        <relationship name="aiScore" optional="YES" maxCount="1" deletionRule="Cascade" destinationEntity="EntryAIScore" inverseName="entry" inverseEntity="EntryAIScore"/>
         <relationship name="usedItems" optional="YES" toMany="YES" deletionRule="Nullify" ordered="YES" destinationEntity="NailEntryUsedItem" inverseName="entry" inverseEntity="NailEntryUsedItem"/>
     </entity>
     <entity name="NailEntryUsedItem" representedClassName="NailEntryUsedItem" syncable="YES" codeGenerationType="class">
@@ -35,7 +36,26 @@
     </entity>
     <entity name="UsageQuota" representedClassName="UsageQuota" syncable="YES" codeGenerationType="class">
         <attribute name="freeSimRemaining" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="aiScoreUsed" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
         <attribute name="monthKey" attributeType="String"/>
         <attribute name="updatedAt" attributeType="Date" usesScalarValueType="NO"/>
+    </entity>
+    <entity name="EntryAIScore" representedClassName="EntryAIScore" syncable="YES" codeGenerationType="class">
+        <attribute name="id" attributeType="UUID" usesScalarValueType="NO"/>
+        <attribute name="totalScore" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="finishQuality" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="edgeAndCuticle" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="thicknessBalance" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="designBalance" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="durabilityPrediction" attributeType="Integer 16" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="highlights" optional="YES" attributeType="String"/>
+        <attribute name="improvements" optional="YES" attributeType="String"/>
+        <attribute name="nextSteps" optional="YES" attributeType="String"/>
+        <attribute name="caution" optional="YES" attributeType="String"/>
+        <attribute name="confidence" attributeType="Double" defaultValueString="0" usesScalarValueType="YES"/>
+        <attribute name="assumptions" optional="YES" attributeType="String"/>
+        <attribute name="evaluatedAt" attributeType="Date" usesScalarValueType="NO"/>
+        <attribute name="photoHash" optional="YES" attributeType="String"/>
+        <relationship name="entry" maxCount="1" deletionRule="Nullify" destinationEntity="NailEntry" inverseName="aiScore" inverseEntity="NailEntry"/>
     </entity>
 </model>

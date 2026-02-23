@@ -6,8 +6,8 @@
 //
 //
 
-public import Foundation
-public import CoreData
+import Foundation
+import CoreData
 
 
 public typealias NailEntryCoreDataPropertiesSet = NSSet
@@ -29,6 +29,7 @@ extension NailEntry {
     @NSManaged public var title: String?
     @NSManaged public var updatedAt: Date?
     @NSManaged public var usedItems: NSOrderedSet?
+    @NSManaged public var aiScore: NSManagedObject?
 
 }
 

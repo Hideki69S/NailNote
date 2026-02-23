@@ -22,7 +22,6 @@ struct EditEntryView: View {
     @State private var colorTone: NailColorTone = .pink
     @State private var rating: Double = 0
     @State private var selectedCategory: NailProductCategory = .color
-
     @State private var selectedProductIDs: [UUID] = []
 
     // 写真
@@ -33,103 +32,15 @@ struct EditEntryView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("タイトル") {
-                    TextField("例：春ネイル / オフのみ など", text: $title)
-                }
-
-                Section("日付") {
-                    DatePicker("施術日", selection: $date, displayedComponents: .date)
-                }
-
-                Section("デザイン") {
-                    Picker("カテゴリ", selection: $designCategory) {
-                        ForEach(NailDesignCategory.allCases) { category in
-                            Text(category.displayName).tag(category)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-
-                Section("カラー系統") {
-                    Picker("カラー", selection: $colorTone) {
-                        ForEach(NailColorTone.allCases) { tone in
-                            Text(tone.displayName).tag(tone)
-                        }
-                    }
-                    .pickerStyle(.menu)
-                }
-
-                Section("自己評価") {
-                    StarRatingInputView(rating: $rating)
-                }
-
-                Section("写真") {
-                    HStack(spacing: 12) {
-                        photoPreview
-                        VStack(alignment: .leading, spacing: 8) {
-                            PhotosPicker(selection: $photoItem, matching: .images) {
-                                Label("写真を変更", systemImage: "photo.on.rectangle")
-                            }
-
-                            if entry.photoId != nil || selectedUIImage != nil {
-                                Button(role: .destructive) {
-                                    // 既存写真を削除したい意思表示
-                                    selectedUIImage = nil
-                                    photoItem = nil
-                                    removeExistingPhoto = true
-                                } label: {
-                                    Label("写真を削除", systemImage: "trash")
-                                }
-                            }
-                        }
-                    }
-                }
-                .onChange(of: photoItem) { _, newItem in
-                    guard let newItem else { return }
-                    removeExistingPhoto = false
-                    Task { await loadImage(from: newItem) }
-                }
-
-                Section("メモ") {
-                    TextEditor(text: $note)
-                        .frame(minHeight: 100)
-                }
-
-                Section("使用した用品") {
-                    if products.isEmpty {
-                        Text("用品がまだ登録されていません")
-                            .foregroundStyle(.secondary)
-                    } else {
-                        CategoryTabBar(selected: $selectedCategory)
-                            .padding(.bottom, 4)
-
-                        if filteredProducts.isEmpty {
-                            Text("このカテゴリの用品がありません")
-                                .foregroundStyle(.secondary)
-                        } else {
-                            ForEach(filteredProducts, id: \.objectID) { product in
-                                Button {
-                                    toggle(product)
-                                } label: {
-                                    SelectableProductRow(product: product,
-                                                         isSelected: isSelected(product))
-                                }
-                                .buttonStyle(.plain)
-                                .padding(.vertical, 4)
-                            }
-                        }
-                    }
-                }
-
-                if !selectedProductIDs.isEmpty {
-                    Section("選択済み（順番）") {
-                        ForEach(selectedProductIDs, id: \.self) { pid in
-                            if let p = product(for: pid) {
-                                SelectedProductRow(product: p)
-                            }
-                        }
-                    }
-                }
+                titleSection
+                dateSection
+                designSection
+                colorToneSection
+                ratingSection
+                photoSection
+                noteSection
+                usedProductsSection
+                selectedProductsSection
             }
             .navigationTitle("記録を編集")
             .toolbar {
@@ -142,6 +53,124 @@ struct EditEntryView: View {
             }
             .onAppear {
                 loadFromEntry()
+            }
+        }
+    }
+
+    // MARK: - Form Sections
+
+    private var titleSection: some View {
+        Section("タイトル") {
+            TextField("例：春ネイル / オフのみ など", text: $title)
+        }
+    }
+
+    private var dateSection: some View {
+        Section("日付") {
+            DatePicker("施術日", selection: $date, displayedComponents: .date)
+        }
+    }
+
+    private var designSection: some View {
+        Section("デザイン") {
+            Picker("カテゴリ", selection: $designCategory) {
+                ForEach(NailDesignCategory.allCases) { category in
+                    Text(category.displayName).tag(category)
+                }
+            }
+            .pickerStyle(.menu)
+        }
+    }
+
+    private var colorToneSection: some View {
+        Section("カラー系統") {
+            Picker("カラー", selection: $colorTone) {
+                ForEach(NailColorTone.allCases) { tone in
+                    Text(tone.displayName).tag(tone)
+                }
+            }
+            .pickerStyle(.menu)
+        }
+    }
+
+    private var ratingSection: some View {
+        Section("自己評価") {
+            StarRatingInputView(rating: $rating)
+        }
+    }
+
+    private var photoSection: some View {
+        Section("写真") {
+            HStack(spacing: 12) {
+                photoPreview
+                VStack(alignment: .leading, spacing: 8) {
+                    PhotosPicker(selection: $photoItem, matching: .images) {
+                        Label("写真を変更", systemImage: "photo.on.rectangle")
+                    }
+
+                    if entry.photoId != nil || selectedUIImage != nil {
+                        Button(role: .destructive) {
+                            selectedUIImage = nil
+                            photoItem = nil
+                            removeExistingPhoto = true
+                        } label: {
+                            Label("写真を削除", systemImage: "trash")
+                        }
+                    }
+                }
+            }
+        }
+        .onChange(of: photoItem) { _, newItem in
+            guard let newItem else { return }
+            removeExistingPhoto = false
+            Task { await loadImage(from: newItem) }
+        }
+    }
+
+    private var noteSection: some View {
+        Section("メモ") {
+            TextEditor(text: $note)
+                .frame(minHeight: 100)
+        }
+    }
+
+    private var usedProductsSection: some View {
+        Section("使用した用品") {
+            if products.isEmpty {
+                Text("用品がまだ登録されていません")
+                    .foregroundStyle(.secondary)
+            } else {
+                CategoryTabBar(selected: $selectedCategory)
+                    .padding(.bottom, 4)
+
+                if filteredProducts.isEmpty {
+                    Text("このカテゴリの用品がありません")
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(filteredProducts, id: \.objectID) { product in
+                        Button {
+                            toggle(product)
+                        } label: {
+                            SelectableProductRow(product: product,
+                                                 isSelected: isSelected(product))
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.vertical, 4)
+                    }
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var selectedProductsSection: some View {
+        if !selectedProductIDs.isEmpty {
+            Section("選択済み（順番）") {
+                ForEach(selectedProductIDs, id: \.self) { pid in
+                    if let p = product(for: pid) {
+                        SelectedProductRow(product: p)
+                    }
+                }
             }
         }
     }
@@ -298,6 +327,7 @@ struct EditEntryView: View {
         }
         // 3) 何もしてない場合はそのまま
     }
+
 }
 
 // MARK: - Product Selection UI
