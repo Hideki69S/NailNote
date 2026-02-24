@@ -163,6 +163,13 @@ private struct ProductRow: View {
     let product: NailProduct
     let isFavorite: Bool
     let toggleFavorite: () -> Void
+    @AppStorage(GlassTheme.Keys.itemCardPreset) private var itemCardPresetRaw: String = GlassTheme.ItemCardPreset.mintStone.rawValue
+    private let textInset: CGFloat = 8
+    private let mediaShiftLeft: CGFloat = 6
+    private var palette: GlassTheme.ItemCardPalette {
+        let preset = GlassTheme.ItemCardPreset(rawValue: itemCardPresetRaw) ?? .mintStone
+        return GlassTheme.itemCardPalette(for: preset)
+    }
 
     private static let dateFormatter: DateFormatter = {
         let formatter = DateFormatter()
@@ -180,59 +187,78 @@ private struct ProductRow: View {
     }()
 
     var body: some View {
-        GlassCard(maxWidth: GlassTheme.listCardWidth) {
-            VStack(alignment: .leading, spacing: 16) {
-                // 上段：用品名
-                Text(displayName)
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(.primary)
-                    .multilineTextAlignment(.leading)
-                    .lineLimit(1)
-                    .minimumScaleFactor(0.65)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .layoutPriority(1)
+        GlassCard(
+            maxWidth: GlassTheme.listCardWidth,
+            contentPadding: 9,
+            strokeColor: palette.outerStroke,
+            strokeGradient: LinearGradient(
+                colors: [palette.outerStrokeStart, palette.outerStrokeEnd],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            backgroundGradient: LinearGradient(
+                colors: [palette.outerFillTop, palette.outerFillBottom],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        ) {
+            ZStack {
+                ItemCardToneLayer(palette: palette)
+                VStack(alignment: .leading, spacing: 16) {
+                    // 上段：用品名
+                    Text(displayName)
+                        .font(.title3.weight(.semibold))
+                        .foregroundStyle(.primary)
+                        .multilineTextAlignment(.leading)
+                        .lineLimit(1)
+                        .minimumScaleFactor(0.65)
+                        .padding(.horizontal, textInset)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .layoutPriority(1)
 
-                // 下段：左・中央・右ブロック
-                HStack(alignment: .bottom, spacing: 16) {
-                    // 左：購入情報
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("[購入情報]")
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
+                    // 下段：左・中央・右ブロック
+                    HStack(alignment: .bottom, spacing: 16) {
+                        // 左：購入情報
+                        VStack(alignment: .leading, spacing: 8) {
+                            ProductInfoTag(title: "[購入情報]", systemImage: "cart")
 
-                        Text(purchasedAtDisplayText)
-                            .font(.footnote)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
+                            Text(purchasedAtDisplayText)
+                                .font(.footnote)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
 
-                        Text(placeDisplayText)
-                            .font(.subheadline)
-                            .foregroundStyle(hasPlace ? Color.secondary : Color.secondary.opacity(0.6))
-                            .lineLimit(1)
-                            .minimumScaleFactor(0.7)
+                            Text(placeDisplayText)
+                                .font(.subheadline)
+                                .foregroundStyle(hasPlace ? Color.secondary : Color.secondary.opacity(0.6))
+                                .lineLimit(1)
+                                .minimumScaleFactor(0.7)
 
-                        Text(priceDisplayText)
-                            .font(.subheadline)
-                            .foregroundStyle(hasPrice ? Color.secondary : Color.secondary.opacity(0.6))
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                            Text(priceDisplayText)
+                                .font(.subheadline)
+                                .foregroundStyle(hasPrice ? Color.secondary : Color.secondary.opacity(0.6))
+                        }
+                        .padding(.leading, textInset)
+                        .frame(maxWidth: .infinity, alignment: .leading)
 
-                    // 中央：使用回数リング
-                    UsageCountRing(count: usageCount)
-                        .frame(width: 82, height: 82)
-                        .frame(maxWidth: .infinity)
+                        // 中央：使用回数リング
+                        UsageCountRing(count: usageCount)
+                            .frame(width: 82, height: 82)
+                            .frame(maxWidth: .infinity)
+                            .offset(x: -mediaShiftLeft)
 
-                    // 右：写真＋お気に入り
-                    ZStack(alignment: .topTrailing) {
-                        ProductThumbnail(photoId: product.photoId, size: 92)
-                            .frame(width: 92, height: 92)
+                        // 右：写真＋お気に入り
+                        ZStack(alignment: .topTrailing) {
+                            ProductThumbnail(photoId: product.photoId, size: 92)
+                                .frame(width: 92, height: 92)
 
-                        FavoriteButton(isFavorite: isFavorite, action: toggleFavorite)
-                            .offset(x: 6, y: -6)
+                            FavoriteButton(isFavorite: isFavorite, action: toggleFavorite)
+                                .offset(x: 6, y: -6)
+                        }
+                        .offset(x: -mediaShiftLeft)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(maxWidth: .infinity, alignment: .leading)
         }
     }
 
@@ -288,6 +314,41 @@ private struct ProductRow: View {
     }
 
     // Share/Link buttons are shown only in the registration/editing screen.
+}
+
+private struct ItemCardToneLayer: View {
+    let palette: GlassTheme.ItemCardPalette
+
+    var body: some View {
+        RoundedRectangle(cornerRadius: GlassTheme.cardCornerRadius - 4, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [palette.fillTop, palette.fillBottom],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: GlassTheme.cardCornerRadius - 4, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [palette.strokeStart, palette.strokeEnd],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.0
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: GlassTheme.cardCornerRadius - 6, style: .continuous)
+                    .stroke(Color.white.opacity(0.22), lineWidth: 0.7)
+                    .padding(1)
+            )
+            .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 6)
+            .padding(.horizontal, -2)
+            .padding(.vertical, -4)
+            .allowsHitTesting(false)
+    }
 }
 
 // MARK: - Thumbnail
@@ -574,6 +635,40 @@ private struct FavoriteButton: View {
         }
         .buttonStyle(.plain)
         .accessibilityLabel(isFavorite ? "お気に入り解除" : "お気に入りに追加")
+    }
+}
+
+private struct ProductInfoTag: View {
+    let title: String
+    let systemImage: String
+    @AppStorage(GlassTheme.Keys.designCardPreset) private var designCardPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
+
+    private var palette: GlassTheme.DesignCardPalette {
+        let preset = GlassTheme.DesignCardPreset(rawValue: designCardPresetRaw) ?? .roseChampagne
+        return GlassTheme.designCardPalette(for: preset)
+    }
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .font(.caption2.weight(.medium))
+                .lineLimit(1)
+            Text(title)
+                .font(.caption2.weight(.medium))
+                .lineLimit(1)
+        }
+        .foregroundStyle(palette.tagText)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(Color.white.opacity(0.74))
+                .overlay(
+                    Capsule()
+                        .stroke(palette.tagStroke, lineWidth: 0.7)
+                )
+        )
+        .fixedSize(horizontal: true, vertical: true)
     }
 }
 

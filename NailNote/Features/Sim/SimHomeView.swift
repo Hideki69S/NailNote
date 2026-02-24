@@ -17,6 +17,7 @@ struct SimHomeView: View {
     @State private var showingSample = false
     @State private var expandedEntries: Set<NSManagedObjectID> = []
     @State private var entryPendingConfirmation: NailEntry?
+    @State private var evaluationFilter: AIEvaluationFilter = .notEvaluated
 
     var body: some View {
         NavigationStack {
@@ -29,6 +30,14 @@ struct SimHomeView: View {
     private var content: some View {
         let entriesSnapshot = Array(entries)
         let photoEntries = entriesSnapshot.filter { $0.photoId != nil }
+        let filteredPhotoEntries = photoEntries.filter { entry in
+            switch evaluationFilter {
+            case .evaluated:
+                return entry.aiScoreBridge != nil
+            case .notEvaluated:
+                return entry.aiScoreBridge == nil
+            }
+        }
 
         return VStack(spacing: 0) {
             AdPlaceholderBanner()
@@ -42,12 +51,13 @@ struct SimHomeView: View {
                             .font(.caption)
                             .foregroundStyle(Color.red)
                         AISampleCardView(showingSample: $showingSample)
-                        if photoEntries.isEmpty {
-                            ContentUnavailableView("写真付きの記録がありません", systemImage: "camera")
+                        evaluationFilterControl
+                        if filteredPhotoEntries.isEmpty {
+                            ContentUnavailableView(emptyStateTitle, systemImage: "camera")
                                 .frame(maxWidth: .infinity, minHeight: 220)
                         } else {
                             LazyVStack(spacing: 16) {
-                                ForEach(photoEntries, id: \.objectID) { entry in
+                                ForEach(filteredPhotoEntries, id: \.objectID) { entry in
                                     AIScoreEntryCard(
                                         entry: entry,
                                         isEvaluating: evaluatingEntryID == entry.objectID,
@@ -71,6 +81,11 @@ struct SimHomeView: View {
         }
             .onAppear {
                 syncExpandedEntries()
+            }
+            .onChange(of: evaluationFilter) { _, newValue in
+                if newValue == .evaluated {
+                    expandedEntries.removeAll()
+                }
             }
             .onChange(of: entries.map { $0.aiScoreBridge?.evaluatedAt }) { _, _ in
                 syncExpandedEntries()
@@ -106,6 +121,40 @@ struct SimHomeView: View {
             } message: { entry in
                 Text("写真をAIに送信し、\(displayTitle(for: entry))のスコアを生成します。実行してよろしいですか？")
             }
+    }
+
+    private var emptyStateTitle: String {
+        switch evaluationFilter {
+        case .evaluated:
+            return "AI評価済みの記録がありません"
+        case .notEvaluated:
+            return "AI未評価の写真付き記録がありません"
+        }
+    }
+
+    private var evaluationFilterControl: some View {
+        HStack(spacing: 10) {
+            ForEach(AIEvaluationFilter.allCases) { filter in
+                Button {
+                    evaluationFilter = filter
+                } label: {
+                    Text(filter.displayName)
+                        .font(.caption.weight(.semibold))
+                        .foregroundStyle(evaluationFilter == filter ? Color.white : Color.primary)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .background(
+                            Capsule()
+                                .fill(evaluationFilter == filter ? Color.accentColor : Color.white.opacity(0.82))
+                        )
+                        .overlay(
+                            Capsule()
+                                .stroke(Color.black.opacity(0.06), lineWidth: 1)
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
     }
     private func displayTitle(for entry: NailEntry) -> String {
         let name = (entry.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
@@ -203,13 +252,25 @@ struct SimHomeView: View {
     private func syncExpandedEntries() {
         var updated = expandedEntries
         for entry in entries {
-            if entry.aiScoreBridge != nil {
-                updated.insert(entry.objectID)
-            } else {
+            if entry.aiScoreBridge == nil {
                 updated.remove(entry.objectID)
             }
         }
         expandedEntries = updated
+    }
+}
+
+private enum AIEvaluationFilter: CaseIterable, Identifiable {
+    case evaluated
+    case notEvaluated
+
+    var id: String { displayName }
+
+    var displayName: String {
+        switch self {
+        case .evaluated: return "AI評価 実施済み"
+        case .notEvaluated: return "AI評価 未実施"
+        }
     }
 }
 
@@ -314,7 +375,7 @@ private struct AIScoreEntryCard: View {
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 6)
                         } else {
-                            Label(displayData == nil ? "AIスコアを生成" : "再評価を実行", systemImage: "sparkles")
+                            Label(displayData == nil ? "AIネイルスコアを生成" : "再評価を実行", systemImage: "sparkles")
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 6)
                         }
@@ -585,7 +646,7 @@ private struct AISampleCardView: View {
     var body: some View {
         GlassCard {
             VStack(alignment: .leading, spacing: 12) {
-                Text("AI出力サンプル")
+                Text("AIネイルスコア出力サンプル")
                     .font(.headline)
                 Text("評価を実行する前に、UI上でどのように結果が表示されるかを確認できます。")
                     .font(.caption)
@@ -593,7 +654,7 @@ private struct AISampleCardView: View {
                 Button {
                     showingSample = true
                 } label: {
-                    Label("AI出力サンプルを確認", systemImage: "doc.richtext")
+                    Label("AIネイルスコア出力サンプルを確認", systemImage: "doc.richtext")
                         .frame(maxWidth: .infinity)
                 }
                 .buttonStyle(.bordered)
@@ -658,6 +719,11 @@ private struct AIScoreRadarChart: View {
     let metrics: [Metric]
     let centerText: String?
     private let gridLevel: Int = 4
+    @AppStorage(GlassTheme.Keys.aiChartPreset) private var aiChartPresetRaw: String = GlassTheme.AIScoreChartPreset.freshGreen.rawValue
+    private var palette: GlassTheme.AIScoreChartPalette {
+        let preset = GlassTheme.AIScoreChartPreset(rawValue: aiChartPresetRaw) ?? .freshGreen
+        return GlassTheme.aiScoreChartPalette(for: preset)
+    }
 
     var body: some View {
         GeometryReader { proxy in
@@ -669,8 +735,8 @@ private struct AIScoreRadarChart: View {
                     .fill(
                         RadialGradient(
                             colors: [
-                                Color(red: 0.78, green: 0.95, blue: 0.84).opacity(0.22),
-                                Color(red: 0.65, green: 0.86, blue: 0.74).opacity(0.12),
+                                palette.haloInner,
+                                palette.haloMid,
                                 .clear
                             ],
                             center: .center,
@@ -685,15 +751,15 @@ private struct AIScoreRadarChart: View {
                     radarPath(scale: Double(level) / Double(gridLevel), center: center, radius: radius)
                         .stroke(
                             level == gridLevel
-                            ? Color(red: 0.38, green: 0.64, blue: 0.49).opacity(0.60)
-                            : Color(red: 0.50, green: 0.73, blue: 0.58).opacity(0.30),
+                            ? palette.gridOuter
+                            : palette.gridInner,
                             lineWidth: level == gridLevel ? 1.1 : 0.9
                         )
                 }
 
                 radarPath(scale: 1.0, center: center, radius: radius)
                     .stroke(
-                        Color(red: 0.44, green: 0.70, blue: 0.54).opacity(0.52),
+                        palette.outerDash,
                         style: StrokeStyle(lineWidth: 1, dash: [4, 4])
                     )
 
@@ -710,7 +776,7 @@ private struct AIScoreRadarChart: View {
                             )
                         )
                     }
-                    .stroke(Color(red: 0.52, green: 0.74, blue: 0.60).opacity(0.34), lineWidth: 0.8)
+                    .stroke(palette.axis, lineWidth: 0.8)
                 }
 
                 if !metrics.isEmpty {
@@ -719,9 +785,9 @@ private struct AIScoreRadarChart: View {
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color(red: 0.38, green: 0.78, blue: 0.58).opacity(0.42),
-                                    Color(red: 0.36, green: 0.66, blue: 0.50).opacity(0.22),
-                                    Color(red: 0.68, green: 0.90, blue: 0.78).opacity(0.14)
+                                    palette.areaTop,
+                                    palette.areaMid,
+                                    palette.areaBottom
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottom
@@ -731,15 +797,15 @@ private struct AIScoreRadarChart: View {
                         .stroke(
                             LinearGradient(
                                 colors: [
-                                    Color(red: 0.22, green: 0.66, blue: 0.45),
-                                    Color(red: 0.27, green: 0.55, blue: 0.41)
+                                    palette.lineStart,
+                                    palette.lineEnd
                                 ],
                                 startPoint: .topLeading,
                                 endPoint: .bottomTrailing
                             ),
                             lineWidth: 2.4
                         )
-                        .shadow(color: Color(red: 0.24, green: 0.64, blue: 0.44).opacity(0.35), radius: 6, x: 0, y: 3)
+                        .shadow(color: palette.lineShadow, radius: 6, x: 0, y: 3)
 
                     ForEach(Array(metrics.enumerated()), id: \.offset) { index, metric in
                         let normalized = max(0, min(metric.value / 100, 1))
@@ -752,14 +818,14 @@ private struct AIScoreRadarChart: View {
                         )
                         ZStack {
                             Circle()
-                                .fill(Color(red: 0.64, green: 0.90, blue: 0.74).opacity(0.36))
+                                .fill(palette.pointGlow)
                                 .frame(width: 14, height: 14)
                                 .blur(radius: 2)
                             Circle()
-                                .fill(Color(red: 0.95, green: 1.0, blue: 0.96).opacity(0.96))
+                                .fill(palette.pointFill)
                                 .frame(width: 7, height: 7)
                             Circle()
-                                .stroke(Color(red: 0.26, green: 0.68, blue: 0.46), lineWidth: 1.4)
+                                .stroke(palette.pointStroke, lineWidth: 1.4)
                                 .frame(width: 10, height: 10)
                         }
                         .position(dataPoint)
@@ -772,8 +838,8 @@ private struct AIScoreRadarChart: View {
                             .fill(
                                 LinearGradient(
                                     colors: [
-                                        Color(red: 0.92, green: 0.99, blue: 0.94).opacity(0.96),
-                                        Color(red: 0.84, green: 0.95, blue: 0.88).opacity(0.92)
+                                        palette.centerFillStart,
+                                        palette.centerFillEnd
                                     ],
                                     startPoint: .topLeading,
                                     endPoint: .bottomTrailing
@@ -785,8 +851,8 @@ private struct AIScoreRadarChart: View {
                                     .stroke(
                                         LinearGradient(
                                             colors: [
-                                                Color(red: 0.34, green: 0.78, blue: 0.56),
-                                                Color(red: 0.30, green: 0.62, blue: 0.45)
+                                                palette.centerStrokeStart,
+                                                palette.centerStrokeEnd
                                             ],
                                             startPoint: .topLeading,
                                             endPoint: .bottomTrailing
@@ -799,10 +865,10 @@ private struct AIScoreRadarChart: View {
                         VStack(spacing: 1) {
                             Text(centerText)
                                 .font(.title3.weight(.black))
-                                .foregroundStyle(Color(red: 0.14, green: 0.50, blue: 0.31))
+                                .foregroundStyle(palette.centerScore)
                             Text("TOTAL")
                                 .font(.system(size: 9, weight: .bold))
-                                .foregroundStyle(Color(red: 0.27, green: 0.56, blue: 0.38))
+                                .foregroundStyle(palette.centerTotal)
                         }
                     }
                     .position(center)
@@ -826,11 +892,11 @@ private struct AIScoreRadarChart: View {
                     .padding(.vertical, 4)
                     .background(
                         Capsule()
-                            .fill(Color(red: 0.91, green: 0.98, blue: 0.93).opacity(0.84))
+                            .fill(palette.labelFill)
                     )
                     .overlay(
                         Capsule()
-                            .stroke(Color(red: 0.53, green: 0.77, blue: 0.61).opacity(0.58), lineWidth: 0.9)
+                            .stroke(palette.labelStroke, lineWidth: 0.9)
                     )
                     .shadow(color: Color.black.opacity(0.06), radius: 2, x: 0, y: 1)
                     .position(labelPoint)
@@ -925,7 +991,7 @@ private struct AIScoreSampleView: View {
                 }
                 .padding(16)
             }
-            .navigationTitle("AI出力サンプル")
+            .navigationTitle("AIネイルスコア出力サンプル")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("閉じる") { dismiss() }

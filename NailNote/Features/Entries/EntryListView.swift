@@ -14,6 +14,8 @@ struct EntryListView: View {
     @State private var showingAddSheet = false
     @AppStorage("EntryDesignFilter") private var designFilterRaw: String = "all"
     @AppStorage("EntryColorFilter") private var colorFilterRaw: String = "allColor"
+    @AppStorage("EntrySortField") private var sortFieldRaw: String = EntrySortField.date.rawValue
+    @AppStorage("EntrySortAscending") private var sortAscending: Bool = false
     @State private var keywordText: String = ""
     @State private var pendingDeletionEntries: [NailEntry] = []
     @State private var showingDeleteAlert = false
@@ -82,7 +84,7 @@ struct EntryListView: View {
 
     private func promptEntryDeletion(offsets: IndexSet) {
         let targets = offsets.compactMap { index -> NailEntry? in
-            let list = filteredEntries
+            let list = sortedEntries
             guard list.indices.contains(index) else { return nil }
             return list[index]
         }
@@ -92,13 +94,48 @@ struct EntryListView: View {
     }
 }
 
+private enum EntrySortField: String, CaseIterable, Identifiable {
+    case aiScore
+    case rating
+    case date
+
+    var id: String { rawValue }
+
+    var displayName: String {
+        switch self {
+        case .aiScore: return "AIスコア"
+        case .rating: return "自己評価"
+        case .date: return "実施日付"
+        }
+    }
+}
+
 // MARK: - Row
 
 struct EntryRowView: View {
     @ObservedObject var entry: NailEntry
+    @AppStorage(GlassTheme.Keys.designCardPreset) private var designCardPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
+    private var palette: GlassTheme.DesignCardPalette {
+        let preset = GlassTheme.DesignCardPreset(rawValue: designCardPresetRaw) ?? .roseChampagne
+        return GlassTheme.designCardPalette(for: preset)
+    }
 
     var body: some View {
-        GlassCard(maxWidth: GlassTheme.listCardWidth, contentPadding: 10) {
+        GlassCard(
+            maxWidth: GlassTheme.listCardWidth,
+            contentPadding: 9,
+            strokeColor: palette.outerStroke,
+            strokeGradient: LinearGradient(
+                colors: [palette.outerStrokeStart, palette.outerStrokeEnd],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            ),
+            backgroundGradient: LinearGradient(
+                colors: [palette.outerFillTop, palette.outerFillBottom],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        ) {
             ZStack {
                 EntryCardGlowLayer()
                 HStack(spacing: 18) {
@@ -127,11 +164,11 @@ struct EntryRowView: View {
         HStack(spacing: 6) {
             Image(systemName: "sparkles")
                 .font(.caption.weight(.medium))
-                .foregroundStyle(Color(red: 0.58, green: 0.49, blue: 0.53))
+                .foregroundStyle(palette.titleIcon)
 
             Text(displayTitle)
                 .font(.headline.weight(.semibold))
-                .foregroundStyle(Color(red: 0.34, green: 0.27, blue: 0.30))
+                .foregroundStyle(palette.titleText)
                 .lineLimit(1)
                 .minimumScaleFactor(0.6)
                 .allowsTightening(true)
@@ -160,6 +197,7 @@ struct EntryRowView: View {
                     EntryInfoTag(title: "[自己評価]", systemImage: "hand.thumbsup")
                     StarRatingView(rating: entry.rating, size: 14)
                 }
+                .padding(.trailing, 8)
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -189,6 +227,11 @@ struct EntryRowView: View {
 struct EntryThumbnailView: View {
     let photoId: UUID?
     let aiScore: Int16?
+    @AppStorage(GlassTheme.Keys.designCardPreset) private var designCardPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
+    private var palette: GlassTheme.DesignCardPalette {
+        let preset = GlassTheme.DesignCardPreset(rawValue: designCardPresetRaw) ?? .roseChampagne
+        return GlassTheme.designCardPalette(for: preset)
+    }
 
     var body: some View {
         ZStack(alignment: .topLeading) {
@@ -214,8 +257,8 @@ struct EntryThumbnailView: View {
                     .stroke(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.92, green: 0.78, blue: 0.80),
-                                Color(red: 0.86, green: 0.80, blue: 0.74)
+                                palette.thumbnailStrokeStart,
+                                palette.thumbnailStrokeEnd
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -261,14 +304,14 @@ private struct EntryAdPlaceholderRow: View {
 private extension EntryListView {
     var entryList: some View {
         List {
-            if filteredEntries.isEmpty {
+            if sortedEntries.isEmpty {
                 ContentUnavailableView("記録がありません", systemImage: "note.text")
                     .frame(maxWidth: .infinity, alignment: .center)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             } else {
                 Section {
-                    ForEach(filteredEntries, id: \.objectID) { entry in
+                    ForEach(sortedEntries, id: \.objectID) { entry in
                         ZStack {
                             HStack(spacing: 0) {
                                 Spacer(minLength: 0)
@@ -305,6 +348,10 @@ private extension EntryListView {
         }
     }
 
+    var sortedEntries: [NailEntry] {
+        filteredEntries.sorted(by: compareEntries)
+    }
+
     var selectedDesignCategory: NailDesignCategory? {
         guard designFilterRaw != "all" else { return nil }
         return NailDesignCategory(rawValue: designFilterRaw)
@@ -315,12 +362,16 @@ private extension EntryListView {
         return NailColorTone(rawValue: colorFilterRaw)
     }
 
+    var selectedSortField: EntrySortField {
+        EntrySortField(rawValue: sortFieldRaw) ?? .date
+    }
+
     var filterTitle: String {
-        selectedDesignCategory?.displayName ?? "すべて"
+        selectedDesignCategory?.displayName ?? "デザイン"
     }
 
     var colorFilterTitle: String {
-        selectedColorTone?.displayName ?? "すべて"
+        selectedColorTone?.displayName ?? "カラー"
     }
 
     var filterControlRow: some View {
@@ -334,7 +385,11 @@ private extension EntryListView {
             HStack(spacing: 12) {
                 designFilterMenu
                 colorFilterMenu
+            }
+            HStack(spacing: 10) {
                 keywordField
+                sortFieldMenu
+                sortOrderButton
             }
         }
         .padding(.vertical, 4)
@@ -409,8 +464,13 @@ private extension EntryListView {
     }
 
     var keywordField: some View {
-        TextField("キーワード", text: $keywordText)
-            .textFieldStyle(.plain)
+        HStack(spacing: 8) {
+            Image(systemName: "text.magnifyingglass")
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.secondary)
+            TextField("キーワード", text: $keywordText)
+                .textFieldStyle(.plain)
+        }
             .padding(.vertical, 8)
             .padding(.horizontal, 14)
             .background(Color.white)
@@ -419,8 +479,56 @@ private extension EntryListView {
                     .stroke(Color.black.opacity(0.05), lineWidth: 1)
             )
             .clipShape(Capsule())
-            .frame(maxWidth: 220)
+            .frame(maxWidth: .infinity, alignment: .leading)
             .submitLabel(.search)
+    }
+
+    var sortFieldMenu: some View {
+        Menu {
+            ForEach(EntrySortField.allCases) { field in
+                Button {
+                    sortFieldRaw = field.rawValue
+                } label: {
+                    labelRow(title: field.displayName, isSelected: selectedSortField == field)
+                }
+            }
+        } label: {
+            HStack(spacing: 8) {
+                Image(systemName: "arrow.up.arrow.down.circle")
+                    .font(.subheadline.weight(.semibold))
+                Text(selectedSortField.displayName)
+                    .font(.subheadline.weight(.semibold))
+                    .lineLimit(1)
+            }
+            .padding(.vertical, 8)
+            .padding(.horizontal, 14)
+            .background(Color.white)
+            .overlay(
+                Capsule()
+                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
+            )
+            .clipShape(Capsule())
+        }
+        .accessibilityLabel("ソート項目")
+    }
+
+    var sortOrderButton: some View {
+        Button {
+            sortAscending.toggle()
+        } label: {
+            Image(systemName: sortAscending ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
+                .font(.title3)
+                .foregroundStyle(Color.accentColor)
+                .frame(width: 34, height: 34)
+                .background(Color.white)
+                .overlay(
+                    Circle()
+                        .stroke(Color.black.opacity(0.05), lineWidth: 1)
+                )
+                .clipShape(Circle())
+        }
+        .buttonStyle(.plain)
+        .accessibilityLabel(sortAscending ? "昇順" : "降順")
     }
 
     func labelRow(title: String, isSelected: Bool) -> some View {
@@ -449,6 +557,39 @@ private extension EntryListView {
         let title = (entry.title ?? "").lowercased()
         let note = (entry.note ?? "").lowercased()
         return title.contains(lower) || note.contains(lower)
+    }
+
+    func compareEntries(_ lhs: NailEntry, _ rhs: NailEntry) -> Bool {
+        switch selectedSortField {
+        case .aiScore:
+            let leftScore = lhs.aiScoreBridge?.totalScore
+            let rightScore = rhs.aiScoreBridge?.totalScore
+            if leftScore != rightScore {
+                if sortAscending {
+                    return (leftScore ?? Int16.max) < (rightScore ?? Int16.max)
+                } else {
+                    return (leftScore ?? Int16.min) > (rightScore ?? Int16.min)
+                }
+            }
+        case .rating:
+            if lhs.rating != rhs.rating {
+                if sortAscending {
+                    return lhs.rating < rhs.rating
+                } else {
+                    return lhs.rating > rhs.rating
+                }
+            }
+        case .date:
+            break
+        }
+
+        let leftDate = lhs.date ?? .distantPast
+        let rightDate = rhs.date ?? .distantPast
+        if sortAscending {
+            return leftDate < rightDate
+        } else {
+            return leftDate > rightDate
+        }
     }
 
 }
@@ -549,14 +690,20 @@ private extension EntryRowView {
 }
 
 private struct EntryCardGlowLayer: View {
+    @AppStorage(GlassTheme.Keys.designCardPreset) private var designCardPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
+    private var palette: GlassTheme.DesignCardPalette {
+        let preset = GlassTheme.DesignCardPreset(rawValue: designCardPresetRaw) ?? .roseChampagne
+        return GlassTheme.designCardPalette(for: preset)
+    }
+
     var body: some View {
         RoundedRectangle(cornerRadius: GlassTheme.cardCornerRadius - 4, style: .continuous)
             .fill(
                 LinearGradient(
                     colors: [
-                        Color(red: 0.99, green: 0.97, blue: 0.94),
-                        Color(red: 0.97, green: 0.93, blue: 0.91),
-                        Color(red: 0.95, green: 0.91, blue: 0.90)
+                        palette.glowFillTop,
+                        palette.glowFillMid,
+                        palette.glowFillBottom
                     ],
                     startPoint: .topLeading,
                     endPoint: .bottomTrailing
@@ -567,8 +714,8 @@ private struct EntryCardGlowLayer: View {
                     .stroke(
                         LinearGradient(
                             colors: [
-                                Color(red: 0.83, green: 0.64, blue: 0.67).opacity(0.48),
-                                Color(red: 0.93, green: 0.79, blue: 0.72).opacity(0.48)
+                                palette.glowStrokeStart,
+                                palette.glowStrokeEnd
                             ],
                             startPoint: .topLeading,
                             endPoint: .bottomTrailing
@@ -591,6 +738,11 @@ private struct EntryCardGlowLayer: View {
 private struct EntryInfoTag: View {
     let title: String
     let systemImage: String
+    @AppStorage(GlassTheme.Keys.designCardPreset) private var designCardPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
+    private var palette: GlassTheme.DesignCardPalette {
+        let preset = GlassTheme.DesignCardPreset(rawValue: designCardPresetRaw) ?? .roseChampagne
+        return GlassTheme.designCardPalette(for: preset)
+    }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -601,7 +753,7 @@ private struct EntryInfoTag: View {
                 .font(.caption2.weight(.medium))
                 .lineLimit(1)
         }
-        .foregroundStyle(Color(red: 0.40, green: 0.31, blue: 0.34))
+        .foregroundStyle(palette.tagText)
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
         .background(
@@ -609,7 +761,7 @@ private struct EntryInfoTag: View {
                 .fill(Color.white.opacity(0.74))
                 .overlay(
                     Capsule()
-                        .stroke(Color(red: 0.82, green: 0.67, blue: 0.69).opacity(0.45), lineWidth: 0.7)
+                        .stroke(palette.tagStroke, lineWidth: 0.7)
                 )
         )
         .fixedSize(horizontal: true, vertical: true)
@@ -618,6 +770,11 @@ private struct EntryInfoTag: View {
 
 private struct EntryPhotoAIScoreBadge: View {
     let score: Int
+    @AppStorage(GlassTheme.Keys.designCardPreset) private var designCardPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
+    private var palette: GlassTheme.DesignCardPalette {
+        let preset = GlassTheme.DesignCardPreset(rawValue: designCardPresetRaw) ?? .roseChampagne
+        return GlassTheme.designCardPalette(for: preset)
+    }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -634,8 +791,8 @@ private struct EntryPhotoAIScoreBadge: View {
                 .fill(
                     LinearGradient(
                         colors: [
-                            Color(red: 0.86, green: 0.60, blue: 0.67),
-                            Color(red: 0.73, green: 0.58, blue: 0.62)
+                            palette.badgeStart,
+                            palette.badgeEnd
                         ],
                         startPoint: .leading,
                         endPoint: .trailing

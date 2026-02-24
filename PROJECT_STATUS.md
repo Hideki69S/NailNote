@@ -271,3 +271,227 @@ NailNote/
 影響範囲: `GlassBackgroundView` を使う画面全体（記録/用品/AI/設定および各フォーム画面）の背景トーン。機能・ロジック・データ処理への影響なし。
 実機確認: 未実施（ユーザーによる見た目確認待ち）。
 次にやること: 1) 実機/Simulatorで全タブの背景統一感を確認 2) 必要なら中間色の明度を微調整
+
+### 2026-02-24 (追記17)
+変更ファイル: Design/GlassTheme.swift, Features/Settings/SettingsView.swift, Features/Entries/EntryListView.swift, Features/Products/ProductListView.swift, PROJECT_STATUS.md
+実装内容: 設定画面に「ページ背景 / デザインカード / アイテムカード」の3項目を独立して選べるテーマプリセット設定を追加し、`@AppStorage` で保存されるようにした。`GlassTheme` には背景・デザインカード・アイテムカードそれぞれのプリセット定義と色パレットを追加済みで、デザイン一覧カード（タイトル、サムネ枠、グローレイヤー、情報タグ、AIスコアバッジ）は `designCardPalette` を参照する構成へ統一。用品一覧カードには `itemCardPalette` を使ったトーンレイヤーを追加し、背景とは別軸でカード色だけを切り替えられるようにした。これにより3種類の色をユーザーが任意に組み合わせ可能になった。
+影響範囲: SettingsView のテーマ設定UI、EntryListView のカード配色、ProductListView のカード配色、GlassTheme のテーマ管理。データモデルや保存ロジックには影響なし。
+実機確認: 未実施。`xcodebuild` を試行したが、`/Library/Developer/CommandLineTools` が選択されており Xcode 本体未選択のためビルド不能。
+次にやること: 1) `sudo xcode-select --switch /Applications/Xcode.app/Contents/Developer` 後に `xcodebuild -scheme NailNote -destination 'platform=iOS Simulator,name=iPhone 15' build` を再実行 2) 設定で3項目を組み合わせ変更し、記録/用品一覧へ即時反映されることを実機/Simulatorで確認
+
+### 2026-02-24 (追記18)
+変更ファイル: Design/GlassTheme.swift, Design/GlassBackgroundView.swift, Features/Entries/EntryListView.swift, Features/Products/ProductListView.swift, PROJECT_STATUS.md
+実装内容: テーマ設定を変更しても見た目が切り替わらない問題を修正。原因は、背景/カード描画側が `UserDefaults` 変更を購読しておらず、再描画トリガーが不足していたこと。`GlassBackgroundView` に `@AppStorage(ThemeBackgroundPreset)` を追加し、選択中背景プリセットを直接参照して背景グラデとオーブ色を描画する方式へ変更。あわせて `EntryRowView` 系（サムネ枠、グローレイヤー、情報タグ、AIバッジ）と `ProductRow` にもそれぞれ `@AppStorage` を追加し、`designCardPalette(for:)` / `itemCardPalette(for:)` を使って選択値変更時に即時更新されるようにした。`GlassTheme` は preset 指定版の関数を追加し、現在値参照版はそのラッパーとして整理。
+影響範囲: テーマ変更時の再描画タイミング（背景/デザインカード/アイテムカード）。配色定義そのものやデータ保存ロジックへの影響はなし。
+実機確認: 未実施。CLIビルドは `xcode-select` が CommandLineTools のため継続して未実施。
+次にやること: 1) 設定画面で3項目を変更し、記録/用品/AI/設定タブの背景・カードが即時反映されるか確認 2) 必要ならタブ遷移なしで反映されるようアニメーション有無を調整
+
+### 2026-02-24 (追記19)
+変更ファイル: Features/Products/ProductListView.swift, PROJECT_STATUS.md
+実装内容: ユーザー要望に合わせて、用品一覧のアイテムカードもデザインカードと同じ内側余白へ統一。`ProductRow` の `GlassCard` 呼び出しを `contentPadding: 10` 指定に変更し、上下左右の内側余白を 10pt に揃えた。
+影響範囲: ProductListView のカード内余白のみ。機能・データ処理・テーマ選択ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる見た目確認待ち）。
+次にやること: 1) 実機/Simulatorでカード内テキストとリング/サムネの詰まり具合を確認 2) 必要なら 9〜11 の範囲で微調整
+
+### 2026-02-24 (追記20)
+変更ファイル: Features/Products/ProductListView.swift, PROJECT_STATUS.md
+実装内容: アイテムカード内の `[購入情報]` ラベルを、デザインカードの `[実施日付]` / `[自己評価]` と同系統のピルデザインへ変更。`ProductInfoTag` コンポーネントを新規追加し、カプセル背景・細枠・小アイコン付きの見た目で統一した。タグ色は `ThemeDesignCardPreset` を参照するため、デザインカードプリセット変更時に同じトーンで連動する。
+影響範囲: ProductListView の左カラム見出し表示のみ。購入日/店舗/価格の表示ロジックやデータ処理への影響なし。
+実機確認: 未実施（ユーザーによる見た目確認待ち）。
+次にやること: 1) 実機/Simulatorでタグの高さ・位置バランスを確認 2) 必要ならアイコンを `cart` から別シンボルへ調整
+
+### 2026-02-24 (追記21)
+変更ファイル: Features/Entries/EntryListView.swift, PROJECT_STATUS.md
+実装内容: デザイン一覧画面のフィルタ配置を2段構成へ変更。1段目にデザイン/カラー、2段目にキーワードフィルタを配置した。キーワード入力欄には `magnifyingglass` アイコンを追加し、検索意図が一目で分かる見た目に調整。既存のキーワード絞り込みロジック（`keywordText` による判定）は変更なし。
+影響範囲: EntryListView のフィルタUI配置と見た目のみ。データ処理・保存ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorで2段構成時の高さバランスを確認 2) 必要なら2段目の上下余白を微調整
+
+### 2026-02-24 (追記22)
+変更ファイル: Features/Entries/EntryListView.swift, PROJECT_STATUS.md
+実装内容: デザインフィルタの初期表示ラベルを `すべて` から `デザイン` へ変更。内部の選択状態は従来どおり `all`（全件）を維持しており、絞り込み条件の挙動には変更なし。
+影響範囲: EntryListView のデザインフィルタ表示文言のみ。保存値（`EntryDesignFilter`）とフィルタロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 初期表示が「デザイン」になっていることを確認 2) 選択後にカテゴリ名へ切り替わることを確認
+
+### 2026-02-24 (追記23)
+変更ファイル: Features/Entries/EntryListView.swift, PROJECT_STATUS.md
+実装内容: カラー系統フィルタの初期表示ラベルを `すべて` から `カラー` へ変更。内部の選択状態は従来どおり `allColor`（全件）を維持し、絞り込み挙動には変更なし。
+影響範囲: EntryListView のカラー系統フィルタ表示文言のみ。保存値（`EntryColorFilter`）と検索ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 初期表示が「カラー」になっていることを確認 2) 色選択後に各カテゴリ名へ切り替わることを確認
+
+### 2026-02-24 (追記24)
+変更ファイル: Features/Entries/EntryListView.swift, PROJECT_STATUS.md
+実装内容: デザイン一覧のキーワードフィルタ先頭アイコンを `magnifyingglass` から、用品一覧のキーワードフィルタと同じ `text.magnifyingglass` へ変更。サイズ・色スタイルは既存のまま維持し、画面間で記号表現を統一した。
+影響範囲: EntryListView のキーワード欄アイコン表示のみ。検索ロジック・入力挙動への影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 記録/用品の両画面でアイコンの見え方が揃っているか確認 2) 必要なら左右余白を微調整
+
+### 2026-02-24 (追記25)
+変更ファイル: Features/Entries/EntryListView.swift, PROJECT_STATUS.md
+実装内容: デザイン一覧画面のキーワード欄右側にソートUIを追加。ソート項目は `AIスコア / 自己評価 / 実施日付` をメニューから選択可能にし、昇順・降順は右端のアイコンボタン（上矢印/下矢印）で切り替えられるようにした。デフォルトは `実施日付` かつ `降順`（`EntrySortField = date`, `EntrySortAscending = false`）で、状態は `@AppStorage` に保存。表示リストは `filteredEntries` にソートを適用した `sortedEntries` を使う構成へ変更し、削除操作も表示順と一致するように調整した。
+影響範囲: EntryListView のフィルタ下段UI（キーワード＋ソート）と一覧表示順。検索・カテゴリ絞り込みの判定ロジック、データ保存処理には影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorで各ソート項目×昇降順の並びを確認 2) 必要ならソートメニューのラベル幅を調整
+
+### 2026-02-24 (追記26)
+変更ファイル: Features/Entries/EntryListView.swift, PROJECT_STATUS.md
+実装内容: デザインカード内の自己評価ブロックを少し左へ寄せるため、`[自己評価]` と星評価を含む `VStack` に `padding(.trailing, 8)` を追加。これにより右端への寄り過ぎを緩和し、実施日付ブロックとの距離感をわずかに詰めた。
+影響範囲: EntryListView のカード内レイアウト（自己評価表示位置）のみ。評価値・データ処理・フィルタ/ソート機能への影響なし。
+実機確認: 未実施（ユーザーによる見た目確認待ち）。
+次にやること: 1) 実機/Simulatorで自己評価の位置バランスを確認 2) 必要なら `6` または `10` へ微調整
+
+### 2026-02-24 (追記27)
+変更ファイル: Features/Products/ProductListView.swift, PROJECT_STATUS.md
+実装内容: アイテムカード内のテキスト位置を右寄せ方向へ微調整。`ProductRow` に `textInset = 8` を追加し、アイテム名は `.padding(.horizontal, textInset)` で左右同量の余白を付与、購入情報ブロックは `.padding(.leading, textInset)` で左余白のみ追加した。これにより左端の詰まり感を緩和しつつ、アイテム名は左右バランスを保った配置にした。
+影響範囲: ProductListView のカード内テキスト余白（アイテム名/購入情報）表示のみ。使用回数リング・サムネイル・機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる見た目確認待ち）。
+次にやること: 1) 実機/Simulatorで左余白の見え方を確認 2) 必要なら `textInset` を 6 または 10 へ微調整
+
+### 2026-02-24 (追記28)
+変更ファイル: Features/Products/ProductListView.swift, PROJECT_STATUS.md
+実装内容: アイテムカード内の「使用回数リング」と「写真＋お気に入り」ブロックを、ユーザー要望に合わせて少し左へ移動。`ProductRow` に `mediaShiftLeft = 6` を追加し、該当2ブロックへ `.offset(x: -mediaShiftLeft)` を適用して、右側の余白を増やした。
+影響範囲: ProductListView の中段（リング/写真）の視覚位置のみ。データ処理、タップ挙動、他画面レイアウトへの影響なし。
+実機確認: 未実施（ユーザーによる見た目確認待ち）。
+次にやること: 1) 実機/Simulatorで右余白の見え方を確認 2) 必要なら移動量を 4〜8 の範囲で微調整
+
+### 2026-02-24 (追記29)
+変更ファイル: Features/Entries/AddEntryView.swift, Features/Entries/EditEntryView.swift, PROJECT_STATUS.md
+実装内容: デザイン登録/編集画面の写真操作で「写真を削除」を押したときに「写真を変更（PhotosPicker起動）」まで同時に発火する不具合を修正。両画面とも `PhotosPicker` 直配置をやめ、`Button -> confirmationDialog -> photosPicker(isPresented:)` の流れへ変更し、変更/削除を独立動作にした。あわせて変更・削除どちらも実行前に「AIスコアがリセットされる」確認ダイアログを追加。編集画面では保存時に写真変更または削除があった場合、既存の `entry.aiScore` を削除して確実にリセットする処理を追加した。
+影響範囲: AddEntryView / EditEntryView の写真操作UI、確認ダイアログ、Edit保存時のAIスコア整合性。その他の入力項目・保存フローへの影響は限定的。
+実機確認: 未実施（ユーザーによる動作確認待ち）。
+次にやること: 1) 実機/Simulatorで「変更」「削除」が独立して動くことを確認 2) 編集画面で写真変更後に保存し、AIスコアが消えることを確認
+
+### 2026-02-24 (追記30)
+変更ファイル: Features/Products/AddOrEditProductView.swift, PROJECT_STATUS.md
+実装内容: アイテム登録/編集画面の「商品写真」「サンプルカラー写真」について、写真変更と削除を独立動作へ修正。`PhotosPicker` のラベル直押し構成を廃止し、各写真ごとに `変更ボタン -> photosPicker(isPresented:)` で起動する方式に切り替えた。削除ボタンには `buttonStyle(.borderless)` を適用し、Form内タップ競合による同時発火を防止。商品写真とサンプル写真でそれぞれ独立した picker 表示状態（`showingMainPhotoPicker` / `showingSamplePhotoPicker`）を持つ実装に変更した。
+影響範囲: AddOrEditProductView の写真操作UI（商品写真/サンプル写真）。保存処理・写真ファイル保存/削除ロジック自体への影響なし。
+実機確認: 未実施（ユーザーによる動作確認待ち）。
+次にやること: 1) 実機/Simulatorで変更タップ時のみライブラリが起動し、削除タップで起動しないことを確認 2) 商品写真/サンプル写真それぞれで独立して動作することを確認
+
+### 2026-02-24 (追記31)
+変更ファイル: Features/Products/AddOrEditProductView.swift, PROJECT_STATUS.md
+実装内容: アイテム登録/編集画面で「商品名」「カテゴリ」を必須項目として明示するため、各ラベル横に `必須` バッジを追加。あわせて「購入日を記録する」トグルを廃止し、購入日は常にDatePickerで入力する仕様へ変更した。保存時は `p.purchasedAt = purchasedAt` で常時保持し、既存データ読み込み時は `p.purchasedAt ?? Date()` を初期値として扱う。
+影響範囲: AddOrEditProductView の基本情報セクションUIと購入日保存仕様。購入場所・価格・URL・写真保存ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示/保存確認待ち）。
+次にやること: 1) 実機/Simulatorで必須表示とDatePicker常時表示を確認 2) 既存データ編集時の購入日初期表示を確認
+
+### 2026-02-24 (追記32)
+変更ファイル: Features/Products/AddOrEditProductView.swift, PROJECT_STATUS.md
+実装内容: 商品URL入力欄のプレースホルダ文言から「（任意）」表記を削除し、`商品ページURL` に統一。必須項目はバッジで明示される方針に合わせ、任意表記を画面から減らした。
+影響範囲: AddOrEditProductView の表示文言のみ。入力・保存・URL整形ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorで文言反映を確認
+
+### 2026-02-24 (追記33)
+変更ファイル: Features/Products/AddOrEditProductView.swift, PROJECT_STATUS.md
+実装内容: アイテム登録/編集画面で色が揃っていなかった見出しを統一。購入場所（`ShopSelectionField`）の `Menu` に `.tint(.primary)` と `.buttonStyle(.plain)` を適用し、見出しがアクセントブルーにならないよう調整。商品URLは単体TextField行から、他項目と同様の `見出し + 入力欄` のHStack構成へ変更し、見出し色を `.primary` に統一した。
+影響範囲: AddOrEditProductView の基本情報セクション見た目のみ。保存ロジック・URL処理・写真処理への影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorで購入場所/商品URL見出し色が他項目と一致することを確認
+
+### 2026-02-24 (追記34)
+変更ファイル: Design/GlassCard.swift, Design/GlassTheme.swift, Features/Entries/EntryListView.swift, Features/Products/ProductListView.swift, PROJECT_STATUS.md
+実装内容: デザインカード・アイテムカードの外枠色を、内側カラーと同系の濃い色へ変更。`GlassCard` に `strokeColor` パラメータを追加し、カードごとに外枠色を指定できるよう拡張。`GlassTheme` の `DesignCardPalette` / `ItemCardPalette` に `outerStroke` を追加し、各プリセットごとに同系統の濃色を定義。`EntryRowView` と `ProductRow` の `GlassCard` へ `strokeColor: palette.outerStroke` を適用して、テーマ選択に応じて外枠色が連動するようにした。テーマ名（表示名称）は変更なし。
+影響範囲: デザイン一覧カードとアイテム一覧カードの最外周枠色。機能ロジック・データ保存・テーマ選択UIの挙動への影響なし。
+実機確認: 未実施（ユーザーによる見た目確認待ち）。
+次にやること: 1) 各テーマで外枠が内側同系の濃色になっているか確認 2) 必要なら外枠の不透明度を微調整
+
+### 2026-02-24 (追記35)
+変更ファイル: Design/GlassCard.swift, Design/GlassTheme.swift, PROJECT_STATUS.md
+実装内容: 「外枠が白く見える」問題に対応するため、カード最外周の枠線を強調。`GlassCard` の外枠線幅を `1.0 -> 1.25` に変更し、`GlassTheme` のデザイン/アイテム各プリセットの `outerStroke` をより濃い同系色（opacity 0.95）へ再調整した。これにより背景や内側ハイライトに埋もれず、外枠が同系色として認識しやすくなる。
+影響範囲: デザインカード/アイテムカードの最外周枠の見え方のみ。機能ロジック・保存処理への影響なし。
+実機確認: 未実施（ユーザーによる見た目確認待ち）。
+次にやること: 1) 実機/Simulatorで外枠色の見え方を確認 2) 必要なら線幅を 1.1〜1.4 の範囲で微調整
+
+### 2026-02-24 (追記36)
+変更ファイル: Design/GlassCard.swift, Design/GlassTheme.swift, Features/Entries/EntryListView.swift, Features/Products/ProductListView.swift, PROJECT_STATUS.md
+実装内容: ユーザー意図に合わせて「外枠線」ではなく「外側カード面」の色を調整。`GlassCard` に `backgroundGradient` 指定を追加し、デザインカード/アイテムカードでは外側カード面にテーマ連動の同系濃色グラデを適用するよう変更した。`GlassTheme` の各パレットへ `outerFillTop/outerFillBottom` を追加し、内側トーンより一段濃い色を定義。`EntryRowView` と `ProductRow` は `GlassCard(... backgroundGradient: ...)` 経由で外側カード色が切り替わる構成へ更新。
+影響範囲: デザイン一覧/用品一覧カードの外側カード面の色味。枠線・機能ロジック・データ保存への影響は限定的。
+実機確認: 未実施（ユーザーによる見た目確認待ち）。
+次にやること: 1) 各テーマで外側カード面が同系濃色に見えるか確認 2) 濃さが強すぎる場合は `outerFill` の明度を微調整
+
+### 2026-02-24 (追記37)
+変更ファイル: Design/GlassTheme.swift, PROJECT_STATUS.md
+実装内容: テーマカラーのプリセット数を各3種類から各5種類へ拡張。背景プリセットに `グラファイトミント / アイボリーコーラル`、デザインカードに `スレートブルー / テラコッタクリーム`、アイテムカードに `オリーブクレイ / プラムスモーク` を追加し、表示名と配色定義（内側・外側カード面・枠・タグ等）を実装した。設定画面は `allCases` 参照のためUI改修なしで選択肢が5件へ増加。
+影響範囲: テーマ選択の選択肢数とカード/背景の色バリエーション。機能ロジック・データ保存処理への影響なし。
+実機確認: 未実施（ユーザーによる見た目確認待ち）。
+次にやること: 1) 設定画面で各セクションが5件になっていることを確認 2) 新規追加2色ずつの見え方を実機/Simulatorで確認
+
+### 2026-02-24 (追記38)
+変更ファイル: Design/GlassCard.swift, PROJECT_STATUS.md
+実装内容: カード外枠線を単色からグラデーション描画へ変更。`GlassCard` の外枠 `stroke` を `LinearGradient` 化し、同じテーマ色の濃淡（0.95 -> 0.55）で topLeading から bottomTrailing に流れる見え方へ調整した。これによりデザインカード/アイテムカードの外枠が単色よりリッチに見えるようになった。
+影響範囲: GlassCard を利用するカード外枠線の見た目のみ。テーマ選択ロジック・データ保存処理への影響なし。
+実機確認: 未実施（ユーザーによる見た目確認待ち）。
+次にやること: 1) 実機/Simulatorで外枠グラデの見え方を確認 2) 必要なら線幅または濃淡差を微調整
+
+### 2026-02-24 (追記39)
+変更ファイル: Design/GlassCard.swift, Design/GlassTheme.swift, Features/Entries/EntryListView.swift, Features/Products/ProductListView.swift, PROJECT_STATUS.md
+実装内容: カード外枠グラデが見えにくい問題を修正。`GlassCard` に `strokeGradient` を追加し、左上→右下の方向で明示的にグラデーションを描画できるようにした。`GlassTheme` のデザイン/アイテム各パレットへ `outerStrokeStart` / `outerStrokeEnd` を追加し、同系色の濃淡2色をテーマごとに定義。`EntryRowView` と `ProductRow` から `strokeGradient` を渡す構成に変更し、外枠が単色に見えずリッチな同系グラデとして表示されるよう調整した。
+影響範囲: デザインカード/アイテムカード外枠線の見た目のみ。テーマ名・選択UI・保存ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる見た目確認待ち）。
+次にやること: 1) 各テーマで左上→右下グラデが視認できるか確認 2) 必要なら `outerStrokeStart/End` のコントラストを微調整
+
+### 2026-02-24 (追記40)
+変更ファイル: Design/GlassTheme.swift, PROJECT_STATUS.md
+実装内容: カード角の丸みを若干控えめにするため、共通角丸半径 `GlassTheme.cardCornerRadius` を `22 -> 20` に調整。これに連動してデザインカード/アイテムカードの外形と内部レイヤーの角丸も同率で小さくなる。
+影響範囲: GlassCard と関連レイヤーの角丸見た目のみ。機能ロジック・データ処理への影響なし。
+実機確認: 未実施（ユーザーによる見た目確認待ち）。
+次にやること: 1) 実機/Simulatorで丸みの減り具合を確認 2) 必要なら 19〜21 で微調整
+
+### 2026-02-24 (追記41)
+変更ファイル: Design/GlassTheme.swift, PROJECT_STATUS.md
+実装内容: ユーザー指定に合わせてカード共通角丸半径を `20 -> 15` へ変更。デザインカード/アイテムカードの外形と内部装飾レイヤーの角丸がよりシャープになるよう調整した。
+影響範囲: カード見た目（角丸）のみ。機能・データ処理への影響なし。
+実機確認: 未実施（ユーザーによる見た目確認待ち）。
+次にやること: 1) 実機/Simulatorで角丸15の印象を確認
+
+### 2026-02-24 (追記42)
+変更ファイル: Features/Entries/EntryListView.swift, Features/Products/ProductListView.swift, PROJECT_STATUS.md
+実装内容: カード外側と内側の距離を 1pt 狭めるため、デザインカード/アイテムカードの `GlassCard` 内側余白を `contentPadding: 10 -> 9` に変更。
+影響範囲: 記録一覧・用品一覧カードの内側余白のみ。機能ロジック・データ処理への影響なし。
+実機確認: 未実施（ユーザーによる見た目確認待ち）。
+次にやること: 1) 実機/Simulatorで9pt時の詰まり具合を確認 2) 必要なら 8〜10 の範囲で再調整
+
+### 2026-02-24 (追記43)
+変更ファイル: Features/Sim/SimHomeView.swift, PROJECT_STATUS.md
+実装内容: AIネイルスコア画面で「AI出力サンプル」カード直下に、`AI評価 実施済み / AI評価 未実施` のトグルを追加。選択状態に応じて、写真付き記録一覧を `aiScoreBridge != nil`（実施済み）または `aiScoreBridge == nil`（未実施）で絞り込むようにした。初期状態は未実施表示。該当データがない場合の空状態文言もフィルタ内容に合わせて出し分けるよう調整。
+影響範囲: SimHomeView の一覧表示フィルタUIと表示件数。AI評価実行ロジック・保存処理への影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorでトグル切替時に一覧が即時切替されることを確認 2) 空状態文言の表示を確認
+
+### 2026-02-24 (追記44)
+変更ファイル: Features/Sim/SimHomeView.swift, PROJECT_STATUS.md
+実装内容: AIタブ内の文言「AI出力サンプル」を「AI評価サンプル」に変更。カード見出し、ボタンラベル、サンプル画面のナビゲーションタイトルを統一した。
+影響範囲: SimHomeView の表示文言のみ。機能ロジック・評価処理への影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorで文言統一を確認
+
+### 2026-02-24 (追記45)
+変更ファイル: Features/Sim/SimHomeView.swift, PROJECT_STATUS.md
+実装内容: AI評価未実施カードの実行ボタン文言を `AIスコアを生成` から `AIネイルスコアを生成` に変更。再評価時の文言（`再評価を実行`）は維持。
+影響範囲: SimHomeView のボタン表示文言のみ。評価ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorで文言反映を確認
+
+### 2026-02-24 (追記46)
+変更ファイル: Features/Sim/SimHomeView.swift, PROJECT_STATUS.md
+実装内容: AIサンプル関連の文言を「AI評価サンプル」から「AIネイルスコア出力サンプル」へ変更。カード見出し、確認ボタン、サンプル画面ナビゲーションタイトルを統一した。
+影響範囲: SimHomeView の表示文言のみ。機能ロジック・評価処理への影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorで文言反映を確認
+
+### 2026-02-24 (追記47)
+変更ファイル: Design/GlassTheme.swift, Features/Settings/SettingsView.swift, Features/Sim/SimHomeView.swift, PROJECT_STATUS.md
+実装内容: AI評価チャートのカラーをテーマ切替できるよう拡張。`GlassTheme` に `AIScoreChartPreset`（5種類）と `AIScoreChartPalette` を追加し、`ThemeAIChartPreset` キーで保存する構成を実装。設定画面のテーマセクションへ `AI評価チャート` Picker を追加。`AIScoreRadarChart` はハードコード色を廃止し、`@AppStorage(ThemeAIChartPreset)` と `GlassTheme.aiScoreChartPalette(for:)` を参照して、ハロー/グリッド/軸/ポリゴン/頂点/中央メダル/ラベルの配色が即時切替されるように変更した。
+影響範囲: SimHomeView のAIレーダーチャート配色とSettingsViewのテーマ設定UI。評価ロジック・保存データ（スコア値等）への影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 設定画面でAI評価チャートテーマが5件表示されることを確認 2) 各テーマ切替でチャート色が即時反映されることを確認
+
+### 2026-02-24 (追記48)
+変更ファイル: Features/Sim/SimHomeView.swift, PROJECT_STATUS.md
+実装内容: 「AI評価 実施済み」フィルタ選択時に、カードの評価結果を閉じた状態で表示するよう挙動を変更。`evaluationFilter` の切替監視を追加し、`evaluated` 選択時に `expandedEntries` をクリアするようにした。あわせて `syncExpandedEntries()` から評価済みカードの自動展開ロジックを除去し、評価結果はユーザー操作で開く方式へ統一。
+影響範囲: SimHomeView のカード展開初期状態のみ。評価実行ロジック・保存データ・フィルタ条件への影響なし。
+実機確認: 未実施（ユーザーによる動作確認待ち）。
+次にやること: 1) 「実施済み」切替直後に全カードが閉じて表示されることを確認 2) 任意カードを開閉できることを確認

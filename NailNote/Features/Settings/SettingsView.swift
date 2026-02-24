@@ -2,6 +2,10 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.openURL) private var openURL
+    @AppStorage(GlassTheme.Keys.backgroundPreset) private var backgroundPresetRaw: String = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
+    @AppStorage(GlassTheme.Keys.designCardPreset) private var designCardPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
+    @AppStorage(GlassTheme.Keys.itemCardPreset) private var itemCardPresetRaw: String = GlassTheme.ItemCardPreset.mintStone.rawValue
+    @AppStorage(GlassTheme.Keys.aiChartPreset) private var aiChartPresetRaw: String = GlassTheme.AIScoreChartPreset.freshGreen.rawValue
 
     private let supportLinks: [SupportLink] = [
         .init(title: "利用規約", systemImage: "doc.text", urlString: "https://example.com/terms"),
@@ -52,11 +56,65 @@ struct SettingsView: View {
                             }
                         }
                     }
+
+                    Section("テーマ") {
+                        Picker("ページ背景", selection: backgroundPresetBinding) {
+                            ForEach(GlassTheme.BackgroundPreset.allCases) { preset in
+                                Text(preset.displayName).tag(preset)
+                            }
+                        }
+
+                        Picker("デザインカード", selection: designCardPresetBinding) {
+                            ForEach(GlassTheme.DesignCardPreset.allCases) { preset in
+                                Text(preset.displayName).tag(preset)
+                            }
+                        }
+
+                        Picker("アイテムカード", selection: itemCardPresetBinding) {
+                            ForEach(GlassTheme.ItemCardPreset.allCases) { preset in
+                                Text(preset.displayName).tag(preset)
+                            }
+                        }
+
+                        Picker("AI評価チャート", selection: aiChartPresetBinding) {
+                            ForEach(GlassTheme.AIScoreChartPreset.allCases) { preset in
+                                Text(preset.displayName).tag(preset)
+                            }
+                        }
+                    }
                 }
                 .scrollContentBackground(.hidden)
             }
             .navigationTitle("設定")
         }
+    }
+
+    private var backgroundPresetBinding: Binding<GlassTheme.BackgroundPreset> {
+        Binding(
+            get: { GlassTheme.BackgroundPreset(rawValue: backgroundPresetRaw) ?? .smokySageChampagne },
+            set: { backgroundPresetRaw = $0.rawValue }
+        )
+    }
+
+    private var designCardPresetBinding: Binding<GlassTheme.DesignCardPreset> {
+        Binding(
+            get: { GlassTheme.DesignCardPreset(rawValue: designCardPresetRaw) ?? .roseChampagne },
+            set: { designCardPresetRaw = $0.rawValue }
+        )
+    }
+
+    private var itemCardPresetBinding: Binding<GlassTheme.ItemCardPreset> {
+        Binding(
+            get: { GlassTheme.ItemCardPreset(rawValue: itemCardPresetRaw) ?? .mintStone },
+            set: { itemCardPresetRaw = $0.rawValue }
+        )
+    }
+
+    private var aiChartPresetBinding: Binding<GlassTheme.AIScoreChartPreset> {
+        Binding(
+            get: { GlassTheme.AIScoreChartPreset(rawValue: aiChartPresetRaw) ?? .freshGreen },
+            set: { aiChartPresetRaw = $0.rawValue }
+        )
     }
 }
 

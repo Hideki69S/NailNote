@@ -28,6 +28,9 @@ struct EditEntryView: View {
     @State private var photoItem: PhotosPickerItem?
     @State private var selectedUIImage: UIImage?
     @State private var removeExistingPhoto: Bool = false
+    @State private var showingPhotoPicker = false
+    @State private var showingPhotoChangeConfirm = false
+    @State private var showingPhotoDeleteConfirm = false
 
     var body: some View {
         GlassBackgroundView {
@@ -62,6 +65,25 @@ struct EditEntryView: View {
         .onAppear {
             loadFromEntry()
         }
+        .confirmationDialog("写真を変更しますか？", isPresented: $showingPhotoChangeConfirm, titleVisibility: .visible) {
+            Button("写真を変更") {
+                showingPhotoPicker = true
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("この写真に紐づくAIスコアはリセットされます。")
+        }
+        .confirmationDialog("写真を削除しますか？", isPresented: $showingPhotoDeleteConfirm, titleVisibility: .visible) {
+            Button("写真を削除", role: .destructive) {
+                selectedUIImage = nil
+                photoItem = nil
+                removeExistingPhoto = true
+            }
+            Button("キャンセル", role: .cancel) {}
+        } message: {
+            Text("この写真に紐づくAIスコアはリセットされます。")
+        }
+        .photosPicker(isPresented: $showingPhotoPicker, selection: $photoItem, matching: .images)
     }
 
     private var dateFormatted: String {
@@ -141,18 +163,20 @@ struct EditEntryView: View {
             HStack(spacing: 12) {
                 photoPreview
                 VStack(alignment: .leading, spacing: 8) {
-                    PhotosPicker(selection: $photoItem, matching: .images) {
+                    Button {
+                        showingPhotoChangeConfirm = true
+                    } label: {
                         Label("写真を変更", systemImage: "photo.on.rectangle")
                     }
+                    .buttonStyle(.borderless)
 
                     if entry.photoId != nil || selectedUIImage != nil {
                         Button(role: .destructive) {
-                            selectedUIImage = nil
-                            photoItem = nil
-                            removeExistingPhoto = true
+                            showingPhotoDeleteConfirm = true
                         } label: {
                             Label("写真を削除", systemImage: "trash")
                         }
+                        .buttonStyle(.borderless)
                     }
                 }
             }
@@ -331,7 +355,10 @@ struct EditEntryView: View {
         }
 
         // 写真
-        applyPhotoChange()
+        let didChangePhoto = applyPhotoChange()
+        if didChangePhoto {
+            resetAIScore()
+        }
 
         do {
             try viewContext.save()
@@ -341,14 +368,14 @@ struct EditEntryView: View {
         }
     }
 
-    private func applyPhotoChange() {
+    private func applyPhotoChange() -> Bool {
         // 1) 削除が要求されている場合
         if removeExistingPhoto {
             if let old = entry.photoId {
                 EntryPhotoStore.delete(photoId: old)
             }
             entry.photoId = nil
-            return
+            return true
         }
 
         // 2) 新しい画像が選ばれている場合（差し替え）
@@ -361,8 +388,16 @@ struct EditEntryView: View {
             let newId = UUID()
             EntryPhotoStore.save(image: img, photoId: newId)
             entry.photoId = newId
+            return true
         }
         // 3) 何もしてない場合はそのまま
+        return false
+    }
+
+    private func resetAIScore() {
+        guard let aiScore = entry.aiScore else { return }
+        viewContext.delete(aiScore)
+        entry.aiScore = nil
     }
 
 }

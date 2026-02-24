@@ -27,6 +27,9 @@ struct AddEntryView: View {
     // 写真
     @State private var photoItem: PhotosPickerItem?
     @State private var selectedUIImage: UIImage?
+    @State private var showingPhotoPicker = false
+    @State private var showingPhotoChangeConfirm = false
+    @State private var showingPhotoDeleteConfirm = false
 
     var body: some View {
         NavigationStack {
@@ -56,17 +59,20 @@ struct AddEntryView: View {
                     HStack(spacing: 12) {
                         photoPreview
                         VStack(alignment: .leading, spacing: 8) {
-                            PhotosPicker(selection: $photoItem, matching: .images) {
+                            Button {
+                                showingPhotoChangeConfirm = true
+                            } label: {
                                 Label("写真を選ぶ", systemImage: "photo.on.rectangle")
                             }
+                            .buttonStyle(.borderless)
 
                             if selectedUIImage != nil {
                                 Button(role: .destructive) {
-                                    selectedUIImage = nil
-                                    photoItem = nil
+                                    showingPhotoDeleteConfirm = true
                                 } label: {
                                     Label("写真を外す", systemImage: "trash")
                                 }
+                                .buttonStyle(.borderless)
                             }
                         }
                     }
@@ -136,6 +142,24 @@ struct AddEntryView: View {
             } message: {
                 Text("タイトル・実施日付・デザイン・カラー系統をすべて入力してください。")
             }
+            .confirmationDialog("写真を変更しますか？", isPresented: $showingPhotoChangeConfirm, titleVisibility: .visible) {
+                Button("写真を変更") {
+                    showingPhotoPicker = true
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("この写真に紐づくAIスコアはリセットされます。")
+            }
+            .confirmationDialog("写真を削除しますか？", isPresented: $showingPhotoDeleteConfirm, titleVisibility: .visible) {
+                Button("写真を削除", role: .destructive) {
+                    selectedUIImage = nil
+                    photoItem = nil
+                }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("この写真に紐づくAIスコアはリセットされます。")
+            }
+            .photosPicker(isPresented: $showingPhotoPicker, selection: $photoItem, matching: .images)
         }
     }
 

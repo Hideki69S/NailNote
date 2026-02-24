@@ -38,7 +38,6 @@ struct AddOrEditProductView: View {
     // Form state
     @State private var name: String = ""
     @State private var category: NailProductCategory = .color
-    @State private var purchasedAtEnabled: Bool = false
     @State private var purchasedAt: Date = Date()
     @State private var purchasePlace: String = ""
     @State private var priceText: String = ""   // 空スタート
@@ -53,11 +52,13 @@ struct AddOrEditProductView: View {
     @State private var mainPhotoItem: PhotosPickerItem?
     @State private var mainUIImage: UIImage?
     @State private var removeMain: Bool = false
+    @State private var showingMainPhotoPicker: Bool = false
 
     // 写真（サンプルカラー）
     @State private var samplePhotoItem: PhotosPickerItem?
     @State private var sampleUIImage: UIImage?
     @State private var removeSample: Bool = false
+    @State private var showingSamplePhotoPicker: Bool = false
     private static let currencyFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
@@ -78,27 +79,43 @@ struct AddOrEditProductView: View {
             GlassBackgroundView {
                 Form {
                 Section("基本") {
-                    TextField("商品名", text: $name)
-
-                    Picker("カテゴリ", selection: $category) {
-                        ForEach(NailProductCategory.allCases) { c in
-                            Text(c.displayName).tag(c)
-                        }
+                    HStack(spacing: 8) {
+                        Text("商品名")
+                        RequiredBadge()
+                        Spacer()
+                        TextField("必須", text: $name)
+                            .multilineTextAlignment(.trailing)
                     }
 
-                    Toggle("購入日を記録する", isOn: $purchasedAtEnabled)
-                    if purchasedAtEnabled {
-                        DatePicker("購入日", selection: $purchasedAt, displayedComponents: .date)
+                    HStack(spacing: 8) {
+                        Text("カテゴリ")
+                        RequiredBadge()
+                        Spacer()
+                        Picker("", selection: $category) {
+                            ForEach(NailProductCategory.allCases) { c in
+                                Text(c.displayName).tag(c)
+                            }
+                        }
+                        .labelsHidden()
+                    }
+
+                    DatePicker("購入日", selection: $purchasedAt, displayedComponents: .date)
                         .environment(\.calendar, Self.gregorianCalendar)
                         .environment(\.locale, Self.japaneseLocale)
-                    }
 
                     ShopSelectionField(title: "購入場所", options: shopOptions, selection: $purchasePlace)
 
-                    TextField("商品ページURL（任意）", text: $productURLText)
-                        .keyboardType(.URL)
-                        .textInputAutocapitalization(.never)
-                        .disableAutocorrection(true)
+                    HStack {
+                        Text("商品ページURL")
+                            .font(.body)
+                            .foregroundStyle(.primary)
+                        Spacer()
+                        TextField("未入力", text: $productURLText)
+                            .multilineTextAlignment(.trailing)
+                            .keyboardType(.URL)
+                            .textInputAutocapitalization(.never)
+                            .disableAutocorrection(true)
+                    }
 
                     if linkURL != nil || shareItem != nil {
                         HStack(spacing: 12) {
@@ -133,9 +150,12 @@ struct AddOrEditProductView: View {
                     HStack(spacing: 12) {
                         mainPhotoPreview
                         VStack(alignment: .leading, spacing: 10) {
-                            PhotosPicker(selection: $mainPhotoItem, matching: .images) {
+                            Button {
+                                showingMainPhotoPicker = true
+                            } label: {
                                 Label(mode.isEdit ? "写真を変更" : "写真を選ぶ", systemImage: "photo.on.rectangle")
                             }
+                            .buttonStyle(.borderless)
 
                             if hasAnyMainPhoto {
                                 Button(role: .destructive) {
@@ -145,6 +165,7 @@ struct AddOrEditProductView: View {
                                 } label: {
                                     Label("写真を削除", systemImage: "trash")
                                 }
+                                .buttonStyle(.borderless)
                             }
                         }
                     }
@@ -160,9 +181,12 @@ struct AddOrEditProductView: View {
                     HStack(spacing: 12) {
                         samplePhotoPreview
                         VStack(alignment: .leading, spacing: 10) {
-                            PhotosPicker(selection: $samplePhotoItem, matching: .images) {
+                            Button {
+                                showingSamplePhotoPicker = true
+                            } label: {
                                 Label(mode.isEdit ? "写真を変更" : "写真を選ぶ", systemImage: "photo.on.rectangle")
                             }
+                            .buttonStyle(.borderless)
 
                             if hasAnySamplePhoto {
                                 Button(role: .destructive) {
@@ -172,6 +196,7 @@ struct AddOrEditProductView: View {
                                 } label: {
                                     Label("写真を削除", systemImage: "trash")
                                 }
+                                .buttonStyle(.borderless)
                             }
                         }
                     }
@@ -185,6 +210,8 @@ struct AddOrEditProductView: View {
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
             }
+            .photosPicker(isPresented: $showingMainPhotoPicker, selection: $mainPhotoItem, matching: .images)
+            .photosPicker(isPresented: $showingSamplePhotoPicker, selection: $samplePhotoItem, matching: .images)
             .navigationTitle(mode.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -268,7 +295,6 @@ struct AddOrEditProductView: View {
             // add の初期値
             name = ""
             category = .color
-            purchasedAtEnabled = false
             purchasedAt = Date()
             purchasePlace = ""
             priceText = ""
@@ -289,13 +315,7 @@ struct AddOrEditProductView: View {
         // category は CoreDataが String の想定：NailProductCategory と相互変換
         category = NailProductCategory(rawValue: (p.category ?? "")) ?? .color
 
-        if let d = p.purchasedAt {
-            purchasedAtEnabled = true
-            purchasedAt = d
-        } else {
-            purchasedAtEnabled = false
-            purchasedAt = Date()
-        }
+        purchasedAt = p.purchasedAt ?? Date()
 
         purchasePlace = p.purchasePlace ?? ""
         priceText = p.priceYenTaxIn == 0 ? "" : "\(p.priceYenTaxIn)"
@@ -339,7 +359,7 @@ struct AddOrEditProductView: View {
 
         p.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
         p.category = category.rawValue
-        p.purchasedAt = purchasedAtEnabled ? purchasedAt : nil
+        p.purchasedAt = purchasedAt
         p.purchasePlace = purchasePlace.trimmingCharacters(in: .whitespacesAndNewlines)
         let trimmedURL = productURLText.trimmingCharacters(in: .whitespacesAndNewlines)
         p.productUrl = trimmedURL.isEmpty ? nil : trimmedURL
@@ -441,6 +461,18 @@ struct AddOrEditProductView: View {
     }
 }
 
+private struct RequiredBadge: View {
+    var body: some View {
+        Text("必須")
+            .font(.caption2.weight(.semibold))
+            .padding(.horizontal, 6)
+            .padding(.vertical, 2)
+            .background(Color.red.opacity(0.12))
+            .foregroundStyle(Color.red)
+            .clipShape(Capsule())
+    }
+}
+
 private struct ShopSelectionField: View {
     let title: String
     let options: [String]
@@ -485,6 +517,8 @@ private struct ShopSelectionField: View {
                         .lineLimit(1)
                 }
             }
+            .tint(.primary)
+            .buttonStyle(.plain)
 
             if isAddingCustom {
                 VStack(alignment: .leading, spacing: 6) {
