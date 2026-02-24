@@ -4,7 +4,7 @@ struct SettingsView: View {
     @Environment(\.openURL) private var openURL
     @AppStorage(GlassTheme.Keys.backgroundPreset) private var backgroundPresetRaw: String = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
     @AppStorage(GlassTheme.Keys.designCardPreset) private var designCardPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
-    @AppStorage(GlassTheme.Keys.itemCardPreset) private var itemCardPresetRaw: String = GlassTheme.ItemCardPreset.mintStone.rawValue
+    @AppStorage(GlassTheme.Keys.itemCardPreset) private var itemCardPresetRaw: String = GlassTheme.ItemCardPreset.roseChampagne.rawValue
     @AppStorage(GlassTheme.Keys.aiChartPreset) private var aiChartPresetRaw: String = GlassTheme.AIScoreChartPreset.freshGreen.rawValue
 
     private let supportLinks: [SupportLink] = [
@@ -105,7 +105,7 @@ struct SettingsView: View {
 
     private var itemCardPresetBinding: Binding<GlassTheme.ItemCardPreset> {
         Binding(
-            get: { GlassTheme.ItemCardPreset(rawValue: itemCardPresetRaw) ?? .mintStone },
+            get: { GlassTheme.ItemCardPreset(rawValue: itemCardPresetRaw) ?? .roseChampagne },
             set: { itemCardPresetRaw = $0.rawValue }
         )
     }

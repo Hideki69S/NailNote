@@ -114,10 +114,11 @@ private enum EntrySortField: String, CaseIterable, Identifiable {
 
 struct EntryRowView: View {
     @ObservedObject var entry: NailEntry
+    let cardIndex: Int
     @AppStorage(GlassTheme.Keys.designCardPreset) private var designCardPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
     private var palette: GlassTheme.DesignCardPalette {
         let preset = GlassTheme.DesignCardPreset(rawValue: designCardPresetRaw) ?? .roseChampagne
-        return GlassTheme.designCardPalette(for: preset)
+        return GlassTheme.designCardPalette(for: preset, variantIndex: cardIndex)
     }
 
     var body: some View {
@@ -137,7 +138,7 @@ struct EntryRowView: View {
             )
         ) {
             ZStack {
-                EntryCardGlowLayer()
+                EntryCardGlowLayer(palette: palette)
                 HStack(spacing: 18) {
                     EntryThumbnailView(photoId: entry.photoId, aiScore: entry.aiScoreBridge?.totalScore)
                         .offset(x: 5)
@@ -311,11 +312,11 @@ private extension EntryListView {
                     .listRowSeparator(.hidden)
             } else {
                 Section {
-                    ForEach(sortedEntries, id: \.objectID) { entry in
+                    ForEach(Array(sortedEntries.enumerated()), id: \.element.objectID) { index, entry in
                         ZStack {
                             HStack(spacing: 0) {
                                 Spacer(minLength: 0)
-                                EntryRowView(entry: entry)
+                                EntryRowView(entry: entry, cardIndex: index)
                                 Spacer(minLength: 0)
                             }
                             NavigationLink {
@@ -690,11 +691,7 @@ private extension EntryRowView {
 }
 
 private struct EntryCardGlowLayer: View {
-    @AppStorage(GlassTheme.Keys.designCardPreset) private var designCardPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
-    private var palette: GlassTheme.DesignCardPalette {
-        let preset = GlassTheme.DesignCardPreset(rawValue: designCardPresetRaw) ?? .roseChampagne
-        return GlassTheme.designCardPalette(for: preset)
-    }
+    let palette: GlassTheme.DesignCardPalette
 
     var body: some View {
         RoundedRectangle(cornerRadius: GlassTheme.cardCornerRadius - 4, style: .continuous)

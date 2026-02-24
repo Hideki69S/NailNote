@@ -106,7 +106,7 @@ private extension ProductListView {
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
             } else {
-                ForEach(filteredProducts) { product in
+                ForEach(Array(filteredProducts.enumerated()), id: \.element.objectID) { index, product in
                     Button {
                         editingProduct = product
                     } label: {
@@ -114,6 +114,7 @@ private extension ProductListView {
                             Spacer(minLength: 0)
                             ProductRow(
                                 product: product,
+                                cardIndex: index,
                                 isFavorite: isFavorite(product),
                                 toggleFavorite: { toggleFavorite(product) }
                             )
@@ -161,14 +162,15 @@ private struct AdPlaceholderRow: View {
 
 private struct ProductRow: View {
     let product: NailProduct
+    let cardIndex: Int
     let isFavorite: Bool
     let toggleFavorite: () -> Void
-    @AppStorage(GlassTheme.Keys.itemCardPreset) private var itemCardPresetRaw: String = GlassTheme.ItemCardPreset.mintStone.rawValue
+    @AppStorage(GlassTheme.Keys.itemCardPreset) private var itemCardPresetRaw: String = GlassTheme.ItemCardPreset.roseChampagne.rawValue
     private let textInset: CGFloat = 8
     private let mediaShiftLeft: CGFloat = 6
     private var palette: GlassTheme.ItemCardPalette {
-        let preset = GlassTheme.ItemCardPreset(rawValue: itemCardPresetRaw) ?? .mintStone
-        return GlassTheme.itemCardPalette(for: preset)
+        let preset = GlassTheme.ItemCardPreset(rawValue: itemCardPresetRaw) ?? .roseChampagne
+        return GlassTheme.itemCardPalette(for: preset, variantIndex: cardIndex)
     }
 
     private static let dateFormatter: DateFormatter = {
@@ -641,11 +643,11 @@ private struct FavoriteButton: View {
 private struct ProductInfoTag: View {
     let title: String
     let systemImage: String
-    @AppStorage(GlassTheme.Keys.designCardPreset) private var designCardPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
+    @AppStorage(GlassTheme.Keys.itemCardPreset) private var itemCardPresetRaw: String = GlassTheme.ItemCardPreset.roseChampagne.rawValue
 
-    private var palette: GlassTheme.DesignCardPalette {
-        let preset = GlassTheme.DesignCardPreset(rawValue: designCardPresetRaw) ?? .roseChampagne
-        return GlassTheme.designCardPalette(for: preset)
+    private var palette: GlassTheme.ItemCardPalette {
+        let preset = GlassTheme.ItemCardPreset(rawValue: itemCardPresetRaw) ?? .roseChampagne
+        return GlassTheme.itemCardPalette(for: preset)
     }
 
     var body: some View {
@@ -657,7 +659,7 @@ private struct ProductInfoTag: View {
                 .font(.caption2.weight(.medium))
                 .lineLimit(1)
         }
-        .foregroundStyle(palette.tagText)
+        .foregroundStyle(palette.outerStrokeEnd)
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
         .background(
@@ -665,7 +667,7 @@ private struct ProductInfoTag: View {
                 .fill(Color.white.opacity(0.74))
                 .overlay(
                     Capsule()
-                        .stroke(palette.tagStroke, lineWidth: 0.7)
+                        .stroke(palette.strokeStart, lineWidth: 0.7)
                 )
         )
         .fixedSize(horizontal: true, vertical: true)
