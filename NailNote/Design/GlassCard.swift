@@ -4,16 +4,22 @@ import SwiftUI
 struct GlassCard<Content: View>: View {
     let content: Content
     let maxWidth: CGFloat?
+    let contentPadding: CGFloat
 
-    init(maxWidth: CGFloat? = nil, @ViewBuilder content: () -> Content) {
+    init(
+        maxWidth: CGFloat? = nil,
+        contentPadding: CGFloat = 16,
+        @ViewBuilder content: () -> Content
+    ) {
         self.content = content()
         self.maxWidth = maxWidth
+        self.contentPadding = contentPadding
     }
 
     var body: some View {
         content
             .foregroundStyle(.primary)
-            .padding(16)
+            .padding(contentPadding)
             .frame(maxWidth: maxWidth ?? .infinity, alignment: .leading)
             .background(cardBackground)
             .overlay(

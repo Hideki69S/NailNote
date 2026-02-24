@@ -498,10 +498,10 @@ private struct StyledFilterField: View {
         .padding(.vertical, 10)
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.ultraThinMaterial)
+        .background(Color.white)
         .overlay(
             Capsule()
-                .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                .stroke(Color.black.opacity(0.05), lineWidth: 1)
         )
         .clipShape(Capsule())
     }
@@ -538,10 +538,10 @@ private struct ShopFilterMenu: View {
             .padding(.vertical, 10)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity)
-            .background(.ultraThinMaterial)
+            .background(Color.white)
             .overlay(
                 Capsule()
-                    .stroke(Color.white.opacity(0.35), lineWidth: 1)
+                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
             )
             .clipShape(Capsule())
         }

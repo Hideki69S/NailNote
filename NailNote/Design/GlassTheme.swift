@@ -2,13 +2,13 @@ import SwiftUI
 
 /// Glassmorphism用の共通カラーテーマ
 struct GlassTheme {
-    /// 背景グラデーション（青紫〜ミント）で白飛びを抑制
+    /// 背景グラデーション（スモーキーセージ〜シャンパン）
     static var backgroundGradient: LinearGradient {
         LinearGradient(
             colors: [
-                Color(red: 0.99, green: 0.83, blue: 0.94),
-                Color(red: 0.78, green: 0.86, blue: 0.99),
-                Color(red: 0.72, green: 0.94, blue: 0.90)
+                Color(red: 0.95, green: 0.97, blue: 0.94),
+                Color(red: 0.90, green: 0.94, blue: 0.89),
+                Color(red: 0.97, green: 0.92, blue: 0.84)
             ],
             startPoint: .topLeading,
             endPoint: .bottomTrailing
@@ -18,9 +18,9 @@ struct GlassTheme {
     /// オーブ（光）に使う色
     static var orbColors: [Color] {
         [
-            Color(red: 1.00, green: 0.67, blue: 0.82).opacity(0.35),
-            Color(red: 0.58, green: 0.78, blue: 0.99).opacity(0.32),
-            Color(red: 0.64, green: 0.95, blue: 0.79).opacity(0.30)
+            Color(red: 0.79, green: 0.89, blue: 0.77).opacity(0.30),
+            Color(red: 0.94, green: 0.86, blue: 0.76).opacity(0.28),
+            Color(red: 0.86, green: 0.93, blue: 0.84).opacity(0.26)
         ]
     }
 

@@ -18,7 +18,7 @@ struct RootView: View {
             // AIネイルスコア
             SimHomeView()
                 .tabItem {
-                    Label("AI", systemImage: "sparkles")
+                    Label("AI", systemImage: "pencil.and.outline")
                 }
 
             // 設定（Settings）

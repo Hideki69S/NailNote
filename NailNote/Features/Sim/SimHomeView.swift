@@ -28,6 +28,7 @@ struct SimHomeView: View {
 
     private var content: some View {
         let entriesSnapshot = Array(entries)
+        let photoEntries = entriesSnapshot.filter { $0.photoId != nil }
 
         return VStack(spacing: 0) {
             AdPlaceholderBanner()
@@ -37,13 +38,16 @@ struct SimHomeView: View {
                 ScrollView {
                     VStack(spacing: 16) {
                         heroCard
+                        Text("※AI評価にはデザイン写真の登録が必要です。")
+                            .font(.caption)
+                            .foregroundStyle(Color.red)
                         AISampleCardView(showingSample: $showingSample)
-                        if entriesSnapshot.isEmpty {
-                            ContentUnavailableView("評価できる記録がありません", systemImage: "camera")
+                        if photoEntries.isEmpty {
+                            ContentUnavailableView("写真付きの記録がありません", systemImage: "camera")
                                 .frame(maxWidth: .infinity, minHeight: 220)
                         } else {
                             LazyVStack(spacing: 16) {
-                                ForEach(entriesSnapshot, id: \.objectID) { entry in
+                                ForEach(photoEntries, id: \.objectID) { entry in
                                     AIScoreEntryCard(
                                         entry: entry,
                                         isEvaluating: evaluatingEntryID == entry.objectID,
@@ -258,7 +262,7 @@ private struct AIScoreEntryCard: View {
         GlassCard {
             VStack(alignment: .leading, spacing: 12) {
                 HStack(alignment: .top, spacing: 12) {
-                    EntryThumbnailView(photoId: entry.photoId)
+                    EntryThumbnailView(photoId: entry.photoId, aiScore: entry.aiScoreBridge?.totalScore)
                     VStack(alignment: .leading, spacing: 6) {
                         Text(displayTitle)
                             .font(.headline)
@@ -294,7 +298,7 @@ private struct AIScoreEntryCard: View {
                     .buttonStyle(.plain)
                     .frame(maxWidth: .infinity, alignment: .trailing)
                 } else {
-                    Text("まだAI評価がありません。写真付きの記録なら、下のボタンからすぐに採点できます。")
+                    Text("まだAI評価がありません。")
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -405,6 +409,12 @@ private struct AIScoreDisplayData: Identifiable {
     let evaluatedAt: Date?
 }
 
+private struct AIScoreMetricComment: Identifiable {
+    let id = UUID()
+    let title: String
+    let text: String
+}
+
 private extension AIScoreDisplayData {
     init(score: EntryAIScoreBridge) {
         self.totalScore = Int(score.totalScore)
@@ -431,9 +441,11 @@ private extension AIScoreDisplayData {
             designBalance: 85,
             durabilityPrediction: 70,
             highlights: [
-                "色ムラが少なくツヤがきれいに出ています",
-                "パーツ配置が整っていて統一感があります",
-                "手肌のトーンとも相性が良い色味に見えます"
+                "仕上がり: 色ムラが少なく、光の反射も均一でツヤがきれいに出ています。",
+                "甘皮ライン: ライン際は概ね整っていますが、薬指だけ境界にわずかな揺れが見えます。",
+                "厚み: 全体の厚みは安定していますが、先端側が少しだけ重く見える箇所があります。",
+                "デザイン: 配色の統一感が高く、視線誘導が自然で完成度の高いバランスです。",
+                "持ち予測: 現状なら日常使用で十分持つ見込みですが、先端の摩耗には注意が必要です。"
             ],
             improvements: [
                 "甘皮ライン付近をもう少し薄く塗り広げると境目が馴染みそうです",
@@ -452,6 +464,54 @@ private extension AIScoreDisplayData {
             ],
             evaluatedAt: Date()
         )
+    }
+
+    var metricComments: [AIScoreMetricComment] {
+        let orderedTitles = ["仕上がり", "甘皮ライン", "厚み", "デザイン", "持ち予測"]
+        let parsed = parseMetricComments(from: highlights)
+
+        if orderedTitles.allSatisfy({ parsed[$0] != nil }) {
+            return orderedTitles.compactMap { title in
+                guard let text = parsed[title], !text.isEmpty else { return nil }
+                return AIScoreMetricComment(title: title, text: text)
+            }
+        }
+
+        let fallbackScores: [(String, Int)] = [
+            ("仕上がり", finishQuality),
+            ("甘皮ライン", edgeAndCuticle),
+            ("厚み", thicknessBalance),
+            ("デザイン", designBalance),
+            ("持ち予測", durabilityPrediction)
+        ]
+        return fallbackScores.map { title, score in
+            AIScoreMetricComment(title: title, text: fallbackMetricComment(title: title, score: score))
+        }
+    }
+
+    private func parseMetricComments(from items: [String]) -> [String: String] {
+        var result: [String: String] = [:]
+        for item in items {
+            let normalized = item.replacingOccurrences(of: "：", with: ":")
+            guard let separatorIndex = normalized.firstIndex(of: ":") else { continue }
+            let title = String(normalized[..<separatorIndex]).trimmingCharacters(in: .whitespacesAndNewlines)
+            let textStart = normalized.index(after: separatorIndex)
+            let text = String(normalized[textStart...]).trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !title.isEmpty, !text.isEmpty else { continue }
+            result[title] = text
+        }
+        return result
+    }
+
+    private func fallbackMetricComment(title: String, score: Int) -> String {
+        switch score {
+        case 85...100:
+            return "\(title)は高水準です。現在の手順を維持すると再現性を保ちやすいです。"
+        case 70..<85:
+            return "\(title)は安定しています。細部を少し整えるとさらに完成度が上がります。"
+        default:
+            return "\(title)は改善余地があります。工程を分けて丁寧に確認すると向上しやすいです。"
+        }
     }
 }
 
@@ -488,14 +548,11 @@ private struct EntryAIScoreSummaryView: View {
             }
 
             AIScoreRadarChart(metrics: radarMetrics, centerText: "\(data.totalScore)")
-                .frame(height: 200)
+                .frame(height: 220)
                 .padding(.top, 8)
 
-            if !data.highlights.isEmpty {
-                TagListView(title: "Good", icon: "hand.thumbsup.fill", tags: data.highlights)
-            }
-            if !data.improvements.isEmpty {
-                TagListView(title: "Improve", icon: "wrench.adjustable.fill", tags: data.improvements)
+            if !data.metricComments.isEmpty {
+                MetricCommentListView(comments: data.metricComments)
             }
             if !data.nextSteps.isEmpty {
                 TagListView(title: "Next", icon: "arrowshape.turn.up.forward.fill", tags: data.nextSteps)
@@ -545,6 +602,31 @@ private struct AISampleCardView: View {
     }
 }
 
+private struct MetricCommentListView: View {
+    let comments: [AIScoreMetricComment]
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Label("5項目コメント", systemImage: "text.bubble")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            ForEach(comments) { comment in
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(comment.title)
+                        .font(.caption.weight(.bold))
+                        .foregroundStyle(.secondary)
+                    Text(comment.text)
+                        .font(.subheadline)
+                        .foregroundStyle(.primary)
+                }
+                .padding(10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+            }
+        }
+    }
+}
+
 private struct TagListView: View {
     let title: String
     let icon: String
@@ -581,15 +663,55 @@ private struct AIScoreRadarChart: View {
         GeometryReader { proxy in
             let size = min(proxy.size.width, proxy.size.height)
             let center = CGPoint(x: proxy.size.width / 2, y: proxy.size.height / 2)
-            let radius = size / 2
+            let radius = (size / 2) * 0.86
             ZStack {
+                Circle()
+                    .fill(
+                        RadialGradient(
+                            colors: [
+                                Color(red: 0.78, green: 0.95, blue: 0.84).opacity(0.22),
+                                Color(red: 0.65, green: 0.86, blue: 0.74).opacity(0.12),
+                                .clear
+                            ],
+                            center: .center,
+                            startRadius: 8,
+                            endRadius: radius * 1.25
+                        )
+                    )
+                    .frame(width: radius * 2.35, height: radius * 2.35)
+                    .position(center)
+
                 ForEach(1...gridLevel, id: \.self) { level in
                     radarPath(scale: Double(level) / Double(gridLevel), center: center, radius: radius)
-                        .stroke(Color.white.opacity(0.15), lineWidth: 1)
+                        .stroke(
+                            level == gridLevel
+                            ? Color(red: 0.38, green: 0.64, blue: 0.49).opacity(0.60)
+                            : Color(red: 0.50, green: 0.73, blue: 0.58).opacity(0.30),
+                            lineWidth: level == gridLevel ? 1.1 : 0.9
+                        )
                 }
 
                 radarPath(scale: 1.0, center: center, radius: radius)
-                    .stroke(Color.white.opacity(0.25), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                    .stroke(
+                        Color(red: 0.44, green: 0.70, blue: 0.54).opacity(0.52),
+                        style: StrokeStyle(lineWidth: 1, dash: [4, 4])
+                    )
+
+                ForEach(Array(metrics.enumerated()), id: \.offset) { index, _ in
+                    Path { path in
+                        path.move(to: center)
+                        path.addLine(
+                            to: point(
+                                for: index,
+                                total: metrics.count,
+                                value: 1.0,
+                                center: center,
+                                radius: radius
+                            )
+                        )
+                    }
+                    .stroke(Color(red: 0.52, green: 0.74, blue: 0.60).opacity(0.34), lineWidth: 0.8)
+                }
 
                 if !metrics.isEmpty {
                     let filledPath = dataPath(center: center, radius: radius)
@@ -597,38 +719,120 @@ private struct AIScoreRadarChart: View {
                         .fill(
                             LinearGradient(
                                 colors: [
-                                    Color.accentColor.opacity(0.35),
-                                    Color.accentColor.opacity(0.15)
+                                    Color(red: 0.38, green: 0.78, blue: 0.58).opacity(0.42),
+                                    Color(red: 0.36, green: 0.66, blue: 0.50).opacity(0.22),
+                                    Color(red: 0.68, green: 0.90, blue: 0.78).opacity(0.14)
                                 ],
-                                startPoint: .top,
+                                startPoint: .topLeading,
                                 endPoint: .bottom
                             )
                         )
                     filledPath
-                        .stroke(Color.accentColor, lineWidth: 2)
+                        .stroke(
+                            LinearGradient(
+                                colors: [
+                                    Color(red: 0.22, green: 0.66, blue: 0.45),
+                                    Color(red: 0.27, green: 0.55, blue: 0.41)
+                                ],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            ),
+                            lineWidth: 2.4
+                        )
+                        .shadow(color: Color(red: 0.24, green: 0.64, blue: 0.44).opacity(0.35), radius: 6, x: 0, y: 3)
+
+                    ForEach(Array(metrics.enumerated()), id: \.offset) { index, metric in
+                        let normalized = max(0, min(metric.value / 100, 1))
+                        let dataPoint = point(
+                            for: index,
+                            total: metrics.count,
+                            value: normalized,
+                            center: center,
+                            radius: radius
+                        )
+                        ZStack {
+                            Circle()
+                                .fill(Color(red: 0.64, green: 0.90, blue: 0.74).opacity(0.36))
+                                .frame(width: 14, height: 14)
+                                .blur(radius: 2)
+                            Circle()
+                                .fill(Color(red: 0.95, green: 1.0, blue: 0.96).opacity(0.96))
+                                .frame(width: 7, height: 7)
+                            Circle()
+                                .stroke(Color(red: 0.26, green: 0.68, blue: 0.46), lineWidth: 1.4)
+                                .frame(width: 10, height: 10)
+                        }
+                        .position(dataPoint)
+                    }
                 }
 
                 if let centerText {
-                    Text(centerText)
-                        .font(.title.bold())
-                        .foregroundStyle(Color.accentColor)
-                        .position(center)
+                    ZStack {
+                        Circle()
+                            .fill(
+                                LinearGradient(
+                                    colors: [
+                                        Color(red: 0.92, green: 0.99, blue: 0.94).opacity(0.96),
+                                        Color(red: 0.84, green: 0.95, blue: 0.88).opacity(0.92)
+                                    ],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                            )
+                            .frame(width: 66, height: 66)
+                            .overlay(
+                                Circle()
+                                    .stroke(
+                                        LinearGradient(
+                                            colors: [
+                                                Color(red: 0.34, green: 0.78, blue: 0.56),
+                                                Color(red: 0.30, green: 0.62, blue: 0.45)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        ),
+                                        lineWidth: 1.6
+                                    )
+                            )
+                            .shadow(color: Color.black.opacity(0.10), radius: 6, x: 0, y: 3)
+
+                        VStack(spacing: 1) {
+                            Text(centerText)
+                                .font(.title3.weight(.black))
+                                .foregroundStyle(Color(red: 0.14, green: 0.50, blue: 0.31))
+                            Text("TOTAL")
+                                .font(.system(size: 9, weight: .bold))
+                                .foregroundStyle(Color(red: 0.27, green: 0.56, blue: 0.38))
+                        }
+                    }
+                    .position(center)
                 }
 
                 ForEach(Array(metrics.enumerated()), id: \.offset) { index, metric in
                     let labelPoint = point(for: index,
                                            total: metrics.count,
-                                           value: 1.1,
+                                           value: 1.18,
                                            center: center,
                                            radius: radius)
-                    VStack(spacing: 2) {
-                        Text("\(Int(metric.value))")
-                            .font(.caption.bold())
-                            .foregroundStyle(Color.primary)
+                    VStack(spacing: 1) {
                         Text(metric.title)
-                            .font(.caption2)
+                            .font(.caption2.weight(.semibold))
                             .foregroundStyle(.secondary)
+                        Text("\(Int(metric.value))")
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(.primary)
                     }
+                    .padding(.horizontal, 7)
+                    .padding(.vertical, 4)
+                    .background(
+                        Capsule()
+                            .fill(Color(red: 0.91, green: 0.98, blue: 0.93).opacity(0.84))
+                    )
+                    .overlay(
+                        Capsule()
+                            .stroke(Color(red: 0.53, green: 0.77, blue: 0.61).opacity(0.58), lineWidth: 0.9)
+                    )
+                    .shadow(color: Color.black.opacity(0.06), radius: 2, x: 0, y: 1)
                     .position(labelPoint)
                 }
             }
@@ -954,19 +1158,26 @@ final class AINailScoreService {
     private func generateMockResponse(for request: AINailScoreRequest) -> AINailScoreResponse {
         func score() -> Int { Int.random(in: 65...90) }
         let total = score()
+        let finish = score()
+        let edge = score()
+        let thickness = score()
+        let design = score()
+        let durability = score()
         return AINailScoreResponse(
             total_score: total,
             scores: .init(
-                finish_quality: score(),
-                edge_and_cuticle: score(),
-                thickness_balance: score(),
-                design_balance: score(),
-                durability_prediction: score()
+                finish_quality: finish,
+                edge_and_cuticle: edge,
+                thickness_balance: thickness,
+                design_balance: design,
+                durability_prediction: durability
             ),
             highlights: [
-                "写真からはムラの少ない仕上がりに見えます",
-                "デザインの統一感が保たれているようです",
-                "ツヤ感があり光の映り込みもきれいです"
+                "仕上がり: ムラは少なく、ツヤの出方も比較的均一です（\(finish)点）。",
+                "甘皮ライン: 境目は概ね整っていますが、指ごとの差を少し詰められそうです（\(edge)点）。",
+                "厚み: 全体は安定していますが、先端側の厚みバランスに軽い改善余地があります（\(thickness)点）。",
+                "デザイン: 配色と配置のまとまりが良く、視認性の高い仕上がりです（\(design)点）。",
+                "持ち予測: 日常使用では十分持つ見込みですが、先端摩耗へのケアが有効です（\(durability)点）。"
             ],
             improvements: [
                 "ライン周りを明るい環境で確認して微調整すると良いかもしれません",
@@ -990,6 +1201,13 @@ final class AINailScoreService {
         var builder = """
         You are a helpful assistant that evaluates self-nail photos.
         Return JSON with scores and comments per the required structure (total_score, scores, highlights, improvements, next_steps, caution, confidence, assumptions).
+        highlights must contain exactly 5 Japanese comments, one for each score item in this order:
+        1) 仕上がり (finish_quality)
+        2) 甘皮ライン (edge_and_cuticle)
+        3) 厚み (thickness_balance)
+        4) デザイン (design_balance)
+        5) 持ち予測 (durability_prediction)
+        Each highlight item must start with "項目名: " style text.
         Avoid definitive expressions and keep comments between 200 and 500 Japanese characters.
 
         Photos (Base64): \(request.photos.map { $0.filename }.joined(separator: ", "))

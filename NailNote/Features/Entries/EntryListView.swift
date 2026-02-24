@@ -98,69 +98,80 @@ struct EntryRowView: View {
     @ObservedObject var entry: NailEntry
 
     var body: some View {
-        GlassCard(maxWidth: GlassTheme.listCardWidth) {
-            HStack(spacing: 16) {
-                EntryThumbnailView(photoId: entry.photoId)
+        GlassCard(maxWidth: GlassTheme.listCardWidth, contentPadding: 10) {
+            ZStack {
+                EntryCardGlowLayer()
+                HStack(spacing: 18) {
+                    EntryThumbnailView(photoId: entry.photoId, aiScore: entry.aiScoreBridge?.totalScore)
+                        .offset(x: 5)
 
-                VStack(alignment: .leading, spacing: 6) {
-                    Text(displayTitle)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                        .lineLimit(1)
-                        .minimumScaleFactor(0.8)
+                    VStack(alignment: .leading, spacing: 10) {
+                        titleRow
+                        infoRow
+                        badgeRow
 
-                    HStack(alignment: .top, spacing: 12) {
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("[実施日付]")
-                                .font(.caption2)
-                                .foregroundStyle(.secondary)
-                            Text(formattedDate(entry.date))
-                                .font(.subheadline)
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .fixedSize(horizontal: true, vertical: false)
-                        }
-                        Spacer()
-                        if entry.rating > 0 {
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text("[自己評価]")
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                                StarRatingView(rating: entry.rating, size: 12)
-                            }
-                        }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
-
-                    HStack(spacing: 6) {
-                        designBadge
-                        colorToneBadge
-                        Spacer(minLength: 0)
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
-
-                    if let aiScore = entry.aiScoreBridge {
-                        HStack(spacing: 6) {
-                            Image(systemName: "sparkles")
-                                .foregroundStyle(Color.accentColor)
-                            Text("AI \(aiScore.totalScore) 点")
-                                .font(.caption.weight(.semibold))
-                                .foregroundStyle(.primary)
-                            Spacer(minLength: 0)
-                        }
-                        .padding(.top, 2)
-                    }
                 }
-
-                Spacer()
             }
         }
-        .frame(minHeight: 150, alignment: .leading)
+        .frame(minHeight: 140, alignment: .leading)
     }
 
     private var displayTitle: String {
         let t = (entry.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return t.isEmpty ? "（タイトルなし）" : t
+    }
+
+    private var titleRow: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "sparkles")
+                .font(.caption.weight(.medium))
+                .foregroundStyle(Color(red: 0.58, green: 0.49, blue: 0.53))
+
+            Text(displayTitle)
+                .font(.headline.weight(.semibold))
+                .foregroundStyle(Color(red: 0.34, green: 0.27, blue: 0.30))
+                .lineLimit(1)
+                .minimumScaleFactor(0.6)
+                .allowsTightening(true)
+
+            Spacer()
+        }
+    }
+
+    private var infoRow: some View {
+        HStack(alignment: .top, spacing: 14) {
+            VStack(alignment: .leading, spacing: 4) {
+                EntryInfoTag(title: "[実施日付]", systemImage: "calendar")
+                Text(formattedDate(entry.date))
+                    .font(.callout.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+
+            Spacer(minLength: 0)
+
+            if entry.rating > 0 {
+                VStack(alignment: .leading, spacing: 4) {
+                    EntryInfoTag(title: "[自己評価]", systemImage: "hand.thumbsup")
+                    StarRatingView(rating: entry.rating, size: 14)
+                }
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+
+    private var badgeRow: some View {
+        HStack(spacing: 8) {
+            designBadge
+            colorToneBadge
+            Spacer(minLength: 0)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
     }
 
     private func formattedDate(_ date: Date?) -> String {
@@ -177,29 +188,49 @@ struct EntryRowView: View {
 
 struct EntryThumbnailView: View {
     let photoId: UUID?
+    let aiScore: Int16?
 
     var body: some View {
-        Group {
-            if let photoId,
-               let uiImage = EntryPhotoStore.loadThumbnail(photoId: photoId) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFill()
-            } else {
-                ZStack {
-                    RoundedRectangle(cornerRadius: 10)
-                        .fill(.gray.opacity(0.15))
-                    Image(systemName: "photo")
-                        .foregroundStyle(.secondary)
+        ZStack(alignment: .topLeading) {
+            Group {
+                if let photoId,
+                   let uiImage = EntryPhotoStore.loadThumbnail(photoId: photoId) {
+                    Image(uiImage: uiImage)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    ZStack {
+                        RoundedRectangle(cornerRadius: 10)
+                            .fill(.gray.opacity(0.15))
+                        Image(systemName: "photo")
+                            .foregroundStyle(.secondary)
+                    }
                 }
             }
+            .frame(width: 88, height: 88)
+            .clipShape(RoundedRectangle(cornerRadius: 20))
+            .overlay(
+                RoundedRectangle(cornerRadius: 20)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.92, green: 0.78, blue: 0.80),
+                                Color(red: 0.86, green: 0.80, blue: 0.74)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.6
+                    )
+                    .shadow(color: Color.black.opacity(0.10), radius: 4, x: 0, y: 2)
+            )
+            .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 6)
+
+            if let aiScore {
+                EntryPhotoAIScoreBadge(score: Int(aiScore))
+                    .offset(x: -6, y: -6)
+            }
         }
-        .frame(width: 56, height: 56)
-        .clipShape(RoundedRectangle(cornerRadius: 16))
-        .overlay(
-            RoundedRectangle(cornerRadius: 16)
-                .stroke(GlassTheme.cardStroke, lineWidth: 1)
-        )
     }
 }
 
@@ -326,17 +357,17 @@ private extension EntryListView {
             }
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: "line.3.horizontal.decrease.circle")
-                    .font(.body.weight(.semibold))
+                Text("💅")
+                    .font(.body)
                 Text(filterTitle)
                     .font(.subheadline.weight(.semibold))
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 14)
-            .background(.ultraThinMaterial)
+            .background(Color.white)
             .overlay(
                 Capsule()
-                    .stroke(Color.white.opacity(0.4), lineWidth: 1)
+                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
             )
             .clipShape(Capsule())
         }
@@ -360,17 +391,17 @@ private extension EntryListView {
             }
         } label: {
             HStack(spacing: 8) {
-                Image(systemName: "drop.fill")
-                    .font(.body.weight(.semibold))
+                Text("🎨")
+                    .font(.body)
                 Text(colorFilterTitle)
                     .font(.subheadline.weight(.semibold))
             }
             .padding(.vertical, 8)
             .padding(.horizontal, 14)
-            .background(.ultraThinMaterial)
+            .background(Color.white)
             .overlay(
                 Capsule()
-                    .stroke(Color.white.opacity(0.4), lineWidth: 1)
+                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
             )
             .clipShape(Capsule())
         }
@@ -382,10 +413,10 @@ private extension EntryListView {
             .textFieldStyle(.plain)
             .padding(.vertical, 8)
             .padding(.horizontal, 14)
-            .background(.ultraThinMaterial)
+            .background(Color.white)
             .overlay(
                 Capsule()
-                    .stroke(Color.white.opacity(0.4), lineWidth: 1)
+                    .stroke(Color.black.opacity(0.05), lineWidth: 1)
             )
             .clipShape(Capsule())
             .frame(maxWidth: 220)
@@ -514,6 +545,108 @@ private extension EntryRowView {
                 endPoint: .bottomTrailing
             )
         }
+    }
+}
+
+private struct EntryCardGlowLayer: View {
+    var body: some View {
+        RoundedRectangle(cornerRadius: GlassTheme.cardCornerRadius - 4, style: .continuous)
+            .fill(
+                LinearGradient(
+                    colors: [
+                        Color(red: 0.99, green: 0.97, blue: 0.94),
+                        Color(red: 0.97, green: 0.93, blue: 0.91),
+                        Color(red: 0.95, green: 0.91, blue: 0.90)
+                    ],
+                    startPoint: .topLeading,
+                    endPoint: .bottomTrailing
+                )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: GlassTheme.cardCornerRadius - 4, style: .continuous)
+                    .stroke(
+                        LinearGradient(
+                            colors: [
+                                Color(red: 0.83, green: 0.64, blue: 0.67).opacity(0.48),
+                                Color(red: 0.93, green: 0.79, blue: 0.72).opacity(0.48)
+                            ],
+                            startPoint: .topLeading,
+                            endPoint: .bottomTrailing
+                        ),
+                        lineWidth: 1.0
+                    )
+            )
+            .overlay(
+                RoundedRectangle(cornerRadius: GlassTheme.cardCornerRadius - 6, style: .continuous)
+                    .stroke(Color.white.opacity(0.22), lineWidth: 0.7)
+                    .padding(1)
+            )
+            .shadow(color: Color.black.opacity(0.08), radius: 10, x: 0, y: 6)
+            .padding(.horizontal, -2)
+            .padding(.vertical, -4)
+            .allowsHitTesting(false)
+    }
+}
+
+private struct EntryInfoTag: View {
+    let title: String
+    let systemImage: String
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: systemImage)
+                .font(.caption2.weight(.medium))
+                .lineLimit(1)
+            Text(title)
+                .font(.caption2.weight(.medium))
+                .lineLimit(1)
+        }
+        .foregroundStyle(Color(red: 0.40, green: 0.31, blue: 0.34))
+        .padding(.horizontal, 10)
+        .padding(.vertical, 4)
+        .background(
+            Capsule()
+                .fill(Color.white.opacity(0.74))
+                .overlay(
+                    Capsule()
+                        .stroke(Color(red: 0.82, green: 0.67, blue: 0.69).opacity(0.45), lineWidth: 0.7)
+                )
+        )
+        .fixedSize(horizontal: true, vertical: true)
+    }
+}
+
+private struct EntryPhotoAIScoreBadge: View {
+    let score: Int
+
+    var body: some View {
+        HStack(spacing: 4) {
+            Image(systemName: "pencil.and.outline")
+                .font(.system(size: 10, weight: .bold))
+            Text("\(score)")
+                .font(.caption2.weight(.heavy))
+        }
+        .foregroundStyle(Color.white)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 6)
+        .background(
+            Capsule()
+                .fill(
+                    LinearGradient(
+                        colors: [
+                            Color(red: 0.86, green: 0.60, blue: 0.67),
+                            Color(red: 0.73, green: 0.58, blue: 0.62)
+                        ],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    )
+                )
+        )
+        .overlay(
+            Capsule()
+                .stroke(Color.white.opacity(0.45), lineWidth: 0.8)
+        )
+        .shadow(color: Color.black.opacity(0.12), radius: 2, x: 0, y: 1)
     }
 }
 

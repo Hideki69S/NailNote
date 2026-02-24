@@ -30,39 +30,37 @@ struct EditEntryView: View {
     @State private var removeExistingPhoto: Bool = false
 
     var body: some View {
-        NavigationStack {
-            GlassBackgroundView {
-                Form {
-                Section("基本情報") {
-                    VStack(spacing: 12) {
-                        inlineTitleRow
-                        inlineDateRow
-                        inlineDesignRow
-                        inlineColorRow
-                    }
-                    .padding(.vertical, 4)
+        GlassBackgroundView {
+            Form {
+            Section("基本情報") {
+                VStack(spacing: 12) {
+                    inlineTitleRow
+                    inlineDateRow
+                    inlineDesignRow
+                    inlineColorRow
                 }
-                ratingSection
-                photoSection
-                noteSection
-                usedProductsSection
-                selectedProductsSection
-                }
-                .scrollContentBackground(.hidden)
-                .background(Color.clear)
+                .padding(.vertical, 4)
             }
-            .navigationTitle("記録を編集")
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("保存") { save() }
-                }
+            ratingSection
+            photoSection
+            noteSection
+            usedProductsSection
+            selectedProductsSection
             }
-            .onAppear {
-                loadFromEntry()
+            .scrollContentBackground(.hidden)
+            .background(Color.clear)
+        }
+        .navigationTitle("記録を編集")
+        .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button("キャンセル") { dismiss() }
             }
+            ToolbarItem(placement: .confirmationAction) {
+                Button("保存") { save() }
+            }
+        }
+        .onAppear {
+            loadFromEntry()
         }
     }
 
