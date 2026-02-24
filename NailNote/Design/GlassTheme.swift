@@ -51,4 +51,7 @@ struct GlassTheme {
 
     /// カード角丸
     static var cardCornerRadius: CGFloat { 22 }
+
+    /// 記録/用品カードの固定幅（iPhoneでも余白が残る程度）
+    static let listCardWidth: CGFloat = 360
 }

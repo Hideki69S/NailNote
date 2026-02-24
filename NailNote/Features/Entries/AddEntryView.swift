@@ -16,12 +16,13 @@ struct AddEntryView: View {
     @State private var title: String = ""
     @State private var date: Date = Date()
     @State private var note: String = ""
-    @State private var designCategory: NailDesignCategory = .oneColor
-    @State private var colorTone: NailColorTone = .pink
+    @State private var designCategory: NailDesignCategory?
+    @State private var colorTone: NailColorTone?
     @State private var rating: Double = 0
     @State private var selectedCategory: NailProductCategory = .color
 
     @State private var selectedProductIDs: [UUID] = []
+    @State private var showValidationAlert = false
 
     // 写真
     @State private var photoItem: PhotosPickerItem?
@@ -29,31 +30,22 @@ struct AddEntryView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("タイトル") {
-                    TextField("例：春ネイル / オフのみ など", text: $title)
-                }
-
-                Section("日付") {
-                    DatePicker("施術日", selection: $date, displayedComponents: .date)
-                }
-
-                Section("デザイン") {
-                    Picker("カテゴリ", selection: $designCategory) {
-                        ForEach(NailDesignCategory.allCases) { category in
-                            Text(category.displayName).tag(category)
-                        }
+            GlassBackgroundView {
+                Form {
+                Section("基本情報") {
+                    VStack(spacing: 12) {
+                        inlineTitleRow
+                        inlineDateRow
+                        inlineDesignRow
+                        inlineColorRow
                     }
-                    .pickerStyle(.menu)
-                }
+                    .padding(.vertical, 4)
 
-                Section("カラー系統") {
-                    Picker("カラー", selection: $colorTone) {
-                        ForEach(NailColorTone.allCases) { tone in
-                            Text(tone.displayName).tag(tone)
-                        }
-                    }
-                    .pickerStyle(.menu)
+                    Text("※タイトル・実施日付・デザイン・カラー系統は必須です")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 4)
                 }
 
                 Section("自己評価") {
@@ -125,15 +117,109 @@ struct AddEntryView: View {
                     }
                 }
             }
-            .navigationTitle("新規記録")
+                .scrollContentBackground(.hidden)
+                .background(Color.clear)
+            }
+            .navigationTitle("ネイルデザインの登録")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("キャンセル") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { save() }
+                        .disabled(!isBasicInfoValid)
                 }
             }
+            .alert("必須項目を入力してください", isPresented: $showValidationAlert) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text("タイトル・実施日付・デザイン・カラー系統をすべて入力してください。")
+            }
+        }
+    }
+
+    private var trimmedTitle: String {
+        title.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+
+    private var isBasicInfoValid: Bool {
+        !trimmedTitle.isEmpty && designCategory != nil && colorTone != nil
+    }
+
+    private var dateFormatted: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.dateFormat = "yyyy/MM/dd"
+        return formatter.string(from: date)
+    }
+
+    private var inlineDateRow: some View {
+        HStack(alignment: .center, spacing: 12) {
+            requiredFieldLabel("実施日付")
+                .foregroundStyle(.primary)
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                DatePicker("", selection: $date, displayedComponents: .date)
+                    .environment(\.locale, Locale(identifier: "ja_JP"))
+                    .environment(\.calendar, Calendar(identifier: .gregorian))
+                    .labelsHidden()
+            }
+        }
+    }
+
+    private var inlineDesignRow: some View {
+        HStack(spacing: 12) {
+            requiredFieldLabel("デザイン")
+            Spacer()
+            Picker("", selection: $designCategory) {
+                Text("選択なし").tag(NailDesignCategory?.none)
+                ForEach(NailDesignCategory.allCases) { category in
+                    Text(category.displayName).tag(Optional(category))
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+        }
+    }
+
+    private var inlineColorRow: some View {
+        HStack(spacing: 12) {
+            requiredFieldLabel("カラー系統")
+            Spacer()
+            Picker("", selection: $colorTone) {
+                Text("選択なし").tag(NailColorTone?.none)
+                ForEach(NailColorTone.allCases) { tone in
+                    Text(tone.displayName).tag(Optional(tone))
+                }
+            }
+            .pickerStyle(.menu)
+            .labelsHidden()
+        }
+    }
+
+    private var inlineTitleRow: some View {
+        HStack(spacing: 12) {
+            requiredFieldLabel("タイトル")
+            Spacer()
+            TextField("例：春ネイル / オフのみ など", text: $title)
+                .multilineTextAlignment(.trailing)
+                .textInputAutocapitalization(.sentences)
+        }
+    }
+
+    private func requiredFieldLabel(_ title: String) -> some View {
+        HStack(spacing: 6) {
+            Text(title)
+                .font(.body)
+            Text("必須")
+                .font(.caption2.weight(.semibold))
+                .padding(.horizontal, 6)
+                .padding(.vertical, 2)
+                .background(Color.red.opacity(0.12))
+                .foregroundStyle(Color.red)
+                .clipShape(Capsule())
         }
     }
 
@@ -207,13 +293,18 @@ struct AddEntryView: View {
     // MARK: - Save
 
     private func save() {
+        guard isBasicInfoValid else {
+            showValidationAlert = true
+            return
+        }
+
         let entry = NailEntry(context: viewContext)
         entry.id = UUID()
         entry.date = date
-        entry.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
+        entry.title = trimmedTitle
         entry.note = note
-        entry.designCategory = designCategory.rawValue
-        entry.colorCategory = colorTone.rawValue
+        entry.designCategory = designCategory?.rawValue
+        entry.colorCategory = colorTone?.rawValue
         entry.rating = rating
         entry.createdAt = Date()
         entry.updatedAt = Date()

@@ -19,42 +19,65 @@ struct SimHomeView: View {
     @State private var entryPendingConfirmation: NailEntry?
 
     var body: some View {
-        GlassBackgroundView {
-            navigationContent
+        NavigationStack {
+            GlassBackgroundView {
+                content
+            }
         }
     }
 
-    private var navigationContent: some View {
-        NavigationStack {
-            VStack(spacing: 0) {
-                AdPlaceholderBanner()
-                    .padding(.horizontal, 16)
-                    .padding(.top, 8)
+    private var content: some View {
+        let entriesSnapshot = Array(entries)
+
+        return VStack(spacing: 0) {
+            AdPlaceholderBanner()
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
 
                 ScrollView {
-                    contentStack
-                        .padding(16)
-                }
-            }
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingSample = true
-                    } label: {
-                        Label("出力サンプル", systemImage: "doc.richtext")
+                    VStack(spacing: 16) {
+                        heroCard
+                        AISampleCardView(showingSample: $showingSample)
+                        if entriesSnapshot.isEmpty {
+                            ContentUnavailableView("評価できる記録がありません", systemImage: "camera")
+                                .frame(maxWidth: .infinity, minHeight: 220)
+                        } else {
+                            LazyVStack(spacing: 16) {
+                                ForEach(entriesSnapshot, id: \.objectID) { entry in
+                                    AIScoreEntryCard(
+                                        entry: entry,
+                                        isEvaluating: evaluatingEntryID == entry.objectID,
+                                        evaluateAction: {
+                                            entryPendingConfirmation = entry
+                                        },
+                                        isExpanded: expandedEntries.contains(entry.objectID),
+                                        toggleExpanded: {
+                                            toggleExpansion(for: entry.objectID)
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
+                    .padding(16)
                 }
-            }
-            .sheet(isPresented: $showingSample) {
-                AIScoreSampleView()
-            }
+        }
+        .sheet(isPresented: $showingSample) {
+            AIScoreSampleView()
+        }
             .onAppear {
                 syncExpandedEntries()
             }
-            .onChange(of: evaluationSnapshots) { _, _ in
+            .onChange(of: entries.map { $0.aiScoreBridge?.evaluatedAt }) { _, _ in
                 syncExpandedEntries()
             }
-            .alert("AIネイルスコア", isPresented: alertBinding) {
+            .alert(
+                "AIネイルスコア",
+                isPresented: Binding(
+                    get: { alertMessage != nil },
+                    set: { if !$0 { alertMessage = nil } }
+                )
+            ) {
                 Button("OK", role: .cancel) {
                     alertMessage = nil
                 }
@@ -63,7 +86,10 @@ struct SimHomeView: View {
             }
             .confirmationDialog(
                 "AIネイルスコア",
-                isPresented: confirmationDialogBinding,
+                isPresented: Binding(
+                    get: { entryPendingConfirmation != nil },
+                    set: { if !$0 { entryPendingConfirmation = nil } }
+                ),
                 presenting: entryPendingConfirmation
             ) { entry in
                 Button("AI評価を実行") {
@@ -76,54 +102,7 @@ struct SimHomeView: View {
             } message: { entry in
                 Text("写真をAIに送信し、\(displayTitle(for: entry))のスコアを生成します。実行してよろしいですか？")
             }
-        }
     }
-
-    private var contentStack: some View {
-        VStack(spacing: 16) {
-            heroCard
-            sampleCard
-            if entries.isEmpty {
-                ContentUnavailableView("評価できる記録がありません", systemImage: "camera")
-                    .frame(maxWidth: .infinity, minHeight: 220)
-            } else {
-                LazyVStack(spacing: 16) {
-                    ForEach(entries, id: \.objectID) { entry in
-                        AIScoreEntryCard(
-                            entry: entry,
-                            isEvaluating: evaluatingEntryID == entry.objectID,
-                            evaluateAction: {
-                                entryPendingConfirmation = entry
-                            },
-                            isExpanded: expandedEntries.contains(entry.objectID),
-                            toggleExpanded: {
-                                toggleExpansion(for: entry.objectID)
-                            }
-                        )
-                    }
-                }
-            }
-        }
-    }
-
-    private var evaluationSnapshots: [Date?] {
-        entries.map { $0.aiScoreBridge?.evaluatedAt }
-    }
-
-    private var alertBinding: Binding<Bool> {
-        Binding(
-            get: { alertMessage != nil },
-            set: { if !$0 { alertMessage = nil } }
-        )
-    }
-
-    private var confirmationDialogBinding: Binding<Bool> {
-        Binding(
-            get: { entryPendingConfirmation != nil },
-            set: { if !$0 { entryPendingConfirmation = nil } }
-        )
-    }
-
     private func displayTitle(for entry: NailEntry) -> String {
         let name = (entry.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         return name.isEmpty ? "（タイトルなし）" : name
@@ -186,25 +165,6 @@ struct SimHomeView: View {
             Capsule()
                 .fill(Color.white.opacity(0.25))
         )
-    }
-
-    private var sampleCard: some View {
-        GlassCard {
-            VStack(alignment: .leading, spacing: 12) {
-                Text("AI出力サンプル")
-                    .font(.headline)
-                Text("評価を実行する前に、UI上でどのように結果が表示されるかを確認できます。")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                Button {
-                    showingSample = true
-                } label: {
-                    Label("AI出力サンプルを確認", systemImage: "doc.richtext")
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.bordered)
-            }
-        }
     }
 
     @MainActor
@@ -519,41 +479,17 @@ private struct EntryAIScoreSummaryView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
-                VStack(alignment: .leading, spacing: 4) {
-                    Text("AIスコア")
-                        .font(.headline)
-                    Text("評価日時: \(formattedDate)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
+                Text("AIスコア")
+                    .font(.headline)
                 Spacer()
-                ZStack {
-                    Circle()
-                        .strokeBorder(Color.accentColor.opacity(0.25), lineWidth: 8)
-                        .frame(width: 80, height: 80)
-                    Text("\(data.totalScore)")
-                        .font(.title2.bold())
-                        .foregroundStyle(Color.accentColor)
-                }
+                Text("評価日時: \(formattedDate)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
 
-            AIScoreRadarChart(metrics: radarMetrics)
+            AIScoreRadarChart(metrics: radarMetrics, centerText: "\(data.totalScore)")
                 .frame(height: 200)
-
-            Grid(alignment: .leading, horizontalSpacing: 16, verticalSpacing: 12) {
-                GridRow {
-                    scoreRow(title: "仕上がり", value: data.finishQuality)
-                    scoreRow(title: "甘皮ライン", value: data.edgeAndCuticle)
-                }
-                GridRow {
-                    scoreRow(title: "厚み", value: data.thicknessBalance)
-                    scoreRow(title: "デザイン", value: data.designBalance)
-                }
-                GridRow {
-                    scoreRow(title: "持ち予測", value: data.durabilityPrediction)
-                    Spacer()
-                }
-            }
+                .padding(.top, 8)
 
             if !data.highlights.isEmpty {
                 TagListView(title: "Good", icon: "hand.thumbsup.fill", tags: data.highlights)
@@ -584,16 +520,27 @@ private struct EntryAIScoreSummaryView: View {
         }
         .padding(.vertical, 4)
     }
+}
 
-    private func scoreRow(title: String, value: Int) -> some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(title)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            ProgressView(value: Double(value), total: 100)
-                .tint(Color.accentColor)
-            Text("\(value)")
-                .font(.caption.bold())
+private struct AISampleCardView: View {
+    @Binding var showingSample: Bool
+
+    var body: some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: 12) {
+                Text("AI出力サンプル")
+                    .font(.headline)
+                Text("評価を実行する前に、UI上でどのように結果が表示されるかを確認できます。")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Button {
+                    showingSample = true
+                } label: {
+                    Label("AI出力サンプルを確認", systemImage: "doc.richtext")
+                        .frame(maxWidth: .infinity)
+                }
+                .buttonStyle(.bordered)
+            }
         }
     }
 }
@@ -627,6 +574,7 @@ private struct AIScoreRadarChart: View {
     }
 
     let metrics: [Metric]
+    let centerText: String?
     private let gridLevel: Int = 4
 
     var body: some View {
@@ -658,6 +606,13 @@ private struct AIScoreRadarChart: View {
                         )
                     filledPath
                         .stroke(Color.accentColor, lineWidth: 2)
+                }
+
+                if let centerText {
+                    Text(centerText)
+                        .font(.title.bold())
+                        .foregroundStyle(Color.accentColor)
+                        .position(center)
                 }
 
                 ForEach(Array(metrics.enumerated()), id: \.offset) { index, metric in

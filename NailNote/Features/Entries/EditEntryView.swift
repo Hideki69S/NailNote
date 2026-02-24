@@ -18,8 +18,8 @@ struct EditEntryView: View {
     @State private var title: String = ""
     @State private var date: Date = Date()
     @State private var note: String = ""
-    @State private var designCategory: NailDesignCategory = .oneColor
-    @State private var colorTone: NailColorTone = .pink
+    @State private var designCategory: NailDesignCategory?
+    @State private var colorTone: NailColorTone?
     @State private var rating: Double = 0
     @State private var selectedCategory: NailProductCategory = .color
     @State private var selectedProductIDs: [UUID] = []
@@ -31,16 +31,25 @@ struct EditEntryView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                titleSection
-                dateSection
-                designSection
-                colorToneSection
+            GlassBackgroundView {
+                Form {
+                Section("基本情報") {
+                    VStack(spacing: 12) {
+                        inlineTitleRow
+                        inlineDateRow
+                        inlineDesignRow
+                        inlineColorRow
+                    }
+                    .padding(.vertical, 4)
+                }
                 ratingSection
                 photoSection
                 noteSection
                 usedProductsSection
                 selectedProductsSection
+                }
+                .scrollContentBackground(.hidden)
+                .background(Color.clear)
             }
             .navigationTitle("記録を編集")
             .toolbar {
@@ -57,41 +66,71 @@ struct EditEntryView: View {
         }
     }
 
-    // MARK: - Form Sections
+    private var dateFormatted: String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.calendar = Calendar(identifier: .gregorian)
+        formatter.dateFormat = "yyyy/MM/dd"
+        return formatter.string(from: date)
+    }
 
-    private var titleSection: some View {
-        Section("タイトル") {
-            TextField("例：春ネイル / オフのみ など", text: $title)
+    private var inlineDateRow: some View {
+        HStack(spacing: 12) {
+            Text("実施日付")
+                .font(.body)
+            Spacer()
+            VStack(alignment: .trailing, spacing: 4) {
+                DatePicker("", selection: $date, displayedComponents: .date)
+                    .environment(\.locale, Locale(identifier: "ja_JP"))
+                    .environment(\.calendar, Calendar(identifier: .gregorian))
+                    .labelsHidden()
+            }
         }
     }
 
-    private var dateSection: some View {
-        Section("日付") {
-            DatePicker("施術日", selection: $date, displayedComponents: .date)
-        }
-    }
-
-    private var designSection: some View {
-        Section("デザイン") {
-            Picker("カテゴリ", selection: $designCategory) {
+    private var inlineDesignRow: some View {
+        HStack(spacing: 12) {
+            Text("デザイン")
+                .font(.body)
+            Spacer()
+            Picker("", selection: $designCategory) {
+                Text("選択なし").tag(NailDesignCategory?.none)
                 ForEach(NailDesignCategory.allCases) { category in
-                    Text(category.displayName).tag(category)
+                    Text(category.displayName).tag(Optional(category))
                 }
             }
             .pickerStyle(.menu)
+            .labelsHidden()
         }
     }
 
-    private var colorToneSection: some View {
-        Section("カラー系統") {
-            Picker("カラー", selection: $colorTone) {
+    private var inlineColorRow: some View {
+        HStack(spacing: 12) {
+            Text("カラー系統")
+                .font(.body)
+            Spacer()
+            Picker("", selection: $colorTone) {
+                Text("選択なし").tag(NailColorTone?.none)
                 ForEach(NailColorTone.allCases) { tone in
-                    Text(tone.displayName).tag(tone)
+                    Text(tone.displayName).tag(Optional(tone))
                 }
             }
             .pickerStyle(.menu)
+            .labelsHidden()
         }
     }
+
+    private var inlineTitleRow: some View {
+        HStack(spacing: 12) {
+            Text("タイトル")
+                .font(.body)
+            Spacer()
+            TextField("例：春ネイル / オフのみ など", text: $title)
+                .multilineTextAlignment(.trailing)
+        }
+    }
+
+    // MARK: - Form Sections
 
     private var ratingSection: some View {
         Section("自己評価") {
@@ -221,8 +260,8 @@ struct EditEntryView: View {
         title = entry.title ?? ""
         date = entry.date ?? Date()
         note = entry.note ?? ""
-        designCategory = NailDesignCategory(rawValue: entry.designCategory ?? "") ?? .oneColor
-        colorTone = NailColorTone(rawValue: entry.colorCategory ?? "") ?? .pink
+        designCategory = entry.designCategory.flatMap { NailDesignCategory(rawValue: $0) }
+        colorTone = entry.colorCategory.flatMap { NailColorTone(rawValue: $0) }
         rating = entry.rating
 
         let ordered = (entry.usedItems?.array as? [NailEntryUsedItem]) ?? []
@@ -273,8 +312,8 @@ struct EditEntryView: View {
         entry.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         entry.date = date
         entry.note = note
-        entry.designCategory = designCategory.rawValue
-        entry.colorCategory = colorTone.rawValue
+        entry.designCategory = designCategory?.rawValue
+        entry.colorCategory = colorTone?.rawValue
         entry.rating = rating
         entry.updatedAt = Date()
 

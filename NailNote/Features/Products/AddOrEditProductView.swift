@@ -10,7 +10,7 @@ struct AddOrEditProductView: View {
 
         var title: String {
             switch self {
-            case .add: return "用品を追加"
+            case .add: return "所持ネイルアイテムを追加"
             case .edit: return "用品を編集"
             }
         }
@@ -75,7 +75,8 @@ struct AddOrEditProductView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
+            GlassBackgroundView {
+                Form {
                 Section("基本") {
                     TextField("商品名", text: $name)
 
@@ -180,8 +181,12 @@ struct AddOrEditProductView: View {
                     removeSample = false
                     Task { await loadImage(from: newItem) { img in self.sampleUIImage = img } }
                 }
+                }
+                .scrollContentBackground(.hidden)
+                .background(Color.clear)
             }
             .navigationTitle(mode.title)
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("キャンセル") { dismiss() }

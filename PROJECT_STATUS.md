@@ -147,9 +147,15 @@ NailNote/
 - CoreData再生成：Xcode → Editor → Create NSManagedObject Subclass
 
 ## 最新セッション（自動更新）
-日付: 2026-02-23
+### 2026-02-24 (前回)
+変更ファイル: Features/Entries/AddEntryView.swift, Features/Entries/EditEntryView.swift, Features/Products/AddOrEditProductView.swift, Features/Sim/SimHomeView.swift, PROJECT_STATUS.md
+実機確認: 未実施（UI変更のみ、Simulator/実機とも未確認）
+実装内容: 記録・用品の登録/編集フォームを`GlassBackgroundView`で包み、`Form`の背景を透過させることで一覧タブと同じガラス調グラデーションを画面全体に適用。これにより「他画面も同じ背景にしたい」という要望に合わせて、主要フォーム画面もビジュアルを統一した。SimHomeViewではエントリ一覧をローカルスナップショットでそのまま描画する構造にまとめ直し、`entries` や状態プロパティ参照時のコンパイルエラーを解消。
+影響範囲: AddEntryView / EditEntryView / AddOrEditProductView のナビゲーションスタックと背景描画。`Form`の背景が透明になるため、項目の視認性が変わる可能性あり。SimHomeViewのAIスコア一覧描画ロジックも影響。
+
+### 2026-02-24 (今回)
 変更ファイル: Features/Sim/SimHomeView.swift, PROJECT_STATUS.md
-実機確認: 未実施（Xcode Indexing継続中のためビルド走らず）
-実装内容: SimHomeViewでNavigationStack部分を切り出し、警告ダイアログ用Bindingを共通化して型推論エラーを解消。ターゲット未登録だったAdPlaceholderBannerを暫定的に同ファイルへ内包し、常に広告プレースホルダを描画できるようにした。さらにAIスコアカードでは写真のハッシュを再計算して、写真が変わった場合のみ「再評価」ボタンを表示する制御を追加し、誤って同一写真で再評価できないようにした。最新のSwift 6ルールに合わせ、写真読み込み処理をMainActor経由に切り替え、ハッシュ計算ユーティリティをnonisolatedなData拡張にして警告を解消。AIタブの「AIへの依頼メモ」入力フィールドを撤去し、代わりに出力サンプル確認ボタンのみを残したシンプルなカードに変更。AIスコア詳細ビューにはカラオケ採点風の五角形レーダーチャートを追加し、5項目スコアを視覚的に把握できるようにした。
-影響範囲: AIタブ（SimHomeView）の画面構成／警告・確認ダイアログ、AIスコアカードのアクションボタン表示制御。EntryAIScore評価処理そのものには変更なし。
-次にやること: 1) Indexing完了後にビルド＆AI評価フローを実機確認 2) AdPlaceholderBannerを専用ファイルで使い回す場合はXcode側でターゲット登録 or 再構成 3) AIスコア履歴/サンプルUI拡充タスクを継続
+実装内容: `SimHomeView`の`onChange`トリガーで参照していた`evaluationSnapshots`計算プロパティが原因で`entries`が解決できないビルドエラーが発生したため、計算プロパティ自体を削除し、`entries.map { $0.aiScoreBridge?.evaluatedAt }`を`onChange`に直接渡す形へ修正。さらに`alertBinding`/`confirmationDialogBinding`のラッパーを閉じ込めていた計算プロパティを廃止し、`Binding`をインライン生成することで`alertMessage`や`entryPendingConfirmation`が解決できないエラーも同時に解消。`AI出力サンプル`カードは`AISampleCardView`として切り出し、`@Binding var showingSample`経由でモーダル表示をトリガーするように変更。併せて`content`計算プロパティの閉じ括弧位置を調整し、以降のヘルパー関数が構造体スコープ外へ出てしまう問題を修正。
+影響範囲: Simタブ内のAIネイルスコア一覧の差分監視ロジックとアラート/確認ダイアログのバインディングのみ。UIやデータ保存フローへの副作用はなし。
+実機確認: 未実施。`xcodebuild`によるビルドを試行したが、`xcode-select`がCommand Line Toolsを指しているためビルドできず。Xcode本体のDeveloperディレクトリ設定後に再実行予定。
+次にやること: 1) `xcode-select --switch`でXcode.app付属のDeveloperディレクトリに切り替え、`xcodebuild`でビルド確認 2) Simulator/実機でSimタブの表示と評価ボタン挙動を再確認 3) 継続タスク（AIネイルスコアUI磨き、用品カード改善など）を進行

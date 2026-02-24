@@ -14,10 +14,13 @@ struct EntryListView: View {
     @State private var showingAddSheet = false
     @AppStorage("EntryDesignFilter") private var designFilterRaw: String = "all"
     @AppStorage("EntryColorFilter") private var colorFilterRaw: String = "allColor"
+    @State private var keywordText: String = ""
+    @State private var pendingDeletionEntries: [NailEntry] = []
+    @State private var showingDeleteAlert = false
 
     var body: some View {
-        GlassBackgroundView {
-            NavigationStack {
+        NavigationStack {
+            GlassBackgroundView {
                 VStack(spacing: 10) {
                     EntryAdPlaceholderRow()
                         .padding(.top, 12)
@@ -38,22 +41,34 @@ struct EntryListView: View {
                         showingAddSheet = true
                     }
                     .padding(.bottom, 24)
-                    .padding(.trailing, 24)
+                        .padding(.trailing, 24)
                 }
             }
-            .sheet(isPresented: $showingAddSheet) {
-                AddEntryView()
-                    .environment(\.managedObjectContext, viewContext)
+        }
+        .sheet(isPresented: $showingAddSheet) {
+            AddEntryView()
+                .environment(\.managedObjectContext, viewContext)
+        }
+        .alert("デザインを削除しますか？", isPresented: $showingDeleteAlert) {
+            Button("削除", role: .destructive) {
+                deleteEntries(pendingDeletionEntries)
+                pendingDeletionEntries = []
             }
+            Button("キャンセル", role: .cancel) {
+                pendingDeletionEntries = []
+            }
+        } message: {
+            Text("選択したデザインと紐づくAIスコアがある場合は同時に削除されます。")
         }
     }
 
-    private func deleteEntries(offsets: IndexSet) {
-        let targets = filteredEntries
-        for index in offsets {
-            let entry = targets[index]
+    private func deleteEntries(_ entries: [NailEntry]) {
+        for entry in entries {
             if let photoId = entry.photoId {
                 EntryPhotoStore.delete(photoId: photoId)
+            }
+            if let aiScore = entry.aiScore {
+                viewContext.delete(aiScore)
             }
             viewContext.delete(entry)
         }
@@ -64,6 +79,17 @@ struct EntryListView: View {
             print("削除エラー: \(error)")
         }
     }
+
+    private func promptEntryDeletion(offsets: IndexSet) {
+        let targets = offsets.compactMap { index -> NailEntry? in
+            let list = filteredEntries
+            guard list.indices.contains(index) else { return nil }
+            return list[index]
+        }
+        guard !targets.isEmpty else { return }
+        pendingDeletionEntries = targets
+        showingDeleteAlert = true
+    }
 }
 
 // MARK: - Row
@@ -72,7 +98,7 @@ struct EntryRowView: View {
     @ObservedObject var entry: NailEntry
 
     var body: some View {
-        GlassCard {
+        GlassCard(maxWidth: GlassTheme.listCardWidth) {
             HStack(spacing: 16) {
                 EntryThumbnailView(photoId: entry.photoId)
 
@@ -81,17 +107,27 @@ struct EntryRowView: View {
                         .font(.headline)
                         .foregroundStyle(.primary)
                         .lineLimit(1)
+                        .minimumScaleFactor(0.8)
 
-                    HStack(alignment: .center, spacing: 8) {
-                        Text(formattedDate(entry.date))
-                            .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(1)
-                            .fixedSize(horizontal: true, vertical: false)
+                    HStack(alignment: .top, spacing: 12) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("[実施日付]")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                            Text(formattedDate(entry.date))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .lineLimit(1)
+                                .fixedSize(horizontal: true, vertical: false)
+                        }
                         Spacer()
                         if entry.rating > 0 {
-                            StarRatingView(rating: entry.rating, size: 12)
-                                .padding(.trailing, -2)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("[自己評価]")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                StarRatingView(rating: entry.rating, size: 12)
+                            }
                         }
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
@@ -117,12 +153,9 @@ struct EntryRowView: View {
                 }
 
                 Spacer()
-
-                Image(systemName: "chevron.right")
-                    .font(.footnote.weight(.semibold))
-                    .foregroundStyle(Color.accentColor.opacity(0.7))
             }
         }
+        .frame(minHeight: 150, alignment: .leading)
     }
 
     private var displayTitle: String {
@@ -135,8 +168,7 @@ struct EntryRowView: View {
         let formatter = DateFormatter()
         formatter.locale = Locale(identifier: "ja_JP")
         formatter.calendar = Calendar(identifier: .gregorian)
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
+        formatter.dateFormat = "yyyy/MM/dd"
         return formatter.string(from: d)
     }
 }
@@ -206,15 +238,27 @@ private extension EntryListView {
             } else {
                 Section {
                     ForEach(filteredEntries, id: \.objectID) { entry in
-                        NavigationLink {
-                            EditEntryView(entry: entry)
-                        } label: {
-                            EntryRowView(entry: entry)
+                        ZStack {
+                            HStack(spacing: 0) {
+                                Spacer(minLength: 0)
+                                EntryRowView(entry: entry)
+                                Spacer(minLength: 0)
+                            }
+                            NavigationLink {
+                                EditEntryView(entry: entry)
+                            } label: {
+                                EmptyView()
+                            }
+                            .buttonStyle(.plain)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+                            .contentShape(Rectangle())
+                            .opacity(0.001)
                         }
+                        .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
                         .listRowBackground(Color.clear)
                         .listRowSeparator(.hidden)
                     }
-                    .onDelete(perform: deleteEntries)
+                    .onDelete(perform: promptEntryDeletion)
                 }
                 .listRowBackground(Color.clear)
             }
@@ -226,7 +270,7 @@ private extension EntryListView {
 
     var filteredEntries: [NailEntry] {
         entries.filter { entry in
-            matchesDesign(entry) && matchesColor(entry)
+            matchesDesign(entry) && matchesColor(entry) && matchesKeyword(entry)
         }
     }
 
@@ -241,11 +285,11 @@ private extension EntryListView {
     }
 
     var filterTitle: String {
-        selectedDesignCategory?.displayName ?? "デザイン"
+        selectedDesignCategory?.displayName ?? "すべて"
     }
 
     var colorFilterTitle: String {
-        selectedColorTone?.displayName ?? "カラー"
+        selectedColorTone?.displayName ?? "すべて"
     }
 
     var filterControlRow: some View {
@@ -259,6 +303,7 @@ private extension EntryListView {
             HStack(spacing: 12) {
                 designFilterMenu
                 colorFilterMenu
+                keywordField
             }
         }
         .padding(.vertical, 4)
@@ -332,6 +377,21 @@ private extension EntryListView {
         .accessibilityLabel("カラー絞り込み")
     }
 
+    var keywordField: some View {
+        TextField("キーワード", text: $keywordText)
+            .textFieldStyle(.plain)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 14)
+            .background(.ultraThinMaterial)
+            .overlay(
+                Capsule()
+                    .stroke(Color.white.opacity(0.4), lineWidth: 1)
+            )
+            .clipShape(Capsule())
+            .frame(maxWidth: 220)
+            .submitLabel(.search)
+    }
+
     func labelRow(title: String, isSelected: Bool) -> some View {
         HStack {
             Text(title)
@@ -350,6 +410,16 @@ private extension EntryListView {
         guard let selectedTone = selectedColorTone else { return true }
         return entry.colorCategory == selectedTone.rawValue
     }
+
+    func matchesKeyword(_ entry: NailEntry) -> Bool {
+        let query = keywordText.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !query.isEmpty else { return true }
+        let lower = query.lowercased()
+        let title = (entry.title ?? "").lowercased()
+        let note = (entry.note ?? "").lowercased()
+        return title.contains(lower) || note.contains(lower)
+    }
+
 }
 
 private extension EntryRowView {

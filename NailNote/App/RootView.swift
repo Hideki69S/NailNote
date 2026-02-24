@@ -6,13 +6,13 @@ struct RootView: View {
             // 記録（Entries）
             EntryListView()
                 .tabItem {
-                    Label("記録", systemImage: "list.bullet.rectangle")
+                    Label("デザイン", systemImage: "hand.raised.fill")
                 }
 
             // 用品（Products）
             ProductListView()
                 .tabItem {
-                    Label("用品", systemImage: "bag")
+                    Label("アイテム", systemImage: "drop.fill")
                 }
 
             // AIネイルスコア

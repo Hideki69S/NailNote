@@ -22,8 +22,8 @@ struct ProductListView: View {
     @AppStorage("ProductsShowFavoritesOnly") private var showFavoritesOnly: Bool = false
 
     var body: some View {
-        GlassBackgroundView {
-            NavigationStack {
+        NavigationStack {
+            GlassBackgroundView {
                 VStack(spacing: 10) {
                     AdPlaceholderRow()
                         .padding(.top, 12)
@@ -47,15 +47,15 @@ struct ProductListView: View {
                     .padding(.trailing, 24)
                 }
             }
-            .sheet(isPresented: $showingAddSheet) {
-                NavigationStack {
-                    AddOrEditProductView(mode: .add)
-                }
+        }
+        .sheet(isPresented: $showingAddSheet) {
+            NavigationStack {
+                AddOrEditProductView(mode: .add)
             }
-            .sheet(item: $editingProduct) { product in
-                NavigationStack {
-                    AddOrEditProductView(mode: .edit(product))
-                }
+        }
+        .sheet(item: $editingProduct) { product in
+            NavigationStack {
+                AddOrEditProductView(mode: .edit(product))
             }
         }
     }
@@ -110,13 +110,18 @@ private extension ProductListView {
                     Button {
                         editingProduct = product
                     } label: {
-                        ProductRow(
-                            product: product,
-                            isFavorite: isFavorite(product),
-                            toggleFavorite: { toggleFavorite(product) }
-                        )
+                        HStack(spacing: 0) {
+                            Spacer(minLength: 0)
+                            ProductRow(
+                                product: product,
+                                isFavorite: isFavorite(product),
+                                toggleFavorite: { toggleFavorite(product) }
+                            )
+                            Spacer(minLength: 0)
+                        }
                     }
                     .buttonStyle(.plain)
+                    .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
                 }
@@ -175,7 +180,7 @@ private struct ProductRow: View {
     }()
 
     var body: some View {
-        GlassCard {
+        GlassCard(maxWidth: GlassTheme.listCardWidth) {
             VStack(alignment: .leading, spacing: 16) {
                 // 上段：用品名
                 Text(displayName)
