@@ -6,7 +6,7 @@ struct RootView: View {
             // 記録（Entries）
             EntryListView()
                 .tabItem {
-                    Label("デザイン", systemImage: "hand.raised.fill")
+                    Label("デザイン", systemImage: "paintpalette.fill")
                 }
 
             // 用品（Products）

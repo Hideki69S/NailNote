@@ -614,3 +614,150 @@ NailNote/
 影響範囲: 設定画面テーマPickerの表示名のみ。機能ロジック・データ処理への影響なし。
 実機確認: 未実施（ユーザーによる表示確認待ち）。
 次にやること: 1) 設定画面で3テーマ名が希望名称で表示されることを確認
+
+### 2026-02-24 (追記66)
+変更ファイル: NailNote/Features/Settings/SettingsView.swift, PROJECT_STATUS.md
+実装内容: 設定画面に「デザインアイコン候補（プレビュー）」セクションを追加。SF Symbols の候補名と実アイコンを2カラムで見比べできるようにし、`showDesignIconPreview` フラグで簡単に非表示化できる構成にした（不要時は `false` へ変更、またはセクション削除）。
+影響範囲: SettingsView の表示UIのみ。既存のテーマ設定・保存ロジック・各画面機能への影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 設定画面で候補表示と可読性を確認 2) 採用アイコン決定後に該当シンボルへ差し替え 3) プレビューセクションを削除またはフラグOFF
+
+### 2026-02-24 (追記67)
+変更ファイル: NailNote/Features/Settings/SettingsView.swift, PROJECT_STATUS.md
+実装内容: デザインアイコン候補プレビューに、要望分の候補を追加。`hand.draw` をSF Symbols候補に追加し、あわせて絵文字候補として `💅` の表示行を追加した。これにより、塗っているニュアンスの候補を設定画面上で比較できる。
+影響範囲: SettingsView のプレビュー表示のみ。テーマ設定・保存・各機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 設定画面で追加候補が表示されることを確認 2) 採用アイコン確定後に実際のフィルタアイコンへ反映
+
+### 2026-02-24 (追記68)
+変更ファイル: NailNote/Features/Settings/SettingsView.swift, PROJECT_STATUS.md
+実装内容: 設定画面に「アイテムアイコン候補（プレビュー）」セクションを追加し、ネイル用品向け候補を一覧化。SF Symbols（`shippingbox` `archivebox` `bag` `pouch` `drop` `eyedropper` など）に加え、絵文字候補（`💅` `🧴` `🧪`）も表示して比較できるようにした。不要時に消しやすいよう `showItemIconPreview` フラグで切替可能。
+影響範囲: SettingsView のプレビュー表示のみ。既存機能・保存ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 設定画面で候補表示と可読性を確認 2) 採用アイコン決定後に本番のアイコンへ反映 3) プレビューセクションを削除またはフラグOFF
+
+### 2026-02-25 (追記69)
+変更ファイル: NailNote/App/RootView.swift, PROJECT_STATUS.md
+実装内容: 下段タブバーの「デザイン」アイコンを SF Symbols（`hand.raised.fill`）からカスタムアセット `IconDesignCustom` に差し替えた。`tabItem` は `Image("IconDesignCustom") + Text("デザイン")` 構成へ変更。
+影響範囲: RootView のデザインタブアイコン表示のみ。タブ遷移・機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorでタブアイコンの表示サイズと選択時色を確認 2) 必要ならアセットの余白調整または画像差し替え
+
+### 2026-02-25 (追記70)
+変更ファイル: NailNote/App/RootView.swift, PROJECT_STATUS.md
+実装内容: カスタムタブアイコンが巨大表示になる問題を修正。`tabItem` の記述を `Image + Text` から `Label("デザイン", image: "IconDesignCustom")` に変更し、他タブと同等の標準アイコンスケールで描画されるよう調整した。
+影響範囲: RootView のデザインタブアイコン表示サイズのみ。機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorでサイズが他タブと揃っていることを確認 2) まだ大きい場合はアセットPDFの余白/アートボード調整を実施
+
+### 2026-02-25 (追記71)
+変更ファイル: NailNote/App/RootView.swift, PROJECT_STATUS.md
+実装内容: ユーザー指定の巨大化対策ルールに合わせ、下段タブ「デザイン」のカスタムアイコン定義を `Image("IconDesignCustom").renderingMode(.template).frame(width: 20, height: 20)` へ変更。`tabItem` 内のため `resizable()` は使用せず、`Text("デザイン")` と組み合わせる構成に統一した。
+影響範囲: RootView のデザインタブアイコン描画サイズのみ。遷移・機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorで他タブと同等サイズか確認 2) 依然大きい場合はPDFアートボード余白を調整
+
+### 2026-02-25 (追記72)
+変更ファイル: NailNote/App/RootView.swift, PROJECT_STATUS.md
+実装内容: 下段タブ「デザイン」巨大化対応を再調整。使用アセットを `IconDesignCustom` と確認した上で、`CustomIconSources/design_icon.pdf` を同名imageset内の `design_icon.pdf` に再差し替え。`Contents.json` の `preserves-vector-representation: true` と `template-rendering-intent: template` は維持。`tabItem` は `Label` の `icon` クロージャ形式に変更し、`Image("IconDesignCustom").renderingMode(.template).frame(width: 20, height: 20)` を適用（`resizable()` 未使用）。
+影響範囲: RootView のデザインタブアイコン描画のみ。機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorで巨大化解消を確認 2) なお大きい場合はPDFのアートボードを20〜24pt相当に調整
+
+### 2026-02-25 (追記73)
+変更ファイル: NailNote/App/RootView.swift, PROJECT_STATUS.md
+実装内容: 「小さすぎる」指摘に対応し、`CustomIconSources/design_icon.pdf` を `IconDesignCustom.imageset/design_icon.pdf` へ再差し替え。アセット設定（`preserves-vector-representation: true` / `template-rendering-intent: template`）を維持確認。あわせて `tabItem` の `Image("IconDesignCustom")` から `frame(width: 20, height: 20)` を削除し、タブ標準サイズで描画させる構成へ調整した。
+影響範囲: RootView のデザインタブアイコン表示サイズのみ。機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorでサイズバランスを確認 2) 必要なら `frame(width: 24, height: 24)` で再調整
+
+### 2026-02-25 (追記74)
+変更ファイル: NailNote/App/RootView.swift, PROJECT_STATUS.md
+実装内容: TabBar「デザイン」アイコンの巨大化再発防止として、`tabItem` を `Image + Text` 形式でサイズ固定に統一。`Image("IconDesignCustom")` に `renderingMode(.template)`, `resizable()`, `scaledToFit()`, `frame(width: 22, height: 22)` を適用した。これによりPDFアートボード差異があっても表示サイズを一定化。
+影響範囲: RootView のデザインタブアイコン描画のみ。遷移・機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorでサイズと視認性を確認 2) 必要なら 24〜26pt に再調整
+
+### 2026-02-25 (追記75)
+変更ファイル: NailNote/App/RootView.swift, PROJECT_STATUS.md
+実装内容: 「デザイン」タブアイコンが小さい指摘に対応し、`Image("IconDesignCustom")` のサイズを `22x22` から `24x24` へ拡大調整した。その他の描画指定（template/resizable/scaledToFit）は維持。
+影響範囲: RootView のデザインタブアイコン表示サイズのみ。機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorでサイズ感を確認 2) 必要なら 25〜26pt で再調整
+
+### 2026-02-25 (追記76)
+変更ファイル: NailNote/App/RootView.swift, PROJECT_STATUS.md
+実装内容: 追加要望に対応し、デザインタブのカスタムアイコンサイズを `24x24` から `28x28` に再拡大。PDFアートボード内の描画領域が小さい場合でも、TabBar上で視認しやすいサイズに寄せた。
+影響範囲: RootView のデザインタブアイコン表示サイズのみ。機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorでサイズバランスを確認 2) 必要なら 26〜30pt の範囲で最終調整
+
+### 2026-02-25 (追記77)
+変更ファイル: NailNote/App/RootView.swift, PROJECT_STATUS.md
+実装内容: さらに「小さい」指摘に対応し、デザインタブのカスタムアイコンサイズを `28x28` から `36x36` に拡大した。アセット側の描画領域が小さめでも視認できるよう、表示フレームを大きく確保。
+影響範囲: RootView のデザインタブアイコン表示サイズのみ。機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorで最終サイズ確認 2) まだ小さければPDF内の実描画サイズを拡大して再書き出し
+
+### 2026-02-25 (追記78)
+変更ファイル: NailNote/App/RootView.swift, PROJECT_STATUS.md
+実装内容: `CustomIconSources/design_icon.pdf` のアートボード過大（1152x768）による見かけサイズ不整合に対応するため、正方形化して `84x84px（28pt相当@3x）` で再生成し、`IconDesignCustom.imageset/design_icon.pdf` へ再反映。あわせてタブ側の過剰拡大を避けるため `RootView` のアイコン表示フレームを `36x36` から `24x24` へ戻した（template/resizable/scaledToFit は維持）。
+影響範囲: デザインタブのアイコン見え方のみ。機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorでサイズ確認 2) 必要なら 24〜28pt の範囲で微調整
+
+### 2026-02-26 (追記79)
+変更ファイル: NailNote/App/RootView.swift, PROJECT_STATUS.md
+実装内容: 透過PNG反映後にデザインタブアイコンが大きく見える問題へ対応し、`Image("IconDesignCustom")` の表示フレームを `24x24` から `20x20` に調整。`renderingMode(.template) + resizable() + scaledToFit()` は維持し、他タブアイコンサイズに寄せた。
+影響範囲: RootView のデザインタブアイコン表示サイズのみ。機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorで他タブと同等サイズか確認 2) 必要なら 19〜21pt で最終微調整
+
+### 2026-02-26 (追記80)
+変更ファイル: NailNote/App/RootView.swift, PROJECT_STATUS.md
+実装内容: 「サイズが変わらない」問題の原因切り分けとして、`tabItem` の `frame` 指定ではなくアセット実サイズ依存である前提に切替。`IconDesignCustom.imageset/design_icon.png` を `1024x1024` から `84x84`（28pt相当@3x）へ縮小して反映し、`RootView` は `Label(\"デザイン\", image: \"IconDesignCustom\")` の標準定義に戻した。
+影響範囲: デザインタブアイコンの表示サイズのみ。機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 実機/Simulatorで他タブとのサイズ一致を確認 2) 必要なら 78〜90px の範囲でアセット側を再調整
+
+### 2026-02-26 (追記81)
+変更ファイル: NailNote/App/RootView.swift, PROJECT_STATUS.md
+実装内容: ユーザー要望に合わせ、下段タブ「デザイン」アイコンをカスタムアセットから Apple純正寄せのSF Symbolへ一時切替。`Label("デザイン", image: "IconDesignCustom")` を `Label("デザイン", systemImage: "paintbrush.pointed")` に変更した。
+影響範囲: RootView のデザインタブアイコン表示のみ。タブ遷移・機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 見え方確認 2) 問題なければカスタムアセット運用を停止するか判断
+
+### 2026-02-26 (追記82)
+変更ファイル: NailNote/App/RootView.swift, PROJECT_STATUS.md
+実装内容: ユーザー指示「2を試す」に合わせ、下段タブ「デザイン」アイコンをSF Symbolから自作アイコン運用へ戻した。`Label("デザイン", systemImage: "paintbrush.pointed")` を `Label("デザイン", image: "IconDesignCustom")` に再変更。
+影響範囲: RootView のデザインタブアイコン表示のみ。機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 見え方確認 2) 線の太さが不足する場合は元画像データ側で線幅を増やして再投入
+
+### 2026-02-26 (追記83)
+変更ファイル: NailNote/Assets.xcassets/IconDesignCustom.imageset/design_icon.png, NailNote/Assets.xcassets/IconDesignCustom.imageset/Contents.json, NailNote/Assets.xcassets/IconDesignSaved.imageset/Contents.json, NailNote/Assets.xcassets/IconDesignSaved.imageset/design_icon_saved.png, CustomIconSources/design_icon.png, CustomIconSources/design_icon_saved.png, PROJECT_STATUS.md
+実装内容: デザインタブ用のカスタムアイコンを透過PNG運用へ切替し、サイズ感をタブ向けに再調整（最終87x87px, 3x扱い）。線をやや太く見せる加工版を `IconDesignCustom` に反映し、あわせて現時点の「戻し用」固定版として `IconDesignSaved` アセットを新規追加して保管した。
+影響範囲: デザインタブのアイコン見た目のみ。タブ遷移・機能ロジックへの影響なし。
+実機確認: 未実施（ユーザーによる表示確認待ち）。
+次にやること: 1) 線の濃さをさらに上げる場合は元PNG側で線色/線幅を再調整 2) 他候補を試した後に `IconDesignSaved` へ即時復帰可能
+
+### 2026-03-06 (追記84)
+変更ファイル: NailNote/App/RootView.swift, PROJECT_STATUS.md
+実装内容: デザインタブのカスタムPNGアイコンは保存版を含めて同一画像で、線の細さをSwift側だけで補正できなかったため、視認性を優先して `paintpalette.fill` のSF Symbolへ切り替えた。ラベル文言と4タブ構成は維持している。
+影響範囲: RootView の「デザイン」タブアイコン表示のみ。画面遷移・データ・他タブの挙動には影響なし。
+実機確認: 未実施（ユーザーによるXcode上の表示確認待ち）。
+次にやること: 1) Xcode再ログイン後にビルドして見え方を確認 2) まだ弱ければ `paintbrush.pointed.fill` など他の塗りつぶし系SF Symbolも比較 3) カスタムPNGを再利用する場合は元画像側で線幅を再設計
+
+### 2026-03-06 (追記85)
+変更ファイル: NailNote/Features/Settings/SettingsView.swift, PROJECT_STATUS.md
+実装内容: 設定画面のアイコン候補プレビューを、ネイル用途に寄せた候補だけへ整理した。デザイン側は `paintpalette.fill`、`paintbrush.pointed.fill`、`sparkles`、`wand.and.stars`、`hand.draw` と `💅` を比較できる形にし、各候補が実際のタブ文言 `デザイン` と並んで見えるプレビューUIへ変更した。アイテム側も候補数を絞り、同じ見せ方へ統一した。
+影響範囲: SettingsView のプレビュー表示のみ。タブの実際のアイコン変更は行っていない。
+実機確認: 未実施（ユーザーによる設定画面での見比べ待ち）。
+次にやること: 1) 設定画面で候補を見比べて採用アイコンを確定 2) 確定後に RootView のタブアイコンへ反映 3) 不要になったプレビュー候補やアセットを整理
+
+### 2026-03-25 (引き継ぎメモ)
+変更ファイル: PROJECT_STATUS.md
+実装内容: セッション再開用に、実機接続トラブルの状況を整理した。`iPhone 17e` 実機へ切り替え後、`Devices and Simulators` 上では当初 `Developer Mode disabled` が出ていたが、iPhone 側でデベロッパモード有効化までは完了。その後は `The developer disk image could not be mounted on this device.` で停止している。確認済みの環境は `Xcode 26.3 (17C529)`、実機OSは `iOS 26.3 (23D8128)`。Apple ID / Provisioning まわりでは、`No Accounts` と `Provisioning profile "iOS Team Provisioning Profile: com.iyashi.NailNote" expired on Mar 13, 2026.` も確認済みで、Apple ID再ログインと署名再生成が必要な状態。
+影響範囲: ドキュメントのみ。アプリコード・アセットには影響なし。
+実機確認: 未完了。次回は Mac 再起動後に `Devices and Simulators` を再確認し、`Ready` になるか・同エラー継続かを確認するところから再開する。
+次にやること: 1) Mac再起動後に iPhone 17e を再接続して `Devices and Simulators` を確認 2) まだ DDI マウントエラーが出る場合は Apple ID の再ログイン、`Signing & Capabilities` の Team 再設定、必要なら Bundle Identifier 再生成を実施 3) 署名が通ったら設定画面のアイコン候補を見比べてデザインタブアイコンを確定
