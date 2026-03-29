@@ -30,6 +30,8 @@ struct SimHomeView: View {
     private var content: some View {
         let entriesSnapshot = Array(entries)
         let photoEntries = entriesSnapshot.filter { $0.photoId != nil }
+        let previousEvaluatedEntries = makeSameDesignPreviousEvaluatedEntryMap(from: photoEntries)
+        let trendPoints = makeTrendPoints(from: photoEntries)
         let filteredPhotoEntries = photoEntries.filter { entry in
             switch evaluationFilter {
             case .evaluated:
@@ -60,6 +62,7 @@ struct SimHomeView: View {
                                 ForEach(filteredPhotoEntries, id: \.objectID) { entry in
                                     AIScoreEntryCard(
                                         entry: entry,
+                                        previousEvaluatedEntry: previousEvaluatedEntries[entry.objectID],
                                         isEvaluating: evaluatingEntryID == entry.objectID,
                                         evaluateAction: {
                                             entryPendingConfirmation = entry
@@ -71,6 +74,9 @@ struct SimHomeView: View {
                                     )
                                 }
                             }
+                        }
+                        if !trendPoints.isEmpty {
+                            AIScoreTrendCard(points: trendPoints)
                         }
                     }
                     .padding(16)
@@ -236,7 +242,7 @@ struct SimHomeView: View {
             )
             expandedEntries.insert(entry.objectID)
         } catch {
-            alertMessage = error.localizedDescription
+            alertMessage = Self.makeEvaluationErrorMessage(from: error)
         }
         evaluatingEntryID = nil
     }
@@ -258,6 +264,68 @@ struct SimHomeView: View {
         }
         expandedEntries = updated
     }
+
+    private func makeSameDesignPreviousEvaluatedEntryMap(from entries: [NailEntry]) -> [NSManagedObjectID: NailEntry] {
+        var result: [NSManagedObjectID: NailEntry] = [:]
+        var lastEvaluatedEntryByDesign: [String: NailEntry] = [:]
+
+        for entry in entries.reversed() {
+            let designKey = normalizedDesignKey(for: entry)
+            result[entry.objectID] = lastEvaluatedEntryByDesign[designKey]
+            if entry.aiScoreBridge != nil {
+                lastEvaluatedEntryByDesign[designKey] = entry
+            }
+        }
+
+        return result
+    }
+
+    private func normalizedDesignKey(for entry: NailEntry) -> String {
+        let raw = (entry.designCategory ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        return raw.isEmpty ? "__unknown_design__" : raw
+    }
+
+    private func makeTrendPoints(from entries: [NailEntry]) -> [AIScoreTrendPoint] {
+        let evaluatedEntries = entries
+            .filter { $0.aiScoreBridge?.evaluatedAt != nil }
+            .sorted {
+                ($0.aiScoreBridge?.evaluatedAt ?? .distantPast) < ($1.aiScoreBridge?.evaluatedAt ?? .distantPast)
+            }
+
+        return evaluatedEntries.suffix(6).compactMap { entry in
+            guard let score = entry.aiScoreBridge,
+                  let evaluatedAt = score.evaluatedAt else { return nil }
+            let title = (entry.title ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return AIScoreTrendPoint(
+                title: title.isEmpty ? "無題" : title,
+                date: evaluatedAt,
+                totalScore: Int(score.totalScore),
+                finishQuality: Int(score.finishQuality),
+                edgeAndCuticle: Int(score.edgeAndCuticle),
+                thicknessBalance: Int(score.thicknessBalance),
+                designBalance: Int(score.designBalance),
+                durabilityPrediction: Int(score.durabilityPrediction)
+            )
+        }
+    }
+
+    private static func makeEvaluationErrorMessage(from error: Error) -> String {
+        let nsError = error as NSError
+        if let detailedErrors = nsError.userInfo[NSDetailedErrorsKey] as? [NSError], !detailedErrors.isEmpty {
+            let messages = detailedErrors.compactMap { detailedError -> String? in
+                let key = detailedError.userInfo[NSValidationKeyErrorKey] as? String
+                let reason = detailedError.localizedDescription
+                if let key, !key.isEmpty {
+                    return "\(key): \(reason)"
+                }
+                return reason
+            }
+            if !messages.isEmpty {
+                return messages.joined(separator: "\n")
+            }
+        }
+        return nsError.localizedDescription
+    }
 }
 
 private enum AIEvaluationFilter: CaseIterable, Identifiable {
@@ -276,6 +344,7 @@ private enum AIEvaluationFilter: CaseIterable, Identifiable {
 
 private struct AIScoreEntryCard: View {
     @ObservedObject var entry: NailEntry
+    let previousEvaluatedEntry: NailEntry?
     let isEvaluating: Bool
     let evaluateAction: () -> Void
     let isExpanded: Bool
@@ -295,6 +364,14 @@ private struct AIScoreEntryCard: View {
         formatter.dateStyle = .medium
         formatter.timeStyle = .none
         return formatter.string(from: entry.date ?? entry.createdAt ?? Date())
+    }
+
+    private var designCategoryLabel: String {
+        let raw = (entry.designCategory ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if let category = NailDesignCategory(rawValue: raw) {
+            return category.displayName
+        }
+        return raw.isEmpty ? "デザイン未設定" : raw
     }
 
     private var canEvaluate: Bool {
@@ -329,6 +406,28 @@ private struct AIScoreEntryCard: View {
                             .font(.headline)
                             .foregroundStyle(.primary)
                             .lineLimit(2)
+                        Text(designCategoryLabel)
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(Color(red: 0.46, green: 0.30, blue: 0.34))
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 4)
+                            .background(
+                                Capsule()
+                                    .fill(
+                                        LinearGradient(
+                                            colors: [
+                                                Color(red: 0.96, green: 0.88, blue: 0.85).opacity(0.95),
+                                                Color(red: 0.90, green: 0.82, blue: 0.78).opacity(0.92)
+                                            ],
+                                            startPoint: .topLeading,
+                                            endPoint: .bottomTrailing
+                                        )
+                                    )
+                            )
+                            .overlay(
+                                Capsule()
+                                    .stroke(Color(red: 0.73, green: 0.60, blue: 0.56).opacity(0.55), lineWidth: 1)
+                            )
                         Text(formattedDate)
                             .font(.caption)
                             .foregroundStyle(.secondary)
@@ -347,7 +446,10 @@ private struct AIScoreEntryCard: View {
 
                 if let data = displayData {
                     if isExpanded {
-                        EntryAIScoreSummaryView(data: data)
+                        EntryAIScoreSummaryView(
+                            data: data,
+                            comparison: makeComparisonData(current: data)
+                        )
                     }
                     Button {
                         toggleExpanded()
@@ -406,6 +508,12 @@ private struct AIScoreEntryCard: View {
         formatter.locale = Locale(identifier: "ja_JP")
         formatter.dateFormat = "yyyy/MM/dd HH:mm"
         return formatter.string(from: date)
+    }
+
+    private func makeComparisonData(current: AIScoreDisplayData) -> AIScoreComparisonData? {
+        guard let previousBridge = previousEvaluatedEntry?.aiScoreBridge else { return nil }
+        let previousData = AIScoreDisplayData(score: previousBridge)
+        return AIScoreComparisonData(current: current, previous: previousData)
     }
 
     @MainActor
@@ -468,12 +576,69 @@ private struct AIScoreDisplayData: Identifiable {
     let confidence: Double
     let assumptions: [String]
     let evaluatedAt: Date?
+    let designCategoryName: String
 }
 
 private struct AIScoreMetricComment: Identifiable {
     let id = UUID()
     let title: String
     let text: String
+}
+
+private struct AIScoreTrendPoint: Identifiable {
+    let id = UUID()
+    let title: String
+    let date: Date
+    let totalScore: Int
+    let finishQuality: Int
+    let edgeAndCuticle: Int
+    let thicknessBalance: Int
+    let designBalance: Int
+    let durabilityPrediction: Int
+}
+
+private struct AIScoreComparisonMetric: Identifiable {
+    let id = UUID()
+    let title: String
+    let currentScore: Int
+    let delta: Int
+}
+
+private struct AIScoreComparisonData {
+    let comparisonContext: String
+    let previousEvaluatedAt: Date?
+    let currentTotalScore: Int
+    let previousTotalScore: Int
+    let totalDelta: Int
+    let metrics: [AIScoreComparisonMetric]
+    let improvedTitles: [String]
+    let declinedTitles: [String]
+
+    init(current: AIScoreDisplayData, previous: AIScoreDisplayData) {
+        self.comparisonContext = current.designCategoryName
+        self.previousEvaluatedAt = previous.evaluatedAt
+        self.currentTotalScore = current.totalScore
+        self.previousTotalScore = previous.totalScore
+        self.totalDelta = current.totalScore - previous.totalScore
+
+        let metricPairs: [(String, Int, Int)] = [
+            ("仕上がり", current.finishQuality, previous.finishQuality),
+            ("甘皮ライン", current.edgeAndCuticle, previous.edgeAndCuticle),
+            ("厚み", current.thicknessBalance, previous.thicknessBalance),
+            ("デザイン", current.designBalance, previous.designBalance),
+            ("持ち予測", current.durabilityPrediction, previous.durabilityPrediction)
+        ]
+
+        self.metrics = metricPairs.map { title, currentScore, previousScore in
+            AIScoreComparisonMetric(
+                title: title,
+                currentScore: currentScore,
+                delta: currentScore - previousScore
+            )
+        }
+        self.improvedTitles = metrics.filter { $0.delta > 0 }.map(\.title)
+        self.declinedTitles = metrics.filter { $0.delta < 0 }.map(\.title)
+    }
 }
 
 private extension AIScoreDisplayData {
@@ -491,6 +656,7 @@ private extension AIScoreDisplayData {
         self.confidence = score.confidence
         self.assumptions = score.assumptionsArray
         self.evaluatedAt = score.evaluatedAt
+        self.designCategoryName = score.entryDesignCategoryName
     }
 
     static var sample: AIScoreDisplayData {
@@ -523,7 +689,8 @@ private extension AIScoreDisplayData {
                 "室内の自然光で撮影されたと想定しています",
                 "ワンカラー寄りのニュアンスデザインとして解析しました"
             ],
-            evaluatedAt: Date()
+            evaluatedAt: Date(),
+            designCategoryName: "サンプル"
         )
     }
 
@@ -578,6 +745,7 @@ private extension AIScoreDisplayData {
 
 private struct EntryAIScoreSummaryView: View {
     let data: AIScoreDisplayData
+    let comparison: AIScoreComparisonData?
 
     private var radarMetrics: [AIScoreRadarChart.Metric] {
         [
@@ -597,6 +765,14 @@ private struct EntryAIScoreSummaryView: View {
         return formatter.string(from: date)
     }
 
+    private func formatComparisonDate(_ date: Date?) -> String {
+        guard let date else { return "前回比較なし" }
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy/MM/dd"
+        formatter.locale = Locale(identifier: "ja_JP")
+        return formatter.string(from: date)
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack {
@@ -611,6 +787,13 @@ private struct EntryAIScoreSummaryView: View {
             AIScoreRadarChart(metrics: radarMetrics, centerText: "\(data.totalScore)")
                 .frame(height: 220)
                 .padding(.top, 8)
+
+            if let comparison {
+                AIScoreComparisonSection(
+                    comparison: comparison,
+                    previousDateText: formatComparisonDate(comparison.previousEvaluatedAt)
+                )
+            }
 
             if !data.metricComments.isEmpty {
                 MetricCommentListView(comments: data.metricComments)
@@ -637,6 +820,263 @@ private struct EntryAIScoreSummaryView: View {
                 .foregroundStyle(.secondary)
         }
         .padding(.vertical, 4)
+    }
+}
+
+private struct AIScoreComparisonSection: View {
+    let comparison: AIScoreComparisonData
+    let previousDateText: String
+
+    private var totalDeltaText: String {
+        comparison.totalDelta == 0 ? "±0" : String(format: "%+d", comparison.totalDelta)
+    }
+
+    private var totalDeltaColor: Color {
+        if comparison.totalDelta > 0 { return .green }
+        if comparison.totalDelta < 0 { return .pink }
+        return .secondary
+    }
+
+    private var summaryText: String {
+        if !comparison.improvedTitles.isEmpty && comparison.declinedTitles.isEmpty {
+            return "前回より \(comparison.improvedTitles.joined(separator: "・")) が伸びています。"
+        }
+        if comparison.improvedTitles.isEmpty && !comparison.declinedTitles.isEmpty {
+            return "前回より \(comparison.declinedTitles.joined(separator: "・")) を見直す余地があります。"
+        }
+        if !comparison.improvedTitles.isEmpty && !comparison.declinedTitles.isEmpty {
+            return "\(comparison.improvedTitles.joined(separator: "・")) は改善、\(comparison.declinedTitles.joined(separator: "・")) は再確認ポイントです。"
+        }
+        return "前回と近い仕上がりです。安定して再現できています。"
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Label("前回比較", systemImage: "chart.line.uptrend.xyaxis")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text("比較対象: \(comparison.comparisonContext) / \(previousDateText)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+
+            HStack(alignment: .firstTextBaseline, spacing: 8) {
+                Text("総合スコア")
+                    .font(.subheadline.weight(.semibold))
+                Text("\(comparison.currentTotalScore)")
+                    .font(.title3.weight(.bold))
+                    .foregroundStyle(.primary)
+                Text("(前回 \(comparison.previousTotalScore))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Text(totalDeltaText)
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(totalDeltaColor)
+                Spacer(minLength: 0)
+            }
+
+            Text(summaryText)
+                .font(.subheadline)
+                .foregroundStyle(.primary)
+
+            VStack(spacing: 8) {
+                ForEach(comparison.metrics) { metric in
+                    HStack(spacing: 10) {
+                        Text(metric.title)
+                            .font(.caption.weight(.semibold))
+                            .frame(width: 72, alignment: .leading)
+                            .foregroundStyle(.secondary)
+                        Text("\(metric.currentScore)")
+                            .font(.subheadline.weight(.bold))
+                            .frame(width: 28, alignment: .trailing)
+                        Text(metric.delta == 0 ? "±0" : String(format: "%+d", metric.delta))
+                            .font(.caption.weight(.bold))
+                            .foregroundStyle(metric.delta > 0 ? .green : (metric.delta < 0 ? .pink : .secondary))
+                            .padding(.vertical, 4)
+                            .padding(.horizontal, 8)
+                            .background(
+                                Capsule()
+                                    .fill(Color.white.opacity(0.55))
+                            )
+                        Spacer()
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14, style: .continuous))
+    }
+}
+
+private struct AIScoreTrendCard: View {
+    let points: [AIScoreTrendPoint]
+
+    private var latestPoint: AIScoreTrendPoint? {
+        points.last
+    }
+
+    private var latestMetrics: [(String, Int)] {
+        guard let latestPoint else { return [] }
+        return [
+            ("仕上がり", latestPoint.finishQuality),
+            ("甘皮ライン", latestPoint.edgeAndCuticle),
+            ("厚み", latestPoint.thicknessBalance),
+            ("デザイン", latestPoint.designBalance),
+            ("持ち予測", latestPoint.durabilityPrediction)
+        ]
+    }
+
+    var body: some View {
+        GlassCard {
+            VStack(alignment: .leading, spacing: 14) {
+                HStack(alignment: .top) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("スコア推移")
+                            .font(.headline)
+                        Text("直近6件のAI評価から、総合スコアの流れを確認できます。")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                    Spacer()
+                    if let latestPoint {
+                        VStack(alignment: .trailing, spacing: 2) {
+                            Text("\(latestPoint.totalScore)")
+                                .font(.title3.weight(.bold))
+                            Text("最新スコア")
+                                .font(.caption2)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+
+                AIScoreTrendLineChart(points: points)
+                    .frame(height: 170)
+
+                if !latestMetrics.isEmpty {
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("最新の5項目")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                        LazyVGrid(columns: [GridItem(.flexible()), GridItem(.flexible())], spacing: 8) {
+                            ForEach(latestMetrics, id: \.0) { title, value in
+                                HStack {
+                                    Text(title)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Spacer()
+                                    Text("\(value)")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(.primary)
+                                }
+                                .padding(.horizontal, 10)
+                                .padding(.vertical, 8)
+                                .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private struct AIScoreTrendLineChart: View {
+    let points: [AIScoreTrendPoint]
+
+    private var values: [Double] {
+        points.map { Double($0.totalScore) }
+    }
+
+    private var minValue: Double {
+        max(0, (values.min() ?? 0) - 8)
+    }
+
+    private var maxValue: Double {
+        min(100, (values.max() ?? 100) + 8)
+    }
+
+    var body: some View {
+        GeometryReader { proxy in
+            let width = proxy.size.width
+            let height = proxy.size.height
+            let steps = max(points.count - 1, 1)
+
+            ZStack {
+                RoundedRectangle(cornerRadius: 16, style: .continuous)
+                    .fill(Color.white.opacity(0.18))
+
+                VStack(spacing: 0) {
+                    ForEach(0..<4, id: \.self) { _ in
+                        Rectangle()
+                            .fill(Color.white.opacity(0.18))
+                            .frame(height: 1)
+                        Spacer()
+                    }
+                }
+                .padding(.vertical, 14)
+
+                Path { path in
+                    guard let first = points.first else { return }
+                    path.move(to: point(for: first, index: 0, width: width, height: height, steps: steps))
+                    for (index, point) in points.enumerated().dropFirst() {
+                        path.addLine(to: self.point(for: point, index: index, width: width, height: height, steps: steps))
+                    }
+                }
+                .stroke(
+                    LinearGradient(
+                        colors: [Color(red: 0.93, green: 0.46, blue: 0.67), Color(red: 0.93, green: 0.74, blue: 0.40)],
+                        startPoint: .leading,
+                        endPoint: .trailing
+                    ),
+                    style: StrokeStyle(lineWidth: 3, lineCap: .round, lineJoin: .round)
+                )
+
+                ForEach(Array(points.enumerated()), id: \.offset) { index, point in
+                    let location = self.point(for: point, index: index, width: width, height: height, steps: steps)
+                    VStack(spacing: 6) {
+                        Text("\(point.totalScore)")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.primary)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 4)
+                            .background(Color.white.opacity(0.82), in: Capsule())
+                        Circle()
+                            .fill(Color.white)
+                            .frame(width: 8, height: 8)
+                            .overlay(
+                                Circle()
+                                    .stroke(Color.accentColor.opacity(0.6), lineWidth: 2)
+                            )
+                        Text(shortDate(point.date))
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                    }
+                    .position(x: location.x, y: max(24, min(height - 16, location.y)))
+                }
+            }
+        }
+    }
+
+    private func point(for point: AIScoreTrendPoint, index: Int, width: CGFloat, height: CGFloat, steps: Int) -> CGPoint {
+        let xPadding: CGFloat = 24
+        let usableWidth = max(1, width - (xPadding * 2))
+        let x = xPadding + (usableWidth / CGFloat(steps)) * CGFloat(index)
+        let normalized = (Double(point.totalScore) - minValue) / max(1, maxValue - minValue)
+        let yPaddingTop: CGFloat = 28
+        let yPaddingBottom: CGFloat = 34
+        let usableHeight = max(1, height - yPaddingTop - yPaddingBottom)
+        let y = yPaddingTop + (1 - normalized) * usableHeight
+        return CGPoint(x: x, y: y)
+    }
+
+    private func shortDate(_ date: Date) -> String {
+        let formatter = DateFormatter()
+        formatter.locale = Locale(identifier: "ja_JP")
+        formatter.dateFormat = "M/d"
+        return formatter.string(from: date)
     }
 }
 
@@ -982,7 +1422,7 @@ private struct AIScoreSampleView: View {
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
                     GlassCard {
-                        EntryAIScoreSummaryView(data: .sample)
+                        EntryAIScoreSummaryView(data: .sample, comparison: nil)
                     }
                     Text("実際のレスポンスはJSON形式ですが、このプレビューではUIに近い形で内容のみ確認できます。")
                         .font(.caption)
@@ -1078,6 +1518,16 @@ final class AINailScoreService {
         return formatter
     }()
 
+    private var aiScoreQuotaLimit: Int16 { 3 }
+
+    private var shouldEnforceAIScoreQuota: Bool {
+#if DEBUG
+        false
+#else
+        true
+#endif
+    }
+
     func evaluate(entry: NailEntry,
                   userGoal: String?,
                   context: NSManagedObjectContext) async throws -> EntryAIScoreBridge {
@@ -1099,8 +1549,7 @@ final class AINailScoreService {
         }
 
         let quota = try self.fetchOrCreateQuota(in: context)
-        let limit: Int16 = 3
-        if quota.aiScoreUsageCount >= limit {
+        if shouldEnforceAIScoreQuota, quota.aiScoreUsageCount >= aiScoreQuotaLimit {
             throw AINailScoreError.quotaExceeded
         }
 

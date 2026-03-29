@@ -841,6 +841,7 @@ extension NailEntry {
         guard let typedObject = object as? EntryAIScore else {
             fatalError("EntryAIScore entity must be backed by EntryAIScore class")
         }
+        typedObject.setValue(UUID(), forKey: "id")
         aiScore = typedObject
         return EntryAIScoreBridge(object: typedObject)
     }
@@ -848,6 +849,15 @@ extension NailEntry {
 
 struct EntryAIScoreBridge {
     let object: NSManagedObject
+
+    var entryDesignCategoryName: String {
+        guard let entry = object.value(forKey: "entry") as? NailEntry else { return "未設定" }
+        let raw = (entry.designCategory ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+        if let category = NailDesignCategory(rawValue: raw) {
+            return category.displayName
+        }
+        return raw.isEmpty ? "未設定" : raw
+    }
 
     var totalScore: Int16 {
         get { object.value(forKey: "totalScore") as? Int16 ?? 0 }
