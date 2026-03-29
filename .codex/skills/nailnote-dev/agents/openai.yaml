@@ -1,0 +1,7 @@
+interface:
+  display_name: "NailNote Dev"
+  short_description: "NailNote専用の実装・引き継ぎフロー"
+  default_prompt: "Use $nailnote-dev to continue NailNote work safely from PROJECT_STATUS.md and follow the repository's implementation guardrails."
+
+policy:
+  allow_implicit_invocation: true
