@@ -60,3 +60,9 @@ fastlane/report.xml
 fastlane/Preview.html
 fastlane/screenshots/**/*.png
 fastlane/test_output
+
+# macOSのフォルダ表示情報
+.DS_Store
+
+# アプリでは使用しないデザイン参考画像（ローカルには保持）
+/docs/design-reference/

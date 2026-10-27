@@ -30,18 +30,22 @@ struct SettingsView: View {
                         )
                     }
 
-                    Section("サブスクリプション") {
-                        SettingInfoRow(
-                            title: "サブスクについて",
-                            description: "月額プランでAIネイルスコアの追加利用枠やクラウド同期を提供予定です。価格と開始時期はアプリ内で告知します。",
-                            systemImage: "creditcard"
-                        )
+                    if NailNoteFeatureFlags.aiEvaluationEnabled {
+                        Section("サブスクリプション") {
+                            SettingInfoRow(
+                                title: "サブスクについて",
+                                description: "月額プランでAIネイルスコアの追加利用枠やクラウド同期を提供予定です。価格と開始時期はアプリ内で告知します。",
+                                systemImage: "creditcard"
+                            )
+                        }
                     }
 
                     Section("アプリ情報") {
                         SettingInfoRow(
                             title: "アプリについて",
-                            description: "NailNoteはネイル施術記録と用品管理を一体化したプライベートログアプリです。Glass UIを基調に、写真・カテゴリ・AIスコアを一画面で確認できます。",
+                            description: NailNoteFeatureFlags.aiEvaluationEnabled
+                                ? "NailNoteはネイル施術記録と用品管理を一体化したプライベートログアプリです。Glass UIを基調に、写真・カテゴリ・AIスコアを一画面で確認できます。"
+                                : "NailNoteはネイル施術記録と用品管理を一体化したプライベートログアプリです。写真・カテゴリ・自己評価で記録を振り返り、所持アイテムを管理できます。",
                             systemImage: "sparkles.rectangle.stack"
                         )
                         HStack {
@@ -80,9 +84,11 @@ struct SettingsView: View {
                             }
                         }
 
-                        Picker("AI評価チャート", selection: aiChartPresetBinding) {
-                            ForEach(GlassTheme.AIScoreChartPreset.allCases) { preset in
-                                Text(preset.displayName).tag(preset)
+                        if NailNoteFeatureFlags.aiEvaluationEnabled {
+                            Picker("AI評価チャート", selection: aiChartPresetBinding) {
+                                ForEach(GlassTheme.AIScoreChartPreset.allCases) { preset in
+                                    Text(preset.displayName).tag(preset)
+                                }
                             }
                         }
                     }

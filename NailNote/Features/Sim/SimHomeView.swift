@@ -20,9 +20,11 @@ struct SimHomeView: View {
     @State private var evaluationFilter: AIEvaluationFilter = .notEvaluated
 
     var body: some View {
-        NavigationStack {
-            GlassBackgroundView {
-                content
+        if NailNoteFeatureFlags.aiEvaluationEnabled {
+            NavigationStack {
+                GlassBackgroundView {
+                    content
+                }
             }
         }
     }
@@ -1475,6 +1477,7 @@ private struct AINailScoreResponse: Decodable {
 }
 
 private enum AINailScoreError: Error, LocalizedError {
+    case featurePaused
     case missingPhoto
     case quotaExceeded
     case duplicateEvaluation
@@ -1483,6 +1486,8 @@ private enum AINailScoreError: Error, LocalizedError {
 
     var errorDescription: String? {
         switch self {
+        case .featurePaused:
+            return "AI評価機能は現在休止中です。"
         case .missingPhoto:
             return "評価できる写真が見つかりません。"
         case .quotaExceeded:
@@ -1531,6 +1536,10 @@ final class AINailScoreService {
     func evaluate(entry: NailEntry,
                   userGoal: String?,
                   context: NSManagedObjectContext) async throws -> EntryAIScoreBridge {
+        guard NailNoteFeatureFlags.aiEvaluationEnabled else {
+            throw AINailScoreError.featurePaused
+        }
+
         guard let photoId = entry.photoId,
               let originalImage = EntryPhotoStore.loadFull(photoId: photoId) ??
                                   EntryPhotoStore.loadThumbnail(photoId: photoId) else {
@@ -1642,6 +1651,10 @@ final class AINailScoreService {
 
     private func performRemoteEvaluation(request: AINailScoreRequest,
                                          apiKey: String) async throws -> AINailScoreResponse {
+        guard NailNoteFeatureFlags.aiEvaluationEnabled else {
+            throw AINailScoreError.featurePaused
+        }
+
         guard let url = URL(string: "https://api.openai.com/v1/responses") else {
             throw AINailScoreError.serviceUnavailable
         }

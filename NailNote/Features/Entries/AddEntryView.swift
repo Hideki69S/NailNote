@@ -148,7 +148,9 @@ struct AddEntryView: View {
                 }
                 Button("キャンセル", role: .cancel) {}
             } message: {
-                Text("この写真に紐づくAIスコアはリセットされます。")
+                Text(NailNoteFeatureFlags.aiEvaluationEnabled
+                     ? "この写真に紐づくAIスコアはリセットされます。"
+                     : "別の写真を選択します。")
             }
             .confirmationDialog("写真を削除しますか？", isPresented: $showingPhotoDeleteConfirm, titleVisibility: .visible) {
                 Button("写真を削除", role: .destructive) {
@@ -157,7 +159,9 @@ struct AddEntryView: View {
                 }
                 Button("キャンセル", role: .cancel) {}
             } message: {
-                Text("この写真に紐づくAIスコアはリセットされます。")
+                Text(NailNoteFeatureFlags.aiEvaluationEnabled
+                     ? "この写真に紐づくAIスコアはリセットされます。"
+                     : "選択した写真を取り除きます。")
             }
             .photosPicker(isPresented: $showingPhotoPicker, selection: $photoItem, matching: .images)
         }
