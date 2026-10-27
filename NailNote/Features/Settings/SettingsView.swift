@@ -6,11 +6,6 @@ struct SettingsView: View {
     @AppStorage(GlassTheme.Keys.designCardPreset) private var designCardPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
     @AppStorage(GlassTheme.Keys.itemCardPreset) private var itemCardPresetRaw: String = GlassTheme.ItemCardPreset.roseChampagne.rawValue
     @AppStorage(GlassTheme.Keys.aiChartPreset) private var aiChartPresetRaw: String = GlassTheme.AIScoreChartPreset.freshGreen.rawValue
-    /// 一時プレビュー用。不要になったら `false` にするかセクションごと削除する。
-    private let showDesignIconPreview = true
-    /// 一時プレビュー用。不要になったら `false` にするかセクションごと削除する。
-    private let showItemIconPreview = true
-
     private let supportLinks: [SupportLink] = [
         .init(title: "利用規約", systemImage: "doc.text", urlString: "https://example.com/terms"),
         .init(title: "不具合報告", systemImage: "ant.fill", urlString: "https://example.com/bug"),
@@ -93,25 +88,7 @@ struct SettingsView: View {
                         }
                     }
 
-                    if showDesignIconPreview {
-                        Section("デザインアイコン候補（プレビュー）") {
-                            Text("デザインフィルタ用の候補です。決まったらこのセクションは削除できます。")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
 
-                            DesignIconPreviewGrid()
-                        }
-                    }
-
-                    if showItemIconPreview {
-                        Section("アイテムアイコン候補（プレビュー）") {
-                            Text("マニキュア/ネイル用品向けの候補です。決まったらこのセクションは削除できます。")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-
-                            ItemIconPreviewGrid()
-                        }
-                    }
                 }
                 .scrollContentBackground(.hidden)
             }

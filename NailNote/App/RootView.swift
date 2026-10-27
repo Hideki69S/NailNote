@@ -8,11 +8,12 @@ enum NailNoteFeatureFlags {
 
 struct RootView: View {
     @State private var selectedTab = 0
+    @State private var bottomNavigationTop: CGFloat?
 
     var body: some View {
         TabView(selection: $selectedTab) {
             // 記録（Entries）
-            EntryListView()
+            EntryListView(bottomNavigationTop: bottomNavigationTop)
                 .tabItem {
                     LuxuryTabLabel(kind: .design)
                 }
@@ -43,7 +44,9 @@ struct RootView: View {
         }
         .toolbarBackground(.visible, for: .tabBar)
         .background {
-            RefinedTabBarStyle(selectedTab: selectedTab)
+            RefinedTabBarStyle(selectedTab: selectedTab) { top in
+                if bottomNavigationTop != top { bottomNavigationTop = top }
+            }
                 .frame(width: 0, height: 0)
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
@@ -68,6 +71,22 @@ private struct LuxuryTabLabel: View {
     }
 }
 
+/// フィルターでも、採用済みタブと同じボトルのパス・色を再利用する。
+struct NailPolishFilterIcon: View {
+    let cardPreset: GlassTheme.DesignCardPreset
+    @AppStorage(GlassTheme.Keys.backgroundPreset) private var presetRaw = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
+    @Environment(\.displayScale) private var scale
+
+    var body: some View {
+        let preset = GlassTheme.BackgroundPreset(rawValue: presetRaw) ?? .smokySageChampagne
+        Image(uiImage: LuxuryTabArtwork.icon(kind: .design, preset: preset, selected: false, scale: scale, cardPreset: cardPreset))
+            .resizable()
+            .scaledToFit()
+            .frame(width: 20, height: 20)
+            .accessibilityHidden(true)
+    }
+}
+
 /// パスを表示解像度で描く。PNGの拡大や参照画像の切り抜きは使わない。
 private enum LuxuryTabArtwork {
     enum Kind: Int, CaseIterable {
@@ -83,10 +102,11 @@ private enum LuxuryTabArtwork {
 
     private static let icons = NSCache<NSString, UIImage>()
 
-    static func icon(kind: Kind, preset: GlassTheme.BackgroundPreset, selected: Bool, scale: CGFloat) -> UIImage {
-        let key = "\(kind.rawValue)-\(preset.rawValue)-\(selected)-\(scale)" as NSString
+    static func icon(kind: Kind, preset: GlassTheme.BackgroundPreset, selected: Bool, scale: CGFloat, cardPreset: GlassTheme.DesignCardPreset? = nil) -> UIImage {
+        let key = "\(kind.rawValue)-\(preset.rawValue)-\(selected)-\(scale)-\(cardPreset?.rawValue ?? "tab")" as NSString
         if let image = icons.object(forKey: key) { return image }
-        let palette = preset.refinedSurfacePalette
+        // タブは従来の背景色、フィルターだけはそのボタンのカード色へ合わせる。
+        let palette = cardPreset.map { GlassTheme.designCardPalette(for: $0) } ?? preset.refinedSurfacePalette
         let format = UIGraphicsImageRendererFormat()
         format.scale = max(1, scale)
         let image = UIGraphicsImageRenderer(size: CGSize(width: 28, height: 28), format: format).image { renderer in
@@ -194,6 +214,7 @@ extension GlassTheme.BackgroundPreset {
 /// 標準タブバーの形状・配置・選択処理を保ち、公開Appearance APIで素材だけを設定する。
 private struct RefinedTabBarStyle: UIViewControllerRepresentable {
     let selectedTab: Int
+    let onNavigationBoundaryChange: (CGFloat) -> Void
     @AppStorage(GlassTheme.Keys.backgroundPreset) private var presetRaw = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
     @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
 
@@ -203,6 +224,7 @@ private struct RefinedTabBarStyle: UIViewControllerRepresentable {
         controller.presetRaw = presetRaw
         controller.reduceTransparency = reduceTransparency
         controller.selectedTab = selectedTab
+        controller.onNavigationBoundaryChange = onNavigationBoundaryChange
         Task { @MainActor [weak controller] in controller?.applyMaterial() }
     }
 
@@ -210,6 +232,8 @@ private struct RefinedTabBarStyle: UIViewControllerRepresentable {
         var presetRaw = ""
         var reduceTransparency = false
         var selectedTab = 0
+        var onNavigationBoundaryChange: ((CGFloat) -> Void)?
+        private var reportedNavigationTop: CGFloat?
         private weak var styledBar: UITabBar?
         private var appliedKey = ""
         private let glassBackdrop = UIVisualEffectView()
@@ -233,6 +257,12 @@ private struct RefinedTabBarStyle: UIViewControllerRepresentable {
             guard let root = view.window?.rootViewController,
                   let bar = findTabController(in: root)?.tabBar else { return }
             guard bar.bounds.width > 0, bar.bounds.height > 0 else { return }
+            // 浮遊バー周辺のタッチが一覧へ通らないよう、実際の上端を一覧へ伝える。
+            let navigationTop = bar.convert(bar.bounds, to: nil).minY
+            if reportedNavigationTop != navigationTop {
+                reportedNavigationTop = navigationTop
+                onNavigationBoundaryChange?(navigationTop)
+            }
             let scale = bar.traitCollection.displayScale
             let key = presetRaw + String(reduceTransparency) + String(describing: bar.bounds.size) + String(describing: scale)
             let preset = GlassTheme.BackgroundPreset(rawValue: presetRaw) ?? .smokySageChampagne

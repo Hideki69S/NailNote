@@ -3,6 +3,7 @@ import CoreData
 import UIKit
 
 struct EntryListView: View {
+    var bottomNavigationTop: CGFloat? = nil
     @Environment(\.managedObjectContext) private var viewContext
 
     @FetchRequest(
@@ -13,11 +14,19 @@ struct EntryListView: View {
 
     @State private var showingAddSheet = false
     @AppStorage(GlassTheme.Keys.designCardPreset) private var controlPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
+    @AppStorage(GlassTheme.Keys.backgroundPreset) private var backgroundPresetRaw: String = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
     private var controlPalette: GlassTheme.DesignCardPalette {
         GlassTheme.designCardPalette(for: GlassTheme.DesignCardPreset(rawValue: controlPresetRaw) ?? .roseChampagne)
     }
+    private var emptyStatePalette: GlassTheme.DesignCardPalette {
+        (GlassTheme.BackgroundPreset(rawValue: backgroundPresetRaw) ?? .smokySageChampagne).refinedSurfacePalette
+    }
     @AppStorage("EntryDesignFilter") private var designFilterRaw: String = "all"
     @AppStorage("EntryColorFilter") private var colorFilterRaw: String = "allColor"
+    @AppStorage(EntryFilterKind.design.storageKey) private var designFiltersRaw: String?
+    @AppStorage(EntryFilterKind.color.storageKey) private var colorFiltersRaw: String?
+    @State private var activeFilter: EntryFilterKind?
+    @Environment(\.dynamicTypeSize) private var filterTypeSize
     @AppStorage("EntrySortField") private var sortFieldRaw: String = EntrySortField.date.rawValue
     @AppStorage("EntrySortAscending") private var sortAscending: Bool = false
     @State private var keywordText: String = ""
@@ -38,7 +47,17 @@ struct EntryListView: View {
                     .padding(.horizontal, 16)
                     .frame(maxWidth: .infinity, alignment: .leading)
 
-                    entryList
+                    GeometryReader { proxy in
+                        // 描画だけでなくList自体の領域をバーの手前で終え、背後の行を選択させない。
+                        let availableHeight = bottomNavigationTop.map {
+                            max(0, min(proxy.size.height, $0 - proxy.frame(in: .global).minY))
+                        } ?? proxy.size.height
+                        entryList
+                            .contentMargins(.bottom, max(0, proxy.size.height - availableHeight), for: .scrollContent)
+                            .frame(height: availableHeight)
+                            .clipped()
+                            .contentShape(Rectangle())
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .toolbar(.hidden, for: .navigationBar)
@@ -54,6 +73,14 @@ struct EntryListView: View {
         .sheet(isPresented: $showingAddSheet) {
             AddEntryView()
                 .environment(\.managedObjectContext, viewContext)
+        }
+        .sheet(item: $activeFilter) { kind in
+            EntryFilterSheet(kind: kind, selection: filterSelectionBinding(for: kind), palette: controlPalette)
+        }
+        .onAppear {
+            // 明示的な空配列も新設定として扱い、旧キーからの再取り込みを防ぐ。
+            if designFiltersRaw == nil { designFiltersRaw = EntryFilterSelection.encode(selectedDesigns) }
+            if colorFiltersRaw == nil { colorFiltersRaw = EntryFilterSelection.encode(selectedColors) }
         }
         .alert("デザインを削除しますか？", isPresented: $showingDeleteAlert) {
             Button("削除", role: .destructive) {
@@ -97,6 +124,126 @@ struct EntryListView: View {
         guard !targets.isEmpty else { return }
         pendingDeletionEntries = targets
         showingDeleteAlert = true
+    }
+}
+
+enum EntryFilterKind: String, Identifiable {
+    case design, color
+
+    var id: String { rawValue }
+    var title: String { self == .design ? "デザイン" : "カラー" }
+    var storageKey: String { self == .design ? "EntryDesignFiltersV2" : "EntryColorFiltersV2" }
+    var options: [EntryFilterOption] {
+        switch self {
+        case .design: return NailDesignCategory.allCases.map { EntryFilterOption(id: $0.rawValue, title: $0.displayName) }
+        case .color: return NailColorTone.allCases.map { EntryFilterOption(id: $0.rawValue, title: $0.displayName) }
+        }
+    }
+}
+
+struct EntryFilterOption: Identifiable {
+    let id: String
+    let title: String
+}
+
+/// 新キーの不在と明示的な空集合を区別する。旧キーと記録のrawValueは変更しない。
+enum EntryFilterSelection {
+    static func decode(_ raw: String?, legacy: String, kind: EntryFilterKind) -> Set<String> {
+        let values: [String]
+        if let raw {
+            values = (try? JSONDecoder().decode([String].self, from: Data(raw.utf8))) ?? []
+        } else {
+            values = [legacy]
+        }
+        return Set(values).intersection(kind.options.map(\.id))
+    }
+
+    static func encode(_ values: Set<String>) -> String {
+        let data = (try? JSONEncoder().encode(values.sorted())) ?? Data("[]".utf8)
+        return String(decoding: data, as: UTF8.self)
+    }
+
+    static func matches(_ rawValue: String?, selection: Set<String>) -> Bool {
+        selection.isEmpty || rawValue.map { selection.contains($0) } == true
+    }
+
+    static func title(for selection: Set<String>, kind: EntryFilterKind) -> String {
+        if selection.count == 1, let option = kind.options.first(where: { selection.contains($0.id) }) { return option.title }
+        return selection.isEmpty ? kind.title : "\(kind.title)（\(selection.count)）"
+    }
+}
+
+struct EntryFilterSheet: View {
+    let kind: EntryFilterKind
+    @Binding var selection: Set<String>
+    let palette: GlassTheme.DesignCardPalette
+    @Environment(\.dismiss) private var dismiss
+
+    private var isDark: Bool {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        UIColor(palette.glowFillMid).getRed(&r, green: &g, blue: &b, alpha: &a)
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.5
+    }
+
+    var body: some View {
+        NavigationStack {
+            GlassBackgroundView(refined: true) {
+                List {
+                    Section {
+                        ForEach(kind.options) { option in
+                            let selected = selection.contains(option.id)
+                            Button {
+                                if selection.contains(option.id) { selection.remove(option.id) } else { selection.insert(option.id) }
+                            } label: {
+                                HStack(spacing: 12) {
+                                    Text(option.title)
+                                        .fixedSize(horizontal: false, vertical: true)
+                                    Spacer(minLength: 8)
+                                    Image(systemName: "checkmark")
+                                        .opacity(selected ? 1 : 0)
+                                        .accessibilityHidden(true)
+                                }
+                                .frame(maxWidth: .infinity, minHeight: 32, alignment: .leading)
+                                .contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain)
+                            .foregroundStyle(palette.titleText)
+                            .accessibilityValue(selected ? "選択済み" : "未選択")
+                            .accessibilityAddTraits(selected ? [.isSelected] : [])
+                            .accessibilityIdentifier("entry.filter.option.\(kind.rawValue).\(option.id)")
+                            .listRowBackground(palette.glowFillMid)
+                        }
+                    } header: {
+                        Text("\(selection.count)件選択中")
+                            .foregroundStyle(palette.tagText)
+                    } footer: {
+                        Text("複数選択できます。選択済みの項目をタップすると解除します。未選択の場合は絞り込みません。")
+                            .foregroundStyle(palette.tagText)
+                    }
+                }
+                .scrollContentBackground(.hidden)
+            }
+            .navigationTitle("\(kind.title)を選択")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbarBackground(palette.glowFillMid, for: .navigationBar)
+            .toolbarBackground(.visible, for: .navigationBar)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("全解除") { selection = [] }
+                        .disabled(selection.isEmpty)
+                        .accessibilityLabel("このフィルターを全解除")
+                        .accessibilityIdentifier("entry.filter.clearCurrent")
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完了") { dismiss() }
+                        .accessibilityIdentifier("entry.filter.done")
+                }
+            }
+            .tint(palette.titleText)
+        }
+        .preferredColorScheme(isDark ? .dark : .light)
+        .presentationDetents([.medium, .large])
+        .presentationDragIndicator(.visible)
     }
 }
 
@@ -406,7 +553,14 @@ private extension EntryListView {
     var entryList: some View {
         List {
             if sortedEntries.isEmpty {
-                ContentUnavailableView("記録がありません", systemImage: "note.text")
+                ContentUnavailableView {
+                    Label(entries.isEmpty ? "記録がありません" : "条件に一致する記録がありません",
+                          systemImage: entries.isEmpty ? "note.text" : "line.3.horizontal.decrease.circle")
+                        .foregroundStyle(emptyStatePalette.titleText)
+                } description: {
+                    Text(entries.isEmpty ? "＋ボタンから記録を追加できます。" : "キーワードや絞り込み条件を変更してください。")
+                        .foregroundStyle(emptyStatePalette.tagText)
+                }
                     .frame(maxWidth: .infinity, alignment: .center)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
@@ -444,8 +598,12 @@ private extension EntryListView {
     }
 
     var filteredEntries: [NailEntry] {
-        entries.filter { entry in
-            matchesDesign(entry) && matchesColor(entry) && matchesKeyword(entry)
+        let designs = selectedDesigns
+        let colors = selectedColors
+        return entries.filter { entry in
+            EntryFilterSelection.matches(entry.designCategory, selection: designs) &&
+            EntryFilterSelection.matches(entry.colorCategory, selection: colors) &&
+            matchesKeyword(entry)
         }
     }
 
@@ -453,14 +611,29 @@ private extension EntryListView {
         filteredEntries.sorted(by: compareEntries)
     }
 
-    var selectedDesignCategory: NailDesignCategory? {
-        guard designFilterRaw != "all" else { return nil }
-        return NailDesignCategory(rawValue: designFilterRaw)
+    var selectedDesigns: Set<String> {
+        EntryFilterSelection.decode(designFiltersRaw, legacy: designFilterRaw, kind: .design)
     }
 
-    var selectedColorTone: NailColorTone? {
-        guard colorFilterRaw != "allColor" else { return nil }
-        return NailColorTone(rawValue: colorFilterRaw)
+    var selectedColors: Set<String> {
+        EntryFilterSelection.decode(colorFiltersRaw, legacy: colorFilterRaw, kind: .color)
+    }
+
+    var hasSelectedFilters: Bool { !selectedDesigns.isEmpty || !selectedColors.isEmpty }
+
+    func filterSelectionBinding(for kind: EntryFilterKind) -> Binding<Set<String>> {
+        Binding(
+            get: { kind == .design ? selectedDesigns : selectedColors },
+            set: { values in
+                let raw = EntryFilterSelection.encode(values)
+                if kind == .design { designFiltersRaw = raw } else { colorFiltersRaw = raw }
+            }
+        )
+    }
+
+    func clearCategoryFilters() {
+        designFiltersRaw = EntryFilterSelection.encode([])
+        colorFiltersRaw = EntryFilterSelection.encode([])
     }
 
     var selectedSortField: EntrySortField {
@@ -470,11 +643,11 @@ private extension EntryListView {
     }
 
     var filterTitle: String {
-        selectedDesignCategory?.displayName ?? "デザイン"
+        EntryFilterSelection.title(for: selectedDesigns, kind: .design)
     }
 
     var colorFilterTitle: String {
-        selectedColorTone?.displayName ?? "カラー"
+        EntryFilterSelection.title(for: selectedColors, kind: .color)
     }
 
     var filterControlRow: some View {
@@ -484,10 +657,23 @@ private extension EntryListView {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                 Spacer()
+                Button("全解除", action: clearCategoryFilters)
+                    .font(.caption)
+                    .foregroundStyle(controlPalette.titleText)
+                    .disabled(!hasSelectedFilters)
+                    .accessibilityLabel("デザインとカラーの絞り込みを全解除")
+                    .accessibilityIdentifier("entry.filter.clearAll")
             }
-            HStack(spacing: 12) {
-                designFilterMenu
-                colorFilterMenu
+            if filterTypeSize.isAccessibilitySize {
+                VStack(spacing: 12) {
+                    designFilterMenu
+                    colorFilterMenu
+                }
+            } else {
+                HStack(alignment: .top, spacing: 12) {
+                    designFilterMenu
+                    colorFilterMenu
+                }
             }
             HStack(spacing: 10) {
                 keywordField
@@ -499,61 +685,55 @@ private extension EntryListView {
     }
 
     var designFilterMenu: some View {
-        Menu {
-            Button {
-                designFilterRaw = "all"
-            } label: {
-                labelRow(title: "すべて", isSelected: selectedDesignCategory == nil)
-            }
-
-            ForEach(NailDesignCategory.allCases) { category in
-                Button {
-                    designFilterRaw = category.rawValue
-                } label: {
-                    labelRow(title: category.displayName, isSelected: selectedDesignCategory == category)
-                }
-            }
-        } label: {
-            HStack(spacing: 8) {
-                Text("💅")
-                    .font(.body)
+        Button { activeFilter = .design } label: {
+            HStack(spacing: 6) {
+                NailPolishFilterIcon(cardPreset: GlassTheme.DesignCardPreset(rawValue: controlPresetRaw) ?? .roseChampagne)
                 Text(filterTitle)
                     .font(.subheadline.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.vertical, 8)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 12)
+            .frame(minWidth: 0, maxWidth: .infinity)
             .modifier(EntryHybridControlStyle(palette: controlPalette))
         }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
         .accessibilityLabel("デザイン絞り込み")
+        .accessibilityValue(filterTitle)
+        .accessibilityIdentifier("entry.filter.design")
     }
 
     var colorFilterMenu: some View {
-        Menu {
-            Button {
-                colorFilterRaw = "allColor"
-            } label: {
-                labelRow(title: "すべて", isSelected: selectedColorTone == nil)
-            }
-
-            ForEach(NailColorTone.allCases) { tone in
-                Button {
-                    colorFilterRaw = tone.rawValue
-                } label: {
-                    labelRow(title: tone.displayName, isSelected: selectedColorTone == tone)
-                }
-            }
-        } label: {
-            HStack(spacing: 8) {
-                Text("🎨")
-                    .font(.body)
+        Button { activeFilter = .color } label: {
+            HStack(spacing: 6) {
+                Image(systemName: "paintpalette")
+                    .symbolRenderingMode(.monochrome)
+                    .font(.system(size: 18, weight: .regular))
+                    .foregroundStyle(colorFilterIconColor)
+                    .frame(width: 20, height: 20)
+                    .accessibilityHidden(true)
                 Text(colorFilterTitle)
                     .font(.subheadline.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
             }
             .padding(.vertical, 8)
-            .padding(.horizontal, 14)
+            .padding(.horizontal, 12)
+            .frame(minWidth: 0, maxWidth: .infinity)
             .modifier(EntryHybridControlStyle(palette: controlPalette))
         }
+        .buttonStyle(.plain)
+        .frame(maxWidth: .infinity)
         .accessibilityLabel("カラー絞り込み")
+        .accessibilityValue(colorFilterTitle)
+        .accessibilityIdentifier("entry.filter.color")
+    }
+
+    var colorFilterIconColor: Color {
+        let preset = GlassTheme.DesignCardPreset(rawValue: controlPresetRaw) ?? .roseChampagne
+        return preset == .noirSilver || preset == .noirGold
+            ? Color(red: 0.72, green: 0.79, blue: 0.87)
+            : Color(red: 0.28, green: 0.36, blue: 0.44)
     }
 
     var keywordField: some View {
@@ -618,16 +798,6 @@ private extension EntryListView {
                 Image(systemName: "checkmark")
             }
         }
-    }
-
-    func matchesDesign(_ entry: NailEntry) -> Bool {
-        guard let selectedDesign = selectedDesignCategory else { return true }
-        return entry.designCategory == selectedDesign.rawValue
-    }
-
-    func matchesColor(_ entry: NailEntry) -> Bool {
-        guard let selectedTone = selectedColorTone else { return true }
-        return entry.colorCategory == selectedTone.rawValue
     }
 
     func matchesKeyword(_ entry: NailEntry) -> Bool {
