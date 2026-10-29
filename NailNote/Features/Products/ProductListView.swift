@@ -2,6 +2,7 @@ import SwiftUI
 import CoreData
 
 struct ProductListView: View {
+    var bottomNavigationTop: CGFloat? = nil
     @Environment(\.managedObjectContext) private var context
 
     @FetchRequest(
@@ -23,7 +24,7 @@ struct ProductListView: View {
 
     var body: some View {
         NavigationStack {
-            GlassBackgroundView {
+            GlassBackgroundView(appearanceArea: .items) {
                 VStack(spacing: 10) {
                     AdPlaceholderRow()
                         .padding(.top, 12)
@@ -35,19 +36,28 @@ struct ProductListView: View {
                     }
                     .padding(.horizontal, 16)
 
-                    productList
+                    GeometryReader { proxy in
+                        // デザイン一覧と同じ境界で、バー背後のカードへのタップを防ぐ。
+                        let availableHeight = bottomNavigationTop.map {
+                            max(0, min(proxy.size.height, $0 - proxy.frame(in: .global).minY))
+                        } ?? proxy.size.height
+                        productList
+                            .contentMargins(.bottom, max(0, proxy.size.height - availableHeight), for: .scrollContent)
+                            .frame(height: availableHeight)
+                            .clipped()
+                            .contentShape(Rectangle())
+                    }
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .toolbar(.hidden, for: .navigationBar)
                 .overlay(alignment: .bottomTrailing) {
-                    FloatingAddButton {
+                    NailFloatingAddButton(accessibilityLabel: "用品を追加") {
                         showingAddSheet = true
                     }
-                    .padding(.bottom, 24)
-                    .padding(.trailing, 24)
                 }
             }
         }
+        .modifier(NailAppearanceEnvironment(area: .items))
         .sheet(isPresented: $showingAddSheet) {
             NavigationStack {
                 AddOrEditProductView(mode: .add)
@@ -137,8 +147,15 @@ private extension ProductListView {
 }
 
 private struct AdPlaceholderRow: View {
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
+    private var customPalette: GlassTheme.DesignCardPalette? {
+        guard let choice = NailAppearance.Document.decode(appearanceRaw).resolved(.items), choice.changesColor else { return nil }
+        return NailAppearance.designPalette(GlassTheme.designCardPalette(for: .roseChampagne), choice: choice)
+    }
     var body: some View {
-        GlassCard {
+        GlassCard(backgroundGradient: customPalette.map {
+            LinearGradient(colors: [$0.glowFillTop, $0.glowFillBottom], startPoint: .topLeading, endPoint: .bottomTrailing)
+        }) {
             HStack {
                 VStack(alignment: .leading, spacing: 6) {
                     Text("広告枠（将来用）")
@@ -161,6 +178,7 @@ private struct AdPlaceholderRow: View {
 // MARK: - Row
 
 private struct ProductRow: View {
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
     let product: NailProduct
     let cardIndex: Int
     let isFavorite: Bool
@@ -170,7 +188,7 @@ private struct ProductRow: View {
     private let mediaShiftLeft: CGFloat = 6
     private var palette: GlassTheme.ItemCardPalette {
         let preset = GlassTheme.ItemCardPreset(rawValue: itemCardPresetRaw) ?? .roseChampagne
-        return GlassTheme.itemCardPalette(for: preset, variantIndex: cardIndex)
+        return NailAppearance.itemPalette(GlassTheme.itemCardPalette(for: preset, variantIndex: cardIndex), choice: NailAppearance.Document.decode(appearanceRaw).resolved(.items))
     }
 
     private static let dateFormatter: DateFormatter = {
@@ -388,6 +406,12 @@ private struct ProductThumbnail: View {
 // MARK: - Category Tab Bar
 
 private struct CategoryTabBar: View {
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
+    private var customPalette: GlassTheme.DesignCardPalette? {
+        guard let choice = NailAppearance.Document.decode(appearanceRaw).resolved(.items), choice.changesColor else { return nil }
+        return NailAppearance.designPalette(GlassTheme.designCardPalette(for: .roseChampagne), choice: choice)
+    }
+
     @Binding var selected: NailProductCategory
 
     var body: some View {
@@ -405,9 +429,9 @@ private struct CategoryTabBar: View {
                             .padding(.horizontal, 14)
                             .background(
                                 Capsule()
-                                    .fill(selected == category ? Color.accentColor.opacity(0.9) : Color.white.opacity(0.85))
+                                    .fill(customPalette.map { selected == category ? $0.outerFillBottom : $0.glowFillTop } ?? (selected == category ? Color.accentColor.opacity(0.9) : Color.white.opacity(0.85)))
                             )
-                            .foregroundStyle(selected == category ? Color.white : .primary)
+                            .foregroundStyle(customPalette?.titleText ?? (selected == category ? Color.white : .primary))
                     }
                 }
             }
@@ -520,26 +544,14 @@ private extension ProductListView {
     }
 }
 
-private struct FloatingAddButton: View {
-    var action: () -> Void
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "plus")
-                .font(.title2.bold())
-                .foregroundStyle(.white)
-                .frame(width: 56, height: 56)
-                .background(
-                    Circle()
-                        .fill(Color.accentColor)
-                        .shadow(color: .black.opacity(0.3), radius: 8, x: 0, y: 6)
-                )
-        }
-        .accessibilityLabel("用品を追加")
-    }
-}
 
 private struct StyledFilterField: View {
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
+    private var customPalette: GlassTheme.DesignCardPalette? {
+        guard let choice = NailAppearance.Document.decode(appearanceRaw).resolved(.items), choice.changesColor else { return nil }
+        return NailAppearance.designPalette(GlassTheme.designCardPalette(for: .roseChampagne), choice: choice)
+    }
+
     let title: String
     let systemImage: String
     @Binding var text: String
@@ -561,7 +573,7 @@ private struct StyledFilterField: View {
         .padding(.vertical, 10)
         .padding(.horizontal, 16)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(Color.white)
+        .background(customPalette?.glowFillMid ?? Color.white)
         .overlay(
             Capsule()
                 .stroke(Color.black.opacity(0.05), lineWidth: 1)
@@ -571,6 +583,12 @@ private struct StyledFilterField: View {
 }
 
 private struct ShopFilterMenu: View {
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
+    private var customPalette: GlassTheme.DesignCardPalette? {
+        guard let choice = NailAppearance.Document.decode(appearanceRaw).resolved(.items), choice.changesColor else { return nil }
+        return NailAppearance.designPalette(GlassTheme.designCardPalette(for: .roseChampagne), choice: choice)
+    }
+
     let title: String
     let options: [String]
     @Binding var selection: String
@@ -601,7 +619,7 @@ private struct ShopFilterMenu: View {
             .padding(.vertical, 10)
             .padding(.horizontal, 16)
             .frame(maxWidth: .infinity)
-            .background(Color.white)
+            .background(customPalette?.glowFillMid ?? Color.white)
             .overlay(
                 Capsule()
                     .stroke(Color.black.opacity(0.05), lineWidth: 1)
@@ -644,6 +662,12 @@ private struct ProductInfoTag: View {
     let title: String
     let systemImage: String
     @AppStorage(GlassTheme.Keys.itemCardPreset) private var itemCardPresetRaw: String = GlassTheme.ItemCardPreset.roseChampagne.rawValue
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
+
+    private var custom: GlassTheme.DesignCardPalette? {
+        guard let choice = NailAppearance.Document.decode(appearanceRaw).resolved(.items), choice.changesColor else { return nil }
+        return NailAppearance.designPalette(GlassTheme.designCardPalette(for: .roseChampagne), choice: choice)
+    }
 
     private var palette: GlassTheme.ItemCardPalette {
         let preset = GlassTheme.ItemCardPreset(rawValue: itemCardPresetRaw) ?? .roseChampagne
@@ -659,12 +683,12 @@ private struct ProductInfoTag: View {
                 .font(.caption2.weight(.medium))
                 .lineLimit(1)
         }
-        .foregroundStyle(palette.outerStrokeEnd)
+        .foregroundStyle(custom?.tagText ?? palette.outerStrokeEnd)
         .padding(.horizontal, 10)
         .padding(.vertical, 4)
         .background(
             Capsule()
-                .fill(Color.white.opacity(0.74))
+                .fill(custom?.glowFillMid ?? Color.white.opacity(0.74))
                 .overlay(
                     Capsule()
                         .stroke(palette.strokeStart, lineWidth: 0.7)

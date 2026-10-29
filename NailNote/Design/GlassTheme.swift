@@ -1,4 +1,148 @@
 import SwiftUI
+import UIKit
+
+/// 従来のテーマキーには書き込まない、追加の外観設定。
+enum NailAppearance {
+    static let key = "NailNoteAppearanceV1"
+    enum Area: String, Codable, CaseIterable, Identifiable {
+        case design, items, tabBar, addButton, settings
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .design: return "デザイン画面"
+            case .items: return "アイテム画面"
+            case .tabBar: return "下部タブバー"
+            case .addButton: return "追加（＋）ボタン"
+            case .settings: return "設定画面"
+            }
+        }
+        var hasBackground: Bool { self == .design || self == .items || self == .settings }
+    }
+    enum Preset: String, Codable, CaseIterable, Identifiable {
+        case standard, silkLavender, rosePearl, sageMist, champagne, midnightGold, custom
+        var id: String { rawValue }
+        var title: String {
+            switch self {
+            case .standard: return "標準（Refined Luxury）"
+            case .silkLavender: return "Silk Lavender"
+            case .rosePearl: return "Rose Pearl"
+            case .sageMist: return "Sage Mist"
+            case .champagne: return "Champagne"
+            case .midnightGold: return "Midnight Gold"
+            case .custom: return "自由なカラー"
+            }
+        }
+        var rgb: RGB {
+            switch self {
+            case .silkLavender: return RGB(r: 0.72, g: 0.65, b: 0.84)
+            case .rosePearl: return RGB(r: 0.85, g: 0.63, b: 0.69)
+            case .sageMist: return RGB(r: 0.57, g: 0.69, b: 0.61)
+            case .champagne, .standard: return RGB(r: 0.81, g: 0.74, b: 0.61)
+            case .midnightGold: return RGB(r: 0.10, g: 0.13, b: 0.19)
+            case .custom: return RGB(r: 0.57, g: 0.66, b: 0.77)
+            }
+        }
+    }
+    enum Background: String, Codable, CaseIterable, Identifiable {
+        case silk, satin, gradient, solid
+        var id: String { rawValue }
+        var title: String { rawValue.capitalized }
+    }
+    struct RGB: Codable, Equatable {
+        var r: Double
+        var g: Double
+        var b: Double
+        var valid: Bool { [r, g, b].allSatisfy { $0.isFinite && (0...1).contains($0) } }
+        var color: Color { Color(red: r, green: g, blue: b) }
+        var dark: Bool { 0.2126 * r + 0.7152 * g + 0.0722 * b < 0.38 }
+        func mixed(with other: RGB, amount: Double) -> RGB {
+            RGB(r: r + (other.r-r)*amount, g: g + (other.g-g)*amount, b: b + (other.b-b)*amount)
+        }
+        init(r: Double, g: Double, b: Double) { self.r = r; self.g = g; self.b = b }
+        init(color: Color) {
+            var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+            UIColor(color).getRed(&r, green: &g, blue: &b, alpha: &a)
+            self.init(r: Double(r), g: Double(g), b: Double(b))
+        }
+    }
+    struct Choice: Codable, Equatable {
+        var preset: Preset = .standard
+        var customColor: RGB? = nil
+        var background: Background? = nil
+        var rgb: RGB { preset == .custom ? (customColor ?? preset.rgb) : preset.rgb }
+        var valid: Bool { preset != .custom || customColor?.valid == true }
+        var changesColor: Bool { preset != .standard }
+        var dark: Bool { rgb.dark }
+        var signature: String { String(data: (try? JSONEncoder().encode(self)) ?? Data(), encoding: .utf8) ?? "" }
+    }
+    struct Document: Codable, Equatable {
+        private final class Cached: NSObject {
+            let document: Document
+            init(_ document: Document) { self.document = document }
+        }
+        private static let cache: NSCache<NSString, Cached> = {
+            let cache = NSCache<NSString, Cached>()
+            cache.countLimit = 32
+            return cache
+        }()
+        var version = 1
+        var global: Choice? = nil
+        var overrides: [String: Choice] = [:]
+        func resolved(_ area: Area) -> Choice? { overrides[area.rawValue] ?? global }
+        mutating func set(_ choice: Choice?, for area: Area?) {
+            if let area { overrides[area.rawValue] = choice } else { global = choice }
+        }
+        static func decode(_ raw: String) -> Document {
+            guard !raw.isEmpty else { return Document() }
+            if let cached = cache.object(forKey: raw as NSString) { return cached.document }
+            guard let data = raw.data(using: .utf8),
+                  let document = try? JSONDecoder().decode(Document.self, from: data),
+                  document.version == 1,
+                  document.global?.valid != false,
+                  document.overrides.allSatisfy({ Area(rawValue: $0.key) != nil && $0.value.valid }) else { return Document() }
+            cache.setObject(Cached(document), forKey: raw as NSString)
+            return document
+        }
+        var encoded: String { String(data: (try? JSONEncoder().encode(self)) ?? Data(), encoding: .utf8) ?? "" }
+    }
+
+    static func designPalette(_ original: GlassTheme.DesignCardPalette, choice: Choice?) -> GlassTheme.DesignCardPalette {
+        guard let choice, choice.changesColor else { return original }
+        let rgb = choice.rgb
+        let white = RGB(r: 1, g: 1, b: 1)
+        let ink = RGB(r: 0.055, g: 0.07, b: 0.095)
+        let top = rgb.mixed(with: white, amount: rgb.dark ? 0.13 : 0.78).color
+        let bottom = rgb.mixed(with: rgb.dark ? ink : white, amount: rgb.dark ? 0.10 : 0.57).color
+        let text = rgb.dark ? Color(red: 0.96, green: 0.96, blue: 0.94) : ink.color
+        let metal = choice.preset == .midnightGold ? RGB(r: 0.72, g: 0.62, b: 0.40) : rgb
+        let edge = metal.mixed(with: rgb.dark ? white : ink, amount: rgb.dark ? 0.55 : 0.48).color
+        return GlassTheme.DesignCardPalette(titleIcon: edge, titleText: text,
+            outerFillTop: top, outerFillBottom: bottom, outerStrokeStart: metal.mixed(with: white, amount: 0.65).color,
+            outerStrokeEnd: edge, outerStroke: edge, thumbnailStrokeStart: top, thumbnailStrokeEnd: edge,
+            glowFillTop: top, glowFillMid: rgb.mixed(with: white, amount: rgb.dark ? 0.08 : 0.68).color,
+            glowFillBottom: bottom, glowStrokeStart: top, glowStrokeEnd: edge,
+            tagText: text.opacity(0.85), tagStroke: edge.opacity(0.5), badgeStart: top, badgeEnd: bottom)
+    }
+    static func itemPalette(_ original: GlassTheme.ItemCardPalette, choice: Choice?) -> GlassTheme.ItemCardPalette {
+        guard let choice, choice.changesColor else { return original }
+        let p = designPalette(GlassTheme.designCardPalette(for: .roseChampagne), choice: choice)
+        return GlassTheme.ItemCardPalette(fillTop: p.glowFillTop, fillBottom: p.glowFillBottom,
+            outerFillTop: p.outerFillTop, outerFillBottom: p.outerFillBottom, outerStrokeStart: p.outerStrokeStart,
+            outerStrokeEnd: p.outerStrokeEnd, outerStroke: p.outerStroke, strokeStart: p.glowStrokeStart, strokeEnd: p.glowStrokeEnd)
+    }
+}
+
+/// カスタマイズ対象画面だけへ適用し、未設定時は環境も変更しない。
+struct NailAppearanceEnvironment: ViewModifier {
+    let area: NailAppearance.Area
+    @AppStorage(NailAppearance.key) private var raw = ""
+    @ViewBuilder func body(content: Content) -> some View {
+        if let choice = NailAppearance.Document.decode(raw).resolved(area), choice.changesColor {
+            let palette = NailAppearance.designPalette(GlassTheme.designCardPalette(for: .roseChampagne), choice: choice)
+            content.environment(\.colorScheme, choice.dark ? .dark : .light).tint(palette.titleIcon)
+        } else { content }
+    }
+}
 
 /// Glassmorphism用の共通カラーテーマ
 struct GlassTheme {
@@ -194,6 +338,11 @@ struct GlassTheme {
 
     /// 背景グラデーション（スモーキーセージ〜シャンパン）
     static func backgroundGradient(for preset: BackgroundPreset) -> LinearGradient {
+        LinearGradient(colors: backgroundColors(for: preset), startPoint: .topLeading, endPoint: .bottomTrailing)
+    }
+
+    /// 背景スタイルも従来9テーマの背景色を直接使い、カード色へ変換しない。
+    static func backgroundColors(for preset: BackgroundPreset) -> [Color] {
         let colors: [Color]
         switch preset {
         case .smokySageChampagne:
@@ -254,7 +403,7 @@ struct GlassTheme {
                 Color(hue: 0.78, saturation: 0.24, brightness: 0.98)
             ]
         }
-        return LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+        return colors
     }
 
     /// オーブ（光）に使う色

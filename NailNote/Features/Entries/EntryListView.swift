@@ -3,7 +3,9 @@ import CoreData
 import UIKit
 
 struct EntryListView: View {
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
     var bottomNavigationTop: CGFloat? = nil
+    var hideBottomScrollEdgeEffect: Bool = false
     @Environment(\.managedObjectContext) private var viewContext
 
     @FetchRequest(
@@ -16,10 +18,10 @@ struct EntryListView: View {
     @AppStorage(GlassTheme.Keys.designCardPreset) private var controlPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
     @AppStorage(GlassTheme.Keys.backgroundPreset) private var backgroundPresetRaw: String = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
     private var controlPalette: GlassTheme.DesignCardPalette {
-        GlassTheme.designCardPalette(for: GlassTheme.DesignCardPreset(rawValue: controlPresetRaw) ?? .roseChampagne)
+        NailAppearance.designPalette(GlassTheme.designCardPalette(for: GlassTheme.DesignCardPreset(rawValue: controlPresetRaw) ?? .roseChampagne), choice: NailAppearance.Document.decode(appearanceRaw).resolved(.design))
     }
     private var emptyStatePalette: GlassTheme.DesignCardPalette {
-        (GlassTheme.BackgroundPreset(rawValue: backgroundPresetRaw) ?? .smokySageChampagne).refinedSurfacePalette
+        NailAppearance.designPalette((GlassTheme.BackgroundPreset(rawValue: backgroundPresetRaw) ?? .smokySageChampagne).refinedSurfacePalette, choice: NailAppearance.Document.decode(appearanceRaw).resolved(.design))
     }
     @AppStorage("EntryDesignFilter") private var designFilterRaw: String = "all"
     @AppStorage("EntryColorFilter") private var colorFilterRaw: String = "allColor"
@@ -27,6 +29,8 @@ struct EntryListView: View {
     @AppStorage(EntryFilterKind.color.storageKey) private var colorFiltersRaw: String?
     @State private var activeFilter: EntryFilterKind?
     @Environment(\.dynamicTypeSize) private var filterTypeSize
+    // 上段の20ptアイコン領域を基準にし、文字拡大時も内容の高さを確保する。
+    @ScaledMetric(relativeTo: .subheadline) private var filterContentMinimumSide: CGFloat = 20
     @AppStorage("EntrySortField") private var sortFieldRaw: String = EntrySortField.date.rawValue
     @AppStorage("EntrySortAscending") private var sortAscending: Bool = false
     @State private var keywordText: String = ""
@@ -35,7 +39,7 @@ struct EntryListView: View {
 
     var body: some View {
         NavigationStack {
-            GlassBackgroundView(refined: true) {
+            GlassBackgroundView(refined: true, appearanceArea: .design) {
                 VStack(spacing: 10) {
                     EntryAdPlaceholderRow()
                         .padding(.top, 12)
@@ -62,14 +66,13 @@ struct EntryListView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .toolbar(.hidden, for: .navigationBar)
                 .overlay(alignment: .bottomTrailing) {
-                    FloatingAddButton(palette: controlPalette) {
+                    NailFloatingAddButton(accessibilityLabel: "新規記録を追加") {
                         showingAddSheet = true
                     }
-                    .padding(.bottom, 24)
-                        .padding(.trailing, 24)
                 }
             }
         }
+        .modifier(NailAppearanceEnvironment(area: .design))
         .sheet(isPresented: $showingAddSheet) {
             AddEntryView()
                 .environment(\.managedObjectContext, viewContext)
@@ -187,7 +190,7 @@ struct EntryFilterSheet: View {
 
     var body: some View {
         NavigationStack {
-            GlassBackgroundView(refined: true) {
+            GlassBackgroundView(refined: true, appearanceArea: .design) {
                 List {
                     Section {
                         ForEach(kind.options) { option in
@@ -266,13 +269,14 @@ private enum EntrySortField: String, CaseIterable, Identifiable {
 // MARK: - Row
 
 struct EntryRowView: View {
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
     @ObservedObject var entry: NailEntry
     let cardIndex: Int
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @AppStorage(GlassTheme.Keys.designCardPreset) private var designCardPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
     private var palette: GlassTheme.DesignCardPalette {
         let preset = GlassTheme.DesignCardPreset(rawValue: designCardPresetRaw) ?? .roseChampagne
-        return GlassTheme.designCardPalette(for: preset, variantIndex: cardIndex)
+        return NailAppearance.designPalette(GlassTheme.designCardPalette(for: preset, variantIndex: cardIndex), choice: NailAppearance.Document.decode(appearanceRaw).resolved(.design))
     }
 
     var body: some View {
@@ -519,11 +523,12 @@ struct EntryThumbnailView: View {
 }
 
 private struct EntryAdPlaceholderRow: View {
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
     @AppStorage(GlassTheme.Keys.backgroundPreset) private var presetRaw = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
 
     var body: some View {
         let preset = GlassTheme.BackgroundPreset(rawValue: presetRaw) ?? .smokySageChampagne
-        let palette = preset.refinedSurfacePalette
+        let palette = NailAppearance.designPalette(preset.refinedSurfacePalette, choice: NailAppearance.Document.decode(appearanceRaw).resolved(.design))
         GlassCard(
             strokeGradient: LinearGradient(colors: [palette.outerStrokeStart.opacity(0.40), palette.glowFillTop.opacity(0.65), palette.outerStrokeEnd.opacity(0.32)], startPoint: .topLeading, endPoint: .bottomTrailing),
             backgroundGradient: LinearGradient(colors: [palette.glowFillTop, palette.glowFillMid, palette.glowFillBottom], startPoint: .topLeading, endPoint: .bottomTrailing)
@@ -548,6 +553,19 @@ private struct EntryAdPlaceholderRow: View {
 }
 
 // MARK: - Filter Helpers
+
+private struct EntryBottomScrollEdgeModifier: ViewModifier {
+    let hidden: Bool
+
+    @ViewBuilder func body(content: Content) -> some View {
+        if #available(iOS 26.0, *), hidden {
+            // 独自バー使用時だけ、標準バー由来の下端効果を一覧に重ねない。
+            content.scrollEdgeEffectHidden(true, for: .bottom)
+        } else {
+            content
+        }
+    }
+}
 
 private extension EntryListView {
     var entryList: some View {
@@ -594,6 +612,7 @@ private extension EntryListView {
         }
         .listStyle(.plain)
         .scrollContentBackground(.hidden)
+        .modifier(EntryBottomScrollEdgeModifier(hidden: hideBottomScrollEdgeEffect))
         .padding(.horizontal, 0)
     }
 
@@ -668,20 +687,43 @@ private extension EntryListView {
                 VStack(spacing: 12) {
                     designFilterMenu
                     colorFilterMenu
+                    keywordField
+                    sortControls
                 }
             } else {
-                HStack(alignment: .top, spacing: 12) {
+                filterColumns {
                     designFilterMenu
+                } trailing: {
                     colorFilterMenu
                 }
-            }
-            HStack(spacing: 10) {
-                keywordField
-                sortFieldMenu
-                sortOrderButton
+                filterColumns(alignment: .center) {
+                    keywordField
+                } trailing: {
+                    sortControls
+                }
             }
         }
         .padding(.vertical, 4)
+    }
+
+    // 両段へ同じ幅の提案を渡し、選択文字数による列幅のずれを防ぐ。
+    func filterColumns<Leading: View, Trailing: View>(
+        alignment: VerticalAlignment = .top,
+        @ViewBuilder leading: () -> Leading,
+        @ViewBuilder trailing: () -> Trailing
+    ) -> some View {
+        HStack(alignment: alignment, spacing: 12) {
+            leading().frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+            trailing().frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
+        }
+    }
+
+    var sortControls: some View {
+        HStack(spacing: 10) {
+            sortFieldMenu.frame(minWidth: 0, maxWidth: .infinity)
+            sortOrderButton.fixedSize()
+        }
+        .frame(minWidth: 0, maxWidth: .infinity)
     }
 
     var designFilterMenu: some View {
@@ -744,6 +786,7 @@ private extension EntryListView {
             TextField("キーワード", text: $keywordText, prompt: Text("キーワード").foregroundColor(controlPalette.tagText))
                 .textFieldStyle(.plain)
         }
+            .frame(minHeight: filterContentMinimumSide)
             .padding(.vertical, 8)
             .padding(.horizontal, 14)
             .modifier(EntryHybridControlStyle(palette: controlPalette))
@@ -768,10 +811,12 @@ private extension EntryListView {
                     .font(.subheadline.weight(.semibold))
                 Text(selectedSortField.displayName)
                     .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
+            .frame(minHeight: filterContentMinimumSide)
             .padding(.vertical, 8)
             .padding(.horizontal, 14)
+            .frame(minWidth: 0, maxWidth: .infinity)
             .modifier(EntryHybridControlStyle(palette: controlPalette))
         }
         .accessibilityLabel("ソート項目")
@@ -784,7 +829,8 @@ private extension EntryListView {
             Image(systemName: sortAscending ? "arrow.up.circle.fill" : "arrow.down.circle.fill")
                 .font(.title3)
                 .foregroundStyle(controlPalette.titleText)
-                .frame(width: 34, height: 34)
+                .frame(width: filterContentMinimumSide, height: filterContentMinimumSide)
+                .padding(8)
                 .modifier(EntryHybridControlStyle(palette: controlPalette))
         }
         .buttonStyle(.plain)
@@ -1225,42 +1271,6 @@ private struct EntryPhotoAIScoreBadge: View {
 
 // MARK: - Floating Button
 
-private struct FloatingAddButton: View {
-    let palette: GlassTheme.DesignCardPalette
-    var action: () -> Void
-
-    private var symbolColor: Color {
-        let luminances = [palette.outerStrokeStart, palette.outerStrokeEnd].map { color -> Double in
-            var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-            UIColor(color).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-            func linear(_ component: CGFloat) -> Double {
-                let value = Double(component)
-                return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
-            }
-            return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
-        }
-        let whiteContrast = 1.05 / ((luminances.max() ?? 0) + 0.05)
-        let blackContrast = ((luminances.min() ?? 1) + 0.05) / 0.05
-        return whiteContrast >= blackContrast ? .white : .black
-    }
-
-    var body: some View {
-        Button(action: action) {
-            Image(systemName: "plus")
-                .font(.title2.weight(.medium))
-                .foregroundStyle(symbolColor)
-                .frame(width: 58, height: 58)
-                .background(
-                    Circle()
-                        .fill(LinearGradient(colors: [palette.outerStrokeStart, palette.outerStrokeEnd], startPoint: .topLeading, endPoint: .bottomTrailing))
-                        .overlay(Circle().strokeBorder(LinearGradient(colors: [Color.white.opacity(0.8), palette.outerStrokeEnd], startPoint: .topLeading, endPoint: .bottomTrailing), lineWidth: 1))
-                        .overlay(Circle().inset(by: 2).strokeBorder(Color.white.opacity(0.2), lineWidth: 0.5))
-                        .shadow(color: .black.opacity(0.18), radius: 9, x: 0, y: 5)
-                )
-        }
-        .accessibilityLabel("新規記録を追加")
-    }
-}
 
 // MARK: - AI スコア橋渡し
 

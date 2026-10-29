@@ -2,36 +2,71 @@ import SwiftUI
 import CoreGraphics
 import UIKit
 
+private struct NailDesignBackgroundCanvasKey: EnvironmentKey {
+    static let defaultValue: CGRect? = nil
+}
+
+extension EnvironmentValues {
+    // 保存設定ではなく、試作タブバーの上下で共有する背景の描画領域。
+    var nailDesignBackgroundCanvas: CGRect? {
+        get { self[NailDesignBackgroundCanvasKey.self] }
+        set { self[NailDesignBackgroundCanvasKey.self] = newValue }
+    }
+}
+
 /// 画面全体に敷くカラフルなガラス風背景
 struct GlassBackgroundView<Content: View>: View {
     @AppStorage(GlassTheme.Keys.backgroundPreset) private var backgroundPresetRaw: String = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
+    @Environment(\.nailDesignBackgroundCanvas) private var designCanvas
     let content: Content
     let refined: Bool
+    let appearanceArea: NailAppearance.Area?
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
 
-    init(refined: Bool = false, @ViewBuilder content: () -> Content) {
+    init(refined: Bool = false, appearanceArea: NailAppearance.Area? = nil, @ViewBuilder content: () -> Content) {
         self.refined = refined
+        self.appearanceArea = appearanceArea
         self.content = content()
     }
 
     var body: some View {
         let preset = GlassTheme.BackgroundPreset(rawValue: backgroundPresetRaw) ?? .smokySageChampagne
         let orbColors = GlassTheme.orbColors(for: preset)
+        let choice = appearanceArea.flatMap { NailAppearance.Document.decode(appearanceRaw).resolved($0) }
 
         ZStack {
-            GlassTheme.backgroundGradient(for: preset)
-                .ignoresSafeArea()
-
-            if refined {
-                silkBackground(isDark: preset == .noirSilver || preset == .noirGold)
-                    .ignoresSafeArea()
-            } else {
+            if let canvas = designCanvas, refined, appearanceArea == .design {
+                // NavigationStack内の背景を保ちつつ、下部背景と同じ切り抜き位置に揃える。
                 GeometryReader { proxy in
-                    ZStack {
-                        orb(size: proxy.size, scale: 0.55, offset: CGPoint(x: -0.25, y: -0.2), colorIndex: 0, orbColors: orbColors)
-                        orb(size: proxy.size, scale: 0.45, offset: CGPoint(x: 0.40, y: -0.35), colorIndex: 1, orbColors: orbColors)
-                        orb(size: proxy.size, scale: 0.60, offset: CGPoint(x: 0.35, y: 0.45), colorIndex: 2, orbColors: orbColors)
-                    }
+                    NailAppearanceBackground(choice: choice ?? .init(), preset: preset)
+                        .frame(width: canvas.width, height: canvas.height)
+                        .offset(x: canvas.minX - proxy.frame(in: .global).minX,
+                                y: canvas.minY - proxy.frame(in: .global).minY)
+                }
+                .ignoresSafeArea()
+                .allowsHitTesting(false)
+                .accessibilityHidden(true)
+            } else if let choice, choice.changesColor || choice.background != nil {
+                customizedBackground(choice, preset: preset)
+                    .ignoresSafeArea()
                     .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            } else {
+                GlassTheme.backgroundGradient(for: preset)
+                    .ignoresSafeArea()
+
+                if refined {
+                    silkBackground(isDark: preset == .noirSilver || preset == .noirGold)
+                        .ignoresSafeArea()
+                } else {
+                    GeometryReader { proxy in
+                        ZStack {
+                            orb(size: proxy.size, scale: 0.55, offset: CGPoint(x: -0.25, y: -0.2), colorIndex: 0, orbColors: orbColors)
+                            orb(size: proxy.size, scale: 0.45, offset: CGPoint(x: 0.40, y: -0.35), colorIndex: 1, orbColors: orbColors)
+                            orb(size: proxy.size, scale: 0.60, offset: CGPoint(x: 0.35, y: 0.45), colorIndex: 2, orbColors: orbColors)
+                        }
+                        .allowsHitTesting(false)
+                    }
                 }
             }
 
@@ -39,24 +74,12 @@ struct GlassBackgroundView<Content: View>: View {
         }
     }
 
-    @ViewBuilder
+    private func customizedBackground(_ choice: NailAppearance.Choice, preset: GlassTheme.BackgroundPreset) -> some View {
+        NailAppearanceBackground(choice: choice, preset: preset)
+    }
+
     private func silkBackground(isDark: Bool) -> some View {
-        if UIImage(named: "RefinedSilkLuminance") != nil {
-            GeometryReader { proxy in
-                Image("RefinedSilkLuminance")
-                    .resizable()
-                    .scaledToFill()
-                    .frame(width: proxy.size.width, height: proxy.size.height)
-                    .clipped()
-            }
-            // 無彩色の布の輝度だけを既存テーマへ合成し、元の色を保つ。
-            .blendMode(.softLight)
-            .opacity(isDark ? 0.38 : 0.72)
-            .allowsHitTesting(false)
-            .accessibilityHidden(true)
-        } else {
-            RefinedSatinLayer(isDark: isDark)
-        }
+        RefinedSilkLayer(isDark: isDark)
     }
 
     private func orb(size: CGSize, scale: CGFloat, offset: CGPoint, colorIndex: Int, orbColors: [Color]) -> some View {
@@ -67,6 +90,55 @@ struct GlassBackgroundView<Content: View>: View {
             .frame(width: diameter, height: diameter)
             .blur(radius: diameter * 0.18)
             .offset(x: size.width * offset.x, y: size.height * offset.y)
+    }
+}
+
+/// 実画面と下書きプレビューが共有する背景スタイル。操作・情報レイヤーは含まない。
+struct NailAppearanceBackground: View {
+    let choice: NailAppearance.Choice
+    let preset: GlassTheme.BackgroundPreset
+
+    var body: some View {
+        let palette = NailAppearance.designPalette(preset.refinedSurfacePalette, choice: choice)
+        let colors = choice.changesColor
+            ? [palette.glowFillTop, palette.glowFillMid, palette.glowFillBottom]
+            : GlassTheme.backgroundColors(for: preset)
+        let dark = choice.changesColor ? choice.dark : (preset == .noirGold || preset == .noirSilver)
+        ZStack {
+            if choice.background == .solid {
+                colors[colors.count / 2]
+            } else {
+                LinearGradient(colors: colors, startPoint: .topLeading, endPoint: .bottomTrailing)
+                switch choice.background ?? .silk {
+                case .silk: RefinedSilkLayer(isDark: dark)
+                case .satin: RefinedSatinLayer(isDark: dark, strength: 0.9, surface: .satinBackground)
+                case .gradient, .solid: EmptyView()
+                }
+            }
+        }
+        .allowsHitTesting(false)
+        .accessibilityHidden(true)
+    }
+}
+
+/// 既存の布素材はSilkだけへ合成し、他スタイルへ重ねない。
+private struct RefinedSilkLayer: View {
+    let isDark: Bool
+    var body: some View {
+        if UIImage(named: "RefinedSilkLuminance") != nil {
+            GeometryReader { proxy in
+                Image("RefinedSilkLuminance")
+                    .resizable().scaledToFill()
+                    .frame(width: proxy.size.width, height: proxy.size.height)
+                    .clipped()
+            }
+            .blendMode(.softLight)
+            .opacity(isDark ? 0.38 : 0.72)
+            .allowsHitTesting(false)
+            .accessibilityHidden(true)
+        } else {
+            RefinedSatinLayer(isDark: isDark)
+        }
     }
 }
 
@@ -91,7 +163,7 @@ struct RefinedSatinLayer: View {
 /// 布の曲線断面を高さ場へ重ね、拡散反射・異方性の弱い反射・谷の遮蔽を計算する。
 /// 元のテーマ色へ無彩色の光と影だけを合成するため、設定色は置き換えない。
 enum SatinReliefRenderer {
-    enum Surface: String { case fabric, glass, tab }
+    enum Surface: String { case fabric, glass, tab, satinBackground }
 
     private struct Fold {
         let base: Double
@@ -130,6 +202,11 @@ enum SatinReliefRenderer {
         case .tab:
             folds = [Fold(base: 0.27, slope: 0.54, bend: -0.32, width: 0.24, height: 0.09),
                      Fold(base: 1.05, slope: -0.75, bend: 0.15, width: 0.20, height: 0.065)]
+        case .satinBackground:
+            // カード用の文字領域減衰を使わず、背景全体へ広いサテンの起伏を描く。
+            folds = [Fold(base: 0.13, slope: 0.33, bend: -0.16, width: 0.09, height: 0.08),
+                     Fold(base: 0.52, slope: -0.33, bend: 0.17, width: 0.13, height: 0.10),
+                     Fold(base: 0.87, slope: 0.22, bend: -0.15, width: 0.17, height: 0.06)]
         }
         var pixels = [UInt8](repeating: 0, count: width * height * 4)
         for y in 0..<height {
@@ -158,13 +235,14 @@ enum SatinReliefRenderer {
                 if surface == .fabric {
                     // 粒ではなく連続したごく弱い繊維反射。発光・乱数・動きは加えない。
                     response += sin(u * 310 + sin(v * 12) * 4) * 0.004 * max(0, diffuse)
-                } else {
+                } else if surface != .satinBackground {
                     // 右側中央の文字領域に強い反射を置かない。
                     let readingArea = exp(-pow((u - 0.72) / 0.40, 2) - pow((v - 0.48) / 0.32, 2))
                     response *= (surface == .glass ? 0.85 : 0.70) * (1 - readingArea * 0.75)
                 }
                 let limit = response >= 0 ? (isDark ? 0.24 : (surface == .glass ? 0.30 : 0.46)) : (isDark ? 0.22 : (surface == .glass ? 0.09 : 0.16))
-                let opacity = min(limit, abs(response) * (response >= 0 ? (isDark ? 0.50 : 1.35) : (isDark ? 0.35 : 0.22)))
+                let shadowGain = surface == .satinBackground ? 0.60 : (isDark ? 0.35 : 0.22)
+                let opacity = min(limit, abs(response) * (response >= 0 ? (isDark ? 0.50 : 1.35) : shadowGain))
                 let alpha = UInt8((opacity * 255).rounded())
                 let index = (y * width + x) * 4
                 let component: UInt8 = response >= 0 ? alpha : 0

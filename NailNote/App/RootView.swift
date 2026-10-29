@@ -9,18 +9,27 @@ enum NailNoteFeatureFlags {
 struct RootView: View {
     @State private var selectedTab = 0
     @State private var bottomNavigationTop: CGFloat?
+    private var tabSelection: Binding<Int> { $selectedTab }
 
     var body: some View {
-        TabView(selection: $selectedTab) {
+        customTabBarBody
+    }
+
+    private var pages: some View {
+        TabView(selection: tabSelection) {
             // 記録（Entries）
-            EntryListView(bottomNavigationTop: bottomNavigationTop)
+            EntryListView(bottomNavigationTop: bottomNavigationTop, hideBottomScrollEdgeEffect: true)
+                .accessibilityHidden(tabSelection.wrappedValue != 0)
+                .toolbar(.hidden, for: .tabBar)
                 .tabItem {
                     LuxuryTabLabel(kind: .design)
                 }
                 .tag(0)
 
             // 用品（Products）
-            ProductListView()
+            ProductListView(bottomNavigationTop: bottomNavigationTop)
+                .accessibilityHidden(tabSelection.wrappedValue != 1)
+                .toolbar(.hidden, for: .tabBar)
                 .tabItem {
                     LuxuryTabLabel(kind: .items)
                 }
@@ -37,24 +46,129 @@ struct RootView: View {
 
             // 設定（Settings）
             SettingsView()
+                .accessibilityHidden(tabSelection.wrappedValue != 2)
+                .toolbar(.hidden, for: .tabBar)
                 .tabItem {
                     LuxuryTabLabel(kind: .settings)
                 }
                 .tag(2)
         }
-        .toolbarBackground(.visible, for: .tabBar)
-        .background {
-            RefinedTabBarStyle(selectedTab: selectedTab) { top in
-                if bottomNavigationTop != top { bottomNavigationTop = top }
+        .toolbar(.hidden, for: .tabBar)
+    }
+
+    private var customTabBarBody: some View {
+        GeometryReader { geometry in
+            VStack(spacing: 0) {
+                // TabViewの子へSafe Areaの予約が届かないため、表示領域そのものを分ける。
+                pages
+                    // 上下の背景を別のサイズで拡大せず、Safe Areaを含む全面座標を共有する。
+                    .environment(\.nailDesignBackgroundCanvas, CGRect(
+                        x: geometry.frame(in: .global).minX - geometry.safeAreaInsets.leading,
+                        y: geometry.frame(in: .global).minY - geometry.safeAreaInsets.top,
+                        width: geometry.size.width + geometry.safeAreaInsets.leading + geometry.safeAreaInsets.trailing,
+                        height: geometry.size.height + geometry.safeAreaInsets.top + geometry.safeAreaInsets.bottom
+                    ))
+                    .frame(height: max(0, geometry.size.height - 49))
+                CustomLuxuryTabBar(selection: tabSelection)
+                    .frame(height: 49, alignment: .top)
+                    .background {
+                        GeometryReader { proxy in
+                            Color.clear.preference(key: CustomTabTopKey.self, value: proxy.frame(in: .global).minY)
+                        }
+                    }
             }
-                .frame(width: 0, height: 0)
+            .onPreferenceChange(CustomTabTopKey.self) { top in
+                if let top { bottomNavigationTop = top }
+            }
+            .background {
+                // 別の不透明面で覆わず、選択画面と同じ背景描画を下端まで延ばす。
+                GlassBackgroundView(refined: tabSelection.wrappedValue == 0, appearanceArea: tabSelection.wrappedValue == 0 ? .design : (tabSelection.wrappedValue == 1 ? .items : .settings)) {
+                    Color.clear
+                }
                 .allowsHitTesting(false)
                 .accessibilityHidden(true)
+            }
+        }
+    }
+}
+
+private struct CustomTabTopKey: PreferenceKey {
+    static let defaultValue: CGFloat? = nil
+    static func reduce(value: inout CGFloat?, nextValue: () -> CGFloat?) { value = nextValue() ?? value }
+}
+
+/// 標準バーの外面は使わず、採用済みの素材とアイコンを再利用する。
+private struct CustomLuxuryTabBar: View {
+    @Binding var selection: Int
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
+    @AppStorage(GlassTheme.Keys.backgroundPreset) private var presetRaw = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
+    @Environment(\.displayScale) private var scale
+    @Environment(\.accessibilityReduceTransparency) private var reduceTransparency
+
+    var body: some View {
+        let preset = GlassTheme.BackgroundPreset(rawValue: presetRaw) ?? .smokySageChampagne
+        let choice = NailAppearance.Document.decode(appearanceRaw).resolved(.tabBar)
+        let palette = NailAppearance.designPalette(preset.refinedSurfacePalette, choice: choice)
+        let dark = choice.flatMap { $0.changesColor ? $0.dark : nil } ?? (preset == .noirSilver || preset == .noirGold)
+        GeometryReader { proxy in
+            let width = min(282, max(132, proxy.size.width - 32))
+            HStack(spacing: 0) {
+                ForEach(LuxuryTabArtwork.Kind.allCases, id: \.rawValue) { kind in
+                    Button {
+                        selection = kind.rawValue
+                    } label: {
+                        VStack(spacing: 1) {
+                            Image(uiImage: LuxuryTabArtwork.icon(kind: kind, preset: preset, selected: selection == kind.rawValue, scale: scale, appearance: choice))
+                                .renderingMode(.original)
+                                .frame(width: 28, height: 28)
+                            Text(kind.title)
+                                .font(.caption2)
+                                // 固定高のナビゲーションでは、ラベルの拡大上限を設けて操作面を維持する。
+                                .dynamicTypeSize(...DynamicTypeSize.xxxLarge)
+                                .foregroundStyle(selection == kind.rawValue ? palette.titleIcon : palette.titleText)
+                                .lineLimit(1)
+                        }
+                        .frame(maxWidth: .infinity)
+                        .frame(height: 54)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .background {
+                        if selection == kind.rawValue {
+                            Image(uiImage: LuxuryTabArtwork.selection(palette: palette, dark: dark, scale: scale))
+                                .resizable()
+                                .padding(.horizontal, 2)
+                                .padding(.vertical, 1)
+                                .shadow(color: palette.outerStrokeEnd.opacity(0.20), radius: 2.5, x: 0.5, y: 1.5)
+                                .allowsHitTesting(false)
+                                .accessibilityHidden(true)
+                        }
+                    }
+                    .accessibilityElement(children: .ignore)
+                    .accessibilityLabel(kind.title)
+                    .accessibilityIdentifier("prototype-tab-\(kind.rawValue)")
+                    .accessibilityAddTraits(selection == kind.rawValue ? [.isSelected] : [])
+                }
+            }
+            .frame(width: width, height: 54)
+            .background {
+                Capsule().fill(reduceTransparency ? AnyShapeStyle(palette.glowFillMid) : AnyShapeStyle(.ultraThinMaterial))
+                    .environment(\.colorScheme, dark ? .dark : .light)
+                    .overlay {
+                        Image(uiImage: TabGlassSurface.image(palette: palette, dark: dark, size: CGSize(width: width, height: 54), scale: scale, opaque: reduceTransparency))
+                    }
+                    .allowsHitTesting(false)
+                    .accessibilityHidden(true)
+            }
+            .shadow(color: .black.opacity(dark ? 0.14 : 0.08), radius: 9, x: 1, y: 4)
+            .frame(maxWidth: .infinity)
+            .accessibilityElement(children: .contain)
         }
     }
 }
 
 private struct LuxuryTabLabel: View {
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
     let kind: LuxuryTabArtwork.Kind
     @AppStorage(GlassTheme.Keys.backgroundPreset) private var presetRaw = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
     @Environment(\.displayScale) private var scale
@@ -64,7 +178,7 @@ private struct LuxuryTabLabel: View {
         Label {
             Text(kind.title)
         } icon: {
-            Image(uiImage: LuxuryTabArtwork.icon(kind: kind, preset: preset, selected: false, scale: scale))
+            Image(uiImage: LuxuryTabArtwork.icon(kind: kind, preset: preset, selected: false, scale: scale, appearance: NailAppearance.Document.decode(appearanceRaw).resolved(.tabBar)))
                 .renderingMode(.original)
                 .accessibilityHidden(true)
         }
@@ -73,13 +187,14 @@ private struct LuxuryTabLabel: View {
 
 /// フィルターでも、採用済みタブと同じボトルのパス・色を再利用する。
 struct NailPolishFilterIcon: View {
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
     let cardPreset: GlassTheme.DesignCardPreset
     @AppStorage(GlassTheme.Keys.backgroundPreset) private var presetRaw = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
     @Environment(\.displayScale) private var scale
 
     var body: some View {
         let preset = GlassTheme.BackgroundPreset(rawValue: presetRaw) ?? .smokySageChampagne
-        Image(uiImage: LuxuryTabArtwork.icon(kind: .design, preset: preset, selected: false, scale: scale, cardPreset: cardPreset))
+        Image(uiImage: LuxuryTabArtwork.icon(kind: .design, preset: preset, selected: false, scale: scale, cardPreset: cardPreset, appearance: NailAppearance.Document.decode(appearanceRaw).resolved(.design)))
             .resizable()
             .scaledToFit()
             .frame(width: 20, height: 20)
@@ -102,11 +217,11 @@ private enum LuxuryTabArtwork {
 
     private static let icons = NSCache<NSString, UIImage>()
 
-    static func icon(kind: Kind, preset: GlassTheme.BackgroundPreset, selected: Bool, scale: CGFloat, cardPreset: GlassTheme.DesignCardPreset? = nil) -> UIImage {
-        let key = "\(kind.rawValue)-\(preset.rawValue)-\(selected)-\(scale)-\(cardPreset?.rawValue ?? "tab")" as NSString
+    static func icon(kind: Kind, preset: GlassTheme.BackgroundPreset, selected: Bool, scale: CGFloat, cardPreset: GlassTheme.DesignCardPreset? = nil, appearance: NailAppearance.Choice? = nil) -> UIImage {
+        let key = "\(kind.rawValue)-\(preset.rawValue)-\(selected)-\(scale)-\(cardPreset?.rawValue ?? "tab")-\(appearance?.signature ?? "")" as NSString
         if let image = icons.object(forKey: key) { return image }
         // タブは従来の背景色、フィルターだけはそのボタンのカード色へ合わせる。
-        let palette = cardPreset.map { GlassTheme.designCardPalette(for: $0) } ?? preset.refinedSurfacePalette
+        let palette = NailAppearance.designPalette(cardPreset.map { GlassTheme.designCardPalette(for: $0) } ?? preset.refinedSurfacePalette, choice: appearance)
         let format = UIGraphicsImageRendererFormat()
         format.scale = max(1, scale)
         let image = UIGraphicsImageRenderer(size: CGSize(width: 28, height: 28), format: format).image { renderer in
@@ -213,6 +328,7 @@ extension GlassTheme.BackgroundPreset {
 
 /// 標準タブバーの形状・配置・選択処理を保ち、公開Appearance APIで素材だけを設定する。
 private struct RefinedTabBarStyle: UIViewControllerRepresentable {
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
     let selectedTab: Int
     let onNavigationBoundaryChange: (CGFloat) -> Void
     @AppStorage(GlassTheme.Keys.backgroundPreset) private var presetRaw = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
@@ -222,6 +338,7 @@ private struct RefinedTabBarStyle: UIViewControllerRepresentable {
 
     func updateUIViewController(_ controller: MaterialController, context: Context) {
         controller.presetRaw = presetRaw
+        controller.appearanceRaw = appearanceRaw
         controller.reduceTransparency = reduceTransparency
         controller.selectedTab = selectedTab
         controller.onNavigationBoundaryChange = onNavigationBoundaryChange
@@ -230,6 +347,7 @@ private struct RefinedTabBarStyle: UIViewControllerRepresentable {
 
     final class MaterialController: UIViewController {
         var presetRaw = ""
+        var appearanceRaw = ""
         var reduceTransparency = false
         var selectedTab = 0
         var onNavigationBoundaryChange: ((CGFloat) -> Void)?
@@ -264,12 +382,14 @@ private struct RefinedTabBarStyle: UIViewControllerRepresentable {
                 onNavigationBoundaryChange?(navigationTop)
             }
             let scale = bar.traitCollection.displayScale
-            let key = presetRaw + String(reduceTransparency) + String(describing: bar.bounds.size) + String(describing: scale)
+            let key = presetRaw + appearanceRaw + String(reduceTransparency) + String(describing: bar.bounds.size) + String(describing: scale)
             let preset = GlassTheme.BackgroundPreset(rawValue: presetRaw) ?? .smokySageChampagne
-            decorateGlass(in: bar, palette: preset.refinedSurfacePalette, dark: preset == .noirSilver || preset == .noirGold, scale: scale)
+            let choice = NailAppearance.Document.decode(appearanceRaw).resolved(.tabBar)
+            let customDark = choice.flatMap { $0.changesColor ? $0.dark : nil }
+            decorateGlass(in: bar, palette: NailAppearance.designPalette(preset.refinedSurfacePalette, choice: choice), dark: customDark ?? (preset == .noirSilver || preset == .noirGold), scale: scale)
             guard styledBar !== bar || appliedKey != key else { return }
-            let palette = preset.refinedSurfacePalette
-            let dark = preset == .noirSilver || preset == .noirGold
+            let palette = NailAppearance.designPalette(preset.refinedSurfacePalette, choice: choice)
+            let dark = customDark ?? (preset == .noirSilver || preset == .noirGold)
             // OSの外観と背景テーマが異なる場合も、バー内の文字とアイコンを読みやすくする。
             bar.overrideUserInterfaceStyle = dark ? .dark : .light
             bar.unselectedItemTintColor = UIColor(palette.titleText)
@@ -303,9 +423,9 @@ private struct RefinedTabBarStyle: UIViewControllerRepresentable {
                 item.standardAppearance = appearance
                 item.scrollEdgeAppearance = appearance
                 if let kind = LuxuryTabArtwork.Kind.allCases.first(where: { $0.title == item.title }) {
-                    item.image = LuxuryTabArtwork.icon(kind: kind, preset: preset, selected: false, scale: scale)
-                    item.selectedImage = LuxuryTabArtwork.icon(kind: kind, preset: preset, selected: true, scale: scale)
-                    item.largeContentSizeImage = LuxuryTabArtwork.icon(kind: kind, preset: preset, selected: true, scale: scale * 2)
+                    item.image = LuxuryTabArtwork.icon(kind: kind, preset: preset, selected: false, scale: scale, appearance: choice)
+                    item.selectedImage = LuxuryTabArtwork.icon(kind: kind, preset: preset, selected: true, scale: scale, appearance: choice)
+                    item.largeContentSizeImage = LuxuryTabArtwork.icon(kind: kind, preset: preset, selected: true, scale: scale * 2, appearance: choice)
                     item.accessibilityLabel = kind.title
                 }
             }
@@ -344,7 +464,7 @@ private struct RefinedTabBarStyle: UIViewControllerRepresentable {
             let direction = UIView.userInterfaceLayoutDirection(for: bar.semanticContentAttribute)
             let index = direction == .rightToLeft ? rectangles.count - 1 - itemIndex : itemIndex
             let panel = rectangles[index].insetBy(dx: 2, dy: 1)
-            let key = presetRaw + String(reduceTransparency) + String(describing: outer) + String(describing: panel) + String(describing: scale)
+            let key = presetRaw + appearanceRaw + String(reduceTransparency) + String(describing: outer) + String(describing: panel) + String(describing: scale)
             guard key != decorationKey || glassFace.superlayer !== bar.layer else { return }
             CATransaction.begin()
             CATransaction.setDisableActions(true)
