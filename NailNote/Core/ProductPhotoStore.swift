@@ -128,6 +128,11 @@ final class ProductPhotoStore {
         return img.resized(maxPixel: maxPixel)
     }
 
+    /// 元画像を全展開せずに読むための参照先。作成・更新は行わない。
+    static func sourceURL(photoId: UUID) -> URL? {
+        try? shared.fileURL(for: photoId)
+    }
+
     // MARK: - Private
 
     private func ensureFolderExists() throws {

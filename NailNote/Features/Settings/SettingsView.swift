@@ -37,8 +37,8 @@ struct SettingsView: View {
                         SettingInfoRow(
                             title: "アプリについて",
                             description: NailNoteFeatureFlags.aiEvaluationEnabled
-                                ? "NailNoteはネイル施術記録と用品管理を一体化したプライベートログアプリです。Glass UIを基調に、写真・カテゴリ・AIスコアを一画面で確認できます。"
-                                : "NailNoteはネイル施術記録と用品管理を一体化したプライベートログアプリです。写真・カテゴリ・自己評価で記録を振り返り、所持アイテムを管理できます。",
+                                ? "NailNoteはネイル施術記録とアイテム管理を一体化したプライベートログアプリです。Glass UIを基調に、写真・カテゴリ・AIスコアを一画面で確認できます。"
+                                : "NailNoteはネイル施術記録とアイテム管理を一体化したプライベートログアプリです。写真・カテゴリ・自己評価で記録を振り返り、所持アイテムを管理できます。",
                             systemImage: "sparkles.rectangle.stack"
                         )
                         HStack {
@@ -256,7 +256,7 @@ struct NailAppearanceSettingsView: View {
             Section {
                 Button("外観カスタマイズだけをリセット", role: .destructive) { confirmingReset = true }
             } footer: {
-                Text("従来の9種類のテーマ設定、記録、用品、写真、フィルター、その他の設定は変更しません。")
+                Text("従来の9種類のテーマ設定、記録、アイテム、写真、フィルター、その他の設定は変更しません。")
             }
         }
         .navigationTitle("外観カスタマイズ")

@@ -17,8 +17,8 @@ struct AddOrEditProductView: View {
 
         var title: String {
             switch self {
-            case .add: return "用品を追加"
-            case .edit: return "用品を編集"
+            case .add: return "アイテムを追加"
+            case .edit: return "アイテムを編集"
             }
         }
 

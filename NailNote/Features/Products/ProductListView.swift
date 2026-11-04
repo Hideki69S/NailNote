@@ -54,7 +54,7 @@ struct ProductListView: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
                 .toolbar(.hidden, for: .navigationBar)
                 .overlay(alignment: .bottomTrailing) {
-                    NailFloatingAddButton(accessibilityLabel: "用品を追加") {
+                    NailFloatingAddButton(accessibilityLabel: "アイテムを追加") {
                         showingAddSheet = true
                     }
                 }
@@ -117,7 +117,7 @@ private extension ProductListView {
     var productList: some View {
         List {
             if filteredProducts.isEmpty {
-                ContentUnavailableView("該当する用品がありません", systemImage: "cube.box")
+                ContentUnavailableView("該当するアイテムがありません", systemImage: "cube.box")
                     .frame(maxWidth: .infinity, alignment: .center)
                     .listRowBackground(Color.clear)
                     .listRowSeparator(.hidden)
@@ -149,35 +149,6 @@ private extension ProductListView {
         .listSectionSpacing(.compact)
         .scrollContentBackground(.hidden)
         .padding(.horizontal, 0)
-    }
-}
-
-private struct AdPlaceholderRow: View {
-    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
-    private var customPalette: GlassTheme.DesignCardPalette? {
-        guard let choice = NailAppearance.Document.decode(appearanceRaw).resolved(.items), choice.changesColor else { return nil }
-        return NailAppearance.designPalette(GlassTheme.designCardPalette(for: .roseChampagne), choice: choice)
-    }
-    var body: some View {
-        GlassCard(backgroundGradient: customPalette.map {
-            LinearGradient(colors: [$0.glowFillTop, $0.glowFillBottom], startPoint: .topLeading, endPoint: .bottomTrailing)
-        }) {
-            HStack {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("広告枠（将来用）")
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                    Text("ここにバナーやキャンペーン情報を表示予定。現在はプレースホルダのみ。")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                Image(systemName: "megaphone")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(Color.accentColor)
-            }
-        }
-        .frame(maxWidth: .infinity)
     }
 }
 
@@ -524,7 +495,7 @@ private struct ProductCategoryGridLayout: Layout {
 private extension ProductListView {
     var productHeader: some View {
         VStack(spacing: 10) {
-            AdPlaceholderRow()
+            NailDesignAdPlaceholderRow(appearanceArea: .items)
                 .padding(.top, 12)
                 .padding(.horizontal, 16)
             VStack(spacing: 8) {

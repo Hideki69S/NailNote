@@ -94,16 +94,16 @@ struct AddEntryView: View {
                         .frame(minHeight: 100)
                 }
 
-                Section("使用した用品") {
+                Section("使用したアイテム") {
                     if products.isEmpty {
-                        Text("用品がまだ登録されていません")
+                        Text("アイテムがまだ登録されていません")
                             .foregroundStyle(.secondary)
                     } else {
                         CategoryTabBar(selected: $selectedCategory)
                             .padding(.bottom, 4)
 
                         if filteredProducts.isEmpty {
-                            Text("このカテゴリの用品がありません")
+                            Text("このカテゴリのアイテムがありません")
                                 .foregroundStyle(.secondary)
                         } else {
                             ForEach(filteredProducts, id: \.objectID) { product in

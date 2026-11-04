@@ -116,15 +116,23 @@ nonisolated struct PlateDocument: Codable, Equatable, Sendable {
     var photoReference: PlateFileReference?
     var thumbnailReference: PlateFileReference
     var photoRotationQuarterTurns: Int? = nil
+    var photoRotationDegrees: Double? = nil
     var titleTextStyle: PlateTextStyle? = nil
     var commentTextStyle: PlateTextStyle? = nil
+    var itemImageReferences: [String: PlateFileReference]? = nil
     var textStylesSupported: Bool { (titleTextStyle?.supported ?? true) && (commentTextStyle?.supported ?? true) }
 
     func validate() throws {
-        guard schemaVersion == 1, [1, 2, 3].contains(rendererVersion) else { throw PlateStorageError.unsupported }
+        guard schemaVersion == 1, [1, 2, 3, 4, 5].contains(rendererVersion) else { throw PlateStorageError.unsupported }
         guard rendererVersion >= 2 || ((titleTextStyle?.isLegacy ?? true) && (commentTextStyle?.isLegacy ?? true)) else { throw PlateStorageError.unsupported }
-        if let turns = photoRotationQuarterTurns {
-            guard (0...3).contains(turns), turns == 0 || rendererVersion == 3 else { throw PlateStorageError.unsupported }
+        if rendererVersion == 4 || (rendererVersion == 5 && photoRotationDegrees != nil) {
+            guard let degrees = photoRotationDegrees, degrees.isFinite, (-180...180).contains(degrees),
+                  photoRotationQuarterTurns == nil else { throw PlateStorageError.unsupported }
+        } else {
+            guard photoRotationDegrees == nil else { throw PlateStorageError.unsupported }
+            if let turns = photoRotationQuarterTurns {
+                guard (0...3).contains(turns), turns == 0 || rendererVersion == 3 || rendererVersion == 5 else { throw PlateStorageError.unsupported }
+            }
         }
         guard canvasAspectRatio == "4:5", ["elegant", "noir", "sweet", "recipe"].contains(templateID),
               ["signature", "solid", "gradient"].contains(backgroundStyle),
@@ -143,17 +151,25 @@ nonisolated struct PlateDocument: Codable, Equatable, Sendable {
             guard parts.count == 2, parts[0] == "assets", reference.path.hasSuffix(".jpg"),
                   UUID(uuidString: String(parts[1].dropLast(4))) != nil else { throw PlateStorageError.invalid }
         }
+        if rendererVersion == 5 {
+            guard let references = itemImageReferences, references.count <= 500,
+                  Set(references.keys).isSubset(of: Set(selectedProducts.map { $0.id.uuidString })) else { throw PlateStorageError.invalid }
+            for reference in references.values {
+                guard PlateRepository.validItemReference(reference) else { throw PlateStorageError.unsafePath }
+            }
+        } else if itemImageReferences != nil { throw PlateStorageError.unsupported }
     }
 }
 
 nonisolated enum PlateStorageError: LocalizedError, Sendable {
-    case invalid, unsupported, conflict, damagedPhoto, unsafePath, missing, injected
+    case invalid, unsupported, conflict, damagedPhoto, damagedItemPhoto, unsafePath, missing, injected
     var errorDescription: String? {
         switch self {
         case .invalid: return "プレートの保存データが破損しているか、形式が正しくありません。"
         case .unsupported: return "このプレートの保存形式または描画形式には対応していません。上書きせず保護しています。"
         case .conflict: return "保存状態が変更されています。一覧から開き直してください。編集内容はこの画面に残っています。"
         case .damagedPhoto: return "保存済み写真が欠損または破損しています。写真なしでの上書きは停止しました。"
+        case .damagedItemPhoto: return "保存済みアイテム写真が欠損または破損しています。旧版を保護しています。対象アイテムを掲載から外すか、画像の復旧が必要です。"
         case .unsafePath: return "安全な保存領域を確認できませんでした。"
         case .missing: return "プレートが見つかりません。"
         case .injected: return "検証用の保存失敗です。"
@@ -173,6 +189,8 @@ nonisolated struct PlateLoadedDocument: Sendable {
     var document: PlateDocument
     var photoData: Data?
     var photoDamaged: Bool
+    var itemImageData: [String: Data] = [:]
+    var damagedItemHashes: Set<String> = []
 }
 
 // 非同期のファイル操作を直列化し、headの切替だけを保存の確定点にする。
@@ -362,14 +380,89 @@ actor PlateRepository {
         }.sorted { $0.updatedAt == $1.updatedAt ? $0.id.uuidString < $1.id.uuidString : $0.updatedAt > $1.updatedAt }
     }
 
+    nonisolated static func validItemReference(_ ref: PlateFileReference) -> Bool {
+        ref.sha256.count == 64 && ref.sha256.allSatisfy { "0123456789abcdef".contains($0) } &&
+            ref.path == "item-images/\(ref.sha256).jpg"
+    }
+
+    nonisolated static func validItemImage(_ bytes: Data) -> Bool {
+        guard bytes.count <= 256 * 1024, let source = CGImageSourceCreateWithData(bytes as CFData, nil),
+              let p = CGImageSourceCopyPropertiesAtIndex(source, 0, nil) as? [CFString: Any],
+              let w = p[kCGImagePropertyPixelWidth] as? Int, let h = p[kCGImagePropertyPixelHeight] as? Int,
+              w > 0, h > 0, max(w, h) <= 256,
+              CGImageSourceCreateImageAtIndex(source, 0, nil) != nil else { return false }
+        return true
+    }
+
+    private func itemBytes(_ ref: PlateFileReference) throws -> Data {
+        guard Self.validItemReference(ref) else { throw PlateStorageError.unsafePath }
+        let bytes = try data(root.appendingPathComponent(ref.path), limit: 256 * 1024)
+        guard Self.digest(bytes) == ref.sha256, Self.validItemImage(bytes) else { throw PlateStorageError.damagedItemPhoto }
+        return bytes
+    }
+
     func load(_ id: UUID) throws -> PlateLoadedDocument {
         let doc = try document(head(id))
-        guard let ref = doc.photoReference else { return PlateLoadedDocument(document: doc, photoData: nil, photoDamaged: false) }
-        do {
-            let bytes = try data(folder(id).appendingPathComponent(ref.path), limit: 100 * 1024 * 1024)
-            guard Self.digest(bytes) == ref.sha256, Self.validImage(bytes) else { throw PlateStorageError.damagedPhoto }
-            return PlateLoadedDocument(document: doc, photoData: bytes, photoDamaged: false)
-        } catch { return PlateLoadedDocument(document: doc, photoData: nil, photoDamaged: true) }
+        var loaded = PlateLoadedDocument(document: doc, photoData: nil, photoDamaged: false)
+        if let ref = doc.photoReference {
+            do {
+                let bytes = try data(folder(id).appendingPathComponent(ref.path), limit: 100 * 1024 * 1024)
+                guard Self.digest(bytes) == ref.sha256, Self.validImage(bytes) else { throw PlateStorageError.damagedPhoto }
+                loaded.photoData = bytes
+            } catch { loaded.photoDamaged = true }
+        }
+        for ref in (doc.itemImageReferences ?? [:]).values {
+            if loaded.itemImageData[ref.sha256] != nil { continue }
+            do { loaded.itemImageData[ref.sha256] = try itemBytes(ref) }
+            catch { loaded.damagedItemHashes.insert(ref.sha256) }
+        }
+        return loaded
+    }
+
+    // 参照数を別DBに保存せず、旧revision・未確定stagingを含む実体から再構築する。
+    // 不明な版や壊れたJSONがある場合は候補判定を停止し、自動削除は一切行わない。
+    struct ItemImageInventory: Sendable {
+        var references: [String: Set<UUID>]
+        var unreferenced: [String]
+        var complete: Bool
+    }
+    func itemImageInventory() throws -> ItemImageInventory {
+        let prepared = try preparedRoot()
+        var result = ItemImageInventory(references: [:], unreferenced: [], complete: true)
+        for directory in try fm.contentsOfDirectory(at: prepared, includingPropertiesForKeys: nil) {
+            guard let id = UUID(uuidString: directory.lastPathComponent) else { continue }
+            if fm.fileExists(atPath: directory.appendingPathComponent("head.json").path) {
+                do {
+                    let current = try head(id)
+                    if !current.deleted { _ = try document(current) }
+                } catch { result.complete = false }
+            }
+            for branch in ["revisions", "staging"] {
+                do {
+                    let path = try safe(directory.appendingPathComponent(branch))
+                    guard fm.fileExists(atPath: path.path) else { continue }
+                    for revision in try fm.contentsOfDirectory(at: path, includingPropertiesForKeys: nil) {
+                        guard let rid = UUID(uuidString: revision.lastPathComponent) else { result.complete = false; continue }
+                        // 明示削除後の空ディレクトリは画像参照を持たない。内容が残る不明な版は保護する。
+                        if try fm.contentsOfDirectory(at: safe(revision), includingPropertiesForKeys: nil).isEmpty { continue }
+                        let doc = try JSONDecoder().decode(PlateDocument.self, from: data(revision.appendingPathComponent("document.json")))
+                        try doc.validate()
+                        guard doc.plateID == id, doc.revisionID == rid else { throw PlateStorageError.invalid }
+                        for ref in (doc.itemImageReferences ?? [:]).values { result.references[ref.sha256, default: []].insert(id) }
+                    }
+                } catch { result.complete = false }
+            }
+        }
+        let images = try safe(root.appendingPathComponent("item-images"))
+        if result.complete, fm.fileExists(atPath: images.path) {
+            for file in try fm.contentsOfDirectory(at: images, includingPropertiesForKeys: nil) {
+                let hash = String(file.lastPathComponent.dropLast(4))
+                guard Self.validItemReference(.init(path: "item-images/" + file.lastPathComponent, sha256: hash)) else { result.complete = false; break }
+                if result.references[hash] == nil { result.unreferenced.append(hash) }
+            }
+        }
+        if !result.complete { result.unreferenced = [] }
+        return result
     }
 
     func thumbnail(_ item: PlateListItem) throws -> Data {
@@ -385,7 +478,7 @@ actor PlateRepository {
         return bytes
     }
 
-    func save(_ input: PlateDocument, expectedRevision: UUID?, photo: Data?, thumbnail: Data, replacingPhoto: Bool = false) throws -> PlateDocument {
+    func save(_ input: PlateDocument, expectedRevision: UUID?, photo: Data?, thumbnail: Data, replacingPhoto: Bool = false, itemPhotos: [String: Data] = [:]) throws -> PlateDocument {
         guard input.textStylesSupported else { throw PlateStorageError.unsupported }
         try input.validate()
         var doc = input
@@ -421,6 +514,17 @@ actor PlateRepository {
         let stage = try safe(dir.appendingPathComponent("staging/\(doc.revisionID.uuidString)", isDirectory: true))
         guard !fm.fileExists(atPath: stage.path) else { throw PlateStorageError.conflict }
         try makeDirectory(stage)
+        let refs = Set((doc.itemImageReferences ?? [:]).values.map(\.sha256))
+        guard Set(itemPhotos.keys).isSubset(of: refs) else { throw PlateStorageError.invalid }
+        for hash in refs {
+            if let candidate = itemPhotos[hash] {
+                guard Self.digest(candidate) == hash, Self.validItemImage(candidate) else { throw PlateStorageError.invalid }
+                try candidate.write(to: stage.appendingPathComponent("item-\(hash).jpg"), options: .atomic)
+            }
+            let shared = try safe(root.appendingPathComponent("item-images/\(hash).jpg"))
+            if fm.fileExists(atPath: shared.path) { _ = try itemBytes(.init(path: "item-images/\(hash).jpg", sha256: hash)) }
+            else if itemPhotos[hash] == nil { throw PlateStorageError.damagedItemPhoto }
+        }
         let bytes = try JSONEncoder().encode(doc)
         try bytes.write(to: stage.appendingPathComponent("document.json"), options: .atomic)
         try thumbnail.write(to: stage.appendingPathComponent("thumbnail.jpg"), options: .atomic)
@@ -431,6 +535,19 @@ actor PlateRepository {
             guard Self.digest(try data(stage.appendingPathComponent("source.jpg"), limit: 100 * 1024 * 1024)) == ref.sha256 else { throw PlateStorageError.invalid }
         }
         try checkpoint?(.staged)
+        for hash in refs {
+            let shared = try safe(root.appendingPathComponent("item-images/\(hash).jpg"))
+            if !fm.fileExists(atPath: shared.path) {
+                let candidate = try data(stage.appendingPathComponent("item-\(hash).jpg"), limit: 256 * 1024)
+                guard Self.digest(candidate) == hash, Self.validItemImage(candidate) else { throw PlateStorageError.invalid }
+                try makeDirectory(parent(of: shared))
+                try candidate.write(to: shared, options: .atomic)
+            }
+            _ = try itemBytes(.init(path: "item-images/\(hash).jpg", sha256: hash))
+            let staged = stage.appendingPathComponent("item-\(hash).jpg")
+            if fm.fileExists(atPath: staged.path) { try fm.removeItem(at: staged) }
+        }
+
         if let ref = doc.photoReference {
             let dest = try safe(dir.appendingPathComponent(ref.path))
             if !fm.fileExists(atPath: dest.path) {
@@ -464,7 +581,7 @@ actor PlateRepository {
         let item = PlateListItem(id: id, revisionID: expectedRevision, title: copy.title, updatedAt: copy.updatedAt, issue: nil)
         let thumb = try thumbnail(item)
         copy.plateID = UUID(); copy.revisionID = UUID()
-        return try save(copy, expectedRevision: nil, photo: value.photoData, thumbnail: thumb)
+        return try save(copy, expectedRevision: nil, photo: value.photoData, thumbnail: thumb, itemPhotos: value.itemImageData)
     }
 
     func delete(_ id: UUID, expectedRevision: UUID) throws -> String? {

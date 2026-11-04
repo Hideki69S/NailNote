@@ -3,7 +3,7 @@ import UIKit
 import Combine
 import CoreText
 import CryptoKit
-import PhotosUI
+import CoreData
 
 enum PlateTextRole: String, Identifiable {
     case title, comment
@@ -132,7 +132,7 @@ enum PlateTemplate: String, CaseIterable, Identifiable, Codable {
         case .elegant: return "大きな写真とパールの余白"
         case .noir: return "縦の写真と重厚な銀の輪郭"
         case .sweet: return "丸い写真枠と柔らかなリボン"
-        case .recipe: return "写真と選択した用品"
+        case .recipe: return "写真と選択したアイテム"
         }
     }
     var ink: Color { self == .noir ? Color(red: 0.96, green: 0.93, blue: 0.90) : Color(red: 0.22, green: 0.20, blue: 0.24) }
@@ -192,6 +192,37 @@ nonisolated enum PlatePhotoGeometry {
     }
 }
 
+// 任意角度だけの描画解決器。旧90度の描画経路は変更しない。
+nonisolated struct PlatePhotoTransform {
+    let scale: CGFloat
+    let travel: CGSize
+    let offset: CGSize
+
+    init(viewport: CGSize, image: CGSize, zoom: Double, x: Double, y: Double, degrees: Double) {
+        guard viewport.width > 0, viewport.height > 0, image.width > 0, image.height > 0,
+              degrees.isFinite, zoom.isFinite, x.isFinite, y.isFinite else {
+            scale = 1; travel = .zero; offset = .zero; return
+        }
+        let radians = degrees * .pi / 180
+        // 直角の微小な三角関数誤差を除き、旧構図との境界を安定させる。
+        let cosine = abs(cos(radians)) < 1e-12 ? 0 : cos(radians)
+        let sine = abs(sin(radians)) < 1e-12 ? 0 : sin(radians)
+        let c = abs(cosine), s = abs(sine)
+        let factor = max((viewport.width*c + viewport.height*s)/image.width,
+                         (viewport.width*s + viewport.height*c)/image.height) * min(3, max(1, zoom))
+        scale = factor
+        let extent = CGSize(width: max(0, (factor*(image.width*c + image.height*s)-viewport.width)/2),
+                            height: max(0, (factor*(image.width*s + image.height*c)-viewport.height)/2))
+        travel = extent
+        let dx = min(1, max(-1, x))*extent.width, dy = min(1, max(-1, y))*extent.height
+        let marginX = max(0, (factor*image.width-viewport.width*c-viewport.height*s)/2)
+        let marginY = max(0, (factor*image.height-viewport.width*s-viewport.height*c)/2)
+        let u = max(-marginX, min(marginX, cosine*dx+sine*dy))
+        let v = max(-marginY, min(marginY, -sine*dx+cosine*dy))
+        offset = CGSize(width: cosine*u-sine*v, height: sine*u+cosine*v)
+    }
+}
+
 struct PlatePhotoAdjustment: Codable, Equatable {
     var zoom: Double = 1
     var x: Double = 0
@@ -221,7 +252,19 @@ struct PlateDraft: Equatable {
     var products: [PlateProduct]
     var background: PlateBackground = .signature
     var frame: PlateFrame = .signature
+    var itemImagesEnabled = true
+    var itemImageReferences: [String: PlateFileReference] = [:]
     var photoRotationQuarterTurns = 0
+    var photoRotationDegrees: Double? = nil
+    var photoAngle: Double { photoRotationDegrees ?? (photoRotationQuarterTurns == 3 ? -90 : Double(photoRotationQuarterTurns)*90) }
+    var rotationSupported: Bool {
+        if let value = photoRotationDegrees { return value.isFinite && (-180...180).contains(value) && photoRotationQuarterTurns == 0 }
+        return (0...3).contains(photoRotationQuarterTurns)
+    }
+    mutating func setPhotoAngle(_ value: Double) {
+        guard value.isFinite, (-180...180).contains(value), value != photoAngle else { return }
+        photoRotationDegrees = value; photoRotationQuarterTurns = 0
+    }
     var titleTextStyle: PlateTextStyle? = nil
     var commentTextStyle: PlateTextStyle? = nil
     var textStylesSupported: Bool { (titleTextStyle?.supported ?? true) && (commentTextStyle?.supported ?? true) }
@@ -237,7 +280,10 @@ struct PlateDraft: Equatable {
         get { photos[template] ?? PlatePhotoAdjustment() }
         set { var value = newValue; value.constrain(); photos[template] = value }
     }
-    mutating func resetPhotoComposition() { photos = [:]; photoRotationQuarterTurns = 0 }
+    mutating func resetPhotoComposition() {
+        photos = [:]; photoRotationQuarterTurns = 0
+        if photoRotationDegrees != nil { photoRotationDegrees = 0 }
+    }
     static let recipeLimit = 3
     var recipeOverflow: Int { max(0, products.count - Self.recipeLimit) }
     mutating func toggleProduct(_ product: PlateProduct) {
@@ -253,25 +299,24 @@ struct PlateDraft: Equatable {
 }
 
 private enum PlateTool: String, CaseIterable, Identifiable {
-    case template, photo, background, frame, text, decoration, items, adjustment
+    case template, photo, background, frame, text, decoration
     var id: String { rawValue }
     var title: String {
         switch self {
-        case .template: return "テンプレート"; case .photo: return "写真"; case .background: return "背景"
+        case .template: return "プレート"; case .photo: return "写真"; case .background: return "背景"
         case .frame: return "フレーム"; case .text: return "文字"; case .decoration: return "装飾"
-        case .items: return "用品"; case .adjustment: return "調整"
         }
     }
     var symbol: String {
         switch self {
         case .template: return "rectangle.stack"; case .photo: return "photo"; case .background: return "circle.lefthalf.filled"
         case .frame: return "square.on.square"; case .text: return "textformat"; case .decoration: return "sparkles"
-        case .items: return "square.grid.2x2"; case .adjustment: return "slider.horizontal.3"
         }
     }
 }
 
 struct PlateEditorView: View {
+    @Environment(\.managedObjectContext) private var itemContext
     private enum TextFieldID: Hashable { case title, date, comment }
     @Environment(\.dynamicTypeSize) private var typeSize
     @Binding var draft: PlateDraft
@@ -285,7 +330,10 @@ struct PlateEditorView: View {
     @State private var resetUnknown: PlateTextRole?
     @State private var textRole: PlateTextRole = .title
     @State private var editingText: PlateTextRole?
-    @State private var photoSelection: PhotosPickerItem?
+    @State private var choosingDesignPhoto = false
+    @ScaledMetric(relativeTo: .caption) private var menuWidth: CGFloat = 72
+    @ScaledMetric(relativeTo: .caption) private var menuHeight: CGFloat = 56
+    @ScaledMetric(relativeTo: .caption) private var menuIconSize: CGFloat = 18
     @State private var photoImportTask: Task<Void, Never>?
     @AppStorage(NailAppearance.key) private var appearanceRaw = ""
     @AppStorage(GlassTheme.Keys.backgroundPreset) private var backgroundRaw = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
@@ -305,29 +353,28 @@ struct PlateEditorView: View {
 
     var body: some View {
             GeometryReader { page in
-                // 設定領域を先に確保し、残りの高さで作品比率を保ったプレビューを表示する。
-                let panelBudget = page.size.height * (typeSize.isAccessibilitySize ? 0.52 : 0.38)
-                let previewHeight = focusedField != nil ? page.size.height * 0.18 : max(0, page.size.height - panelBudget - (typeSize.isAccessibilitySize ? 190 : 160))
-                let width = min(max(0, page.size.width - 32), previewHeight * 0.8)
+                let contentWidth = max(0, page.size.width - 32)
+                let proposedWidth = max(0, contentWidth - 12) * 0.60
+                let horizontal = !typeSize.isAccessibilitySize && proposedWidth >= 160 && proposedWidth * 1.25 <= page.size.height * 0.42 && focusedField == nil
                 VStack(spacing: 10) {
-                    Button { focusedField = nil; onChooseProducts() } label: {
-                        HStack(spacing: 8) {
-                            Text("使用用品").font(.subheadline.weight(.semibold))
-                            Spacer(minLength: 4)
-                            Text("\(draft.products.count)点").font(.subheadline)
-                            Image(systemName: "chevron.right").font(.caption)
-                        }
-                        .padding(.horizontal, 12).frame(minHeight: 44)
-                        .background(editorPalette.glowFillMid.opacity(0.85), in: RoundedRectangle(cornerRadius: 12))
-                        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(editorPalette.outerStrokeEnd.opacity(0.30), lineWidth: 0.7))
+                    if horizontal {
+                        HStack(alignment: .top, spacing: 12) {
+                            preview(width: proposedWidth)
+                            PlateProductEditingSidebar(draft: $draft, compact: contentWidth - proposedWidth - 12 < 128, palette: editorPalette) {
+                                focusedField = nil; onChooseProducts()
+                            }.frame(width: max(0, contentWidth - proposedWidth - 12), height: proposedWidth * 1.25)
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                    } else {
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 8) {
+                                preview(width: min(contentWidth, max(160, min(240, page.size.height * 0.25) * 0.8)))
+                                PlateProductEditingSidebar(draft: $draft, compact: false, palette: editorPalette) {
+                                    focusedField = nil; onChooseProducts()
+                                }.frame(height: typeSize.isAccessibilitySize ? max(300, menuHeight * 4) : 200)
+                            }
+                        }.frame(height: page.size.height * (focusedField == nil ? 0.48 : 0.30))
+                            .accessibilityIdentifier("plate.previewProducts.vertical")
                     }
-                    .buttonStyle(.plain).accessibilityIdentifier("plate.products")
-                    .accessibilityHint("掲載する用品を編集します。元の記録や用品は変更しません。")
-                    PlateCanvasView(draft: $draft, image: session.image, loadingPhoto: session.photoState == .loading, photoEditing: tool == .photo || tool == .adjustment)
-                        .frame(width: 360, height: 450)
-                        .scaleEffect(width / 360, anchor: .topLeading)
-                        .frame(width: width, height: width * 1.25, alignment: .topLeading)
-                        .accessibilityIdentifier("plate.preview")
                     toolBar
                     if tool == .text && !typeSize.isAccessibilitySize {
                         Text("選べる文字の太さは、書体によって異なります。")
@@ -336,12 +383,15 @@ struct PlateEditorView: View {
                     }
                     ScrollView {
                         VStack(alignment: .leading, spacing: 10) {
-                            Text("プレートの変更は元の記録・用品には反映されません")
+                            Text("プレートの変更は元の記録・アイテムには反映されません")
                                 .font(.caption).foregroundStyle(editorPalette.tagText).fixedSize(horizontal: false, vertical: true)
                             if let photoNotice = session.photoNotice {
                                 Text(photoNotice).font(.caption).foregroundStyle(editorPalette.tagText)
                                     .fixedSize(horizontal: false, vertical: true)
                                     .accessibilityIdentifier("plate.photoNotice")
+                            }
+                            if let notice = session.itemImageNotice {
+                                Text(notice).font(.caption).foregroundStyle(editorPalette.tagText)
                             }
                             toolPanel
                         }.padding(14).frame(maxWidth: .infinity, alignment: .leading)
@@ -365,7 +415,7 @@ struct PlateEditorView: View {
                         if session.photoState == .missingSource { confirmingMissingPhoto = true }
                         else { Task { if await session.save() { onSaved() } } }
                     }
-                    .disabled(session.saving || session.importingPhoto || session.photoState == .loading || session.photoState == .damagedSaved || !draft.textStylesSupported)
+                    .disabled(session.saving || session.importingPhoto || session.loadingItemImages || session.photoState == .loading || session.photoState == .damagedSaved || !draft.textStylesSupported)
                     .accessibilityIdentifier("plate.save")
                 }
                 ToolbarItemGroup(placement: .keyboard) {
@@ -378,8 +428,9 @@ struct PlateEditorView: View {
         .tint(editorPalette.titleIcon)
         .environment(\.colorScheme, editorDark ? .dark : .light)
         .task { await session.loadPhoto() }
-        .modifier(NailTabExitProtection(dirty: session.dirty, blocked: session.saving || session.importingPhoto))
-        .modifier(NailEditorExit(dirty: session.dirty, blocked: session.saving || session.importingPhoto, onReturn: onCancel))
+        .task(id: session.itemImageRequestKey) { await session.prepareItemImages(in: itemContext) }
+        .modifier(NailTabExitProtection(dirty: session.dirty, blocked: session.saving || session.importingPhoto || session.loadingItemImages))
+        .modifier(NailEditorExit(dirty: session.dirty, blocked: session.saving || session.importingPhoto || session.loadingItemImages, onReturn: onCancel))
         .disabled(session.saving)
         .navigationBarBackButtonHidden(true)
         .onChange(of: textRole) { _, _ in focusedField = nil; weightNotice = nil }
@@ -390,20 +441,25 @@ struct PlateEditorView: View {
                 if role == .title { draft.title = value } else { draft.comment = value }
             }
         }
-        .onChange(of: photoSelection) { _, item in
-            photoImportTask?.cancel()
-            guard let item else { return }
-            let token = session.beginPhotoImport()
-            photoImportTask = Task {
-                do {
-                    let data = try await item.loadTransferable(type: Data.self)
-                    await session.finishPhotoImport(data, token: token)
-                } catch { session.failPhotoImport(token: token) }
-                if session.isCurrentPhotoImport(token) { photoSelection = nil }
+        .sheet(isPresented: $choosingDesignPhoto, onDismiss: { photoImportTask?.cancel(); session.cancelPhotoImport() }) {
+            NavigationStack {
+                PlateDesignSelectionView(replacingPhoto: true, blocked: session.importingPhoto) { entry in
+                    photoImportTask?.cancel()
+                    photoImportTask = Task {
+                        if await session.replacePhoto(from: entry) { choosingDesignPhoto = false }
+                    }
+                }
+                .toolbar { ToolbarItem(placement: .cancellationAction) {
+                    Button("キャンセル") { photoImportTask?.cancel(); session.cancelPhotoImport(); choosingDesignPhoto = false }
+                        .accessibilityIdentifier("plate.photo.cancelSelection")
+                } }
+                .alert("写真を読み込めませんでした", isPresented: Binding(get: { session.photoImportError != nil }, set: { if !$0 { session.photoImportError = nil } })) {
+                    Button("OK") { session.photoImportError = nil }
+                } message: { Text(session.photoImportError ?? "") }
             }
         }
         .onDisappear { photoImportTask?.cancel(); session.cancelPhotoImport() }
-        .alert("写真を読み込めませんでした", isPresented: Binding(get: { session.photoImportError != nil }, set: { if !$0 { session.photoImportError = nil } })) {
+        .alert("写真を読み込めませんでした", isPresented: Binding(get: { !choosingDesignPhoto && session.photoImportError != nil }, set: { if !$0 { session.photoImportError = nil } })) {
             Button("OK") { session.photoImportError = nil }
         } message: { Text(session.photoImportError ?? "") }
         .confirmationDialog("未対応の文字設定を標準に戻しますか？ この文字の保存情報を置き換えます。", isPresented: Binding(get: { resetUnknown != nil }, set: { if !$0 { resetUnknown = nil } })) {
@@ -416,22 +472,36 @@ struct PlateEditorView: View {
         } message: { Text("元写真を保存できません。写真なしのプレートとして保存しますか？ 元の記録は変更しません。") }
     }
 
+    private func preview(width: CGFloat) -> some View {
+        PlateCanvasView(draft: $draft, image: session.image, loadingPhoto: session.photoState == .loading, photoEditing: tool == .photo, itemImages: session.itemImages)
+            .frame(width: 360, height: 450).scaleEffect(width / 360, anchor: .topLeading)
+            .frame(width: width, height: width * 1.25, alignment: .topLeading)
+            .accessibilityIdentifier("plate.preview")
+    }
+
     private var toolBar: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 6) {
                 ForEach(PlateTool.allCases) { item in
                     Button { focusedField = nil; tool = item } label: {
-                        VStack(spacing: 4) {
-                            Image(systemName: item.symbol).font(.system(size: 18))
-                            Text(item.title).font(.caption)
-                            if item == .decoration { Text("表示のみ").font(.caption2) }
+                        Group {
+                            if item == .template {
+                                VStack(spacing: 4) {
+                                    Image(systemName: item.symbol).font(.system(size: 18))
+                                    Text("テンプレート").hidden().overlay { Text(item.title) }.font(.caption)
+                                }.padding(.horizontal, 9).padding(.vertical, 8).frame(minWidth: 60, minHeight: 52)
+                            } else {
+                                VStack(spacing: 4) {
+                                    Image(systemName: item.symbol).font(.system(size: menuIconSize)).frame(height: menuIconSize)
+                                    Text(item.title).font(.caption).lineLimit(1)
+                                }.frame(width: max(44, menuWidth), height: max(44, menuHeight))
+                            }
                         }
-                        .padding(.horizontal, 9).padding(.vertical, 8)
-                        .frame(minWidth: 60, minHeight: 52)
                         .background(tool == item ? editorPalette.glowFillTop : editorPalette.glowFillBottom.opacity(0.6), in: RoundedRectangle(cornerRadius: 12))
                         .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(editorPalette.outerStrokeEnd.opacity(tool == item ? 0.85 : 0.25), lineWidth: tool == item ? 1.2 : 0.7))
                     }
                     .buttonStyle(.plain).accessibilityIdentifier("plate.tool.\(item.rawValue)")
+                    .accessibilityHint(item == .decoration ? "装飾は表示のみです" : "編集する項目を選択します")
                     .accessibilityAddTraits(tool == item ? .isSelected : [])
                 }
             }
@@ -456,29 +526,32 @@ struct PlateEditorView: View {
                     .accessibilityAddTraits(draft.template == item ? .isSelected : [])
                 }
             }
-        case .photo, .adjustment:
+        case .photo:
             VStack(alignment: .leading, spacing: 10) {
-                PhotosPicker(selection: $photoSelection, matching: .images) {
-                    Label("写真を選択・差し替え", systemImage: "photo.badge.plus").frame(minHeight: 44)
-                }.disabled(session.saving || session.importingPhoto).accessibilityIdentifier("plate.photo.choose")
+                Button { focusedField = nil; choosingDesignPhoto = true } label: {
+                    Label("デザインから写真を選ぶ", systemImage: "photo.on.rectangle").frame(minHeight: 44)
+                }.disabled(session.saving || session.importingPhoto || session.loadingItemImages).accessibilityIdentifier("plate.photo.choose")
                 if session.importingPhoto { ProgressView("写真を準備中") }
-                Text("差し替えると全テンプレートの位置・倍率・回転を初期化します。作品を保存するまで元の保存写真は変更しません。")
+                Text("写真のみ差し替えます。成功すると全テンプレートの位置・倍率・角度を初期化します。作品の保存まで旧写真は変わりません。")
                     .font(.caption).foregroundStyle(editorPalette.tagText)
-                HStack {
-                    Button { draft.photoRotationQuarterTurns = (draft.photoRotationQuarterTurns + 3) % 4 } label: {
-                        Label("左90°", systemImage: "rotate.left").frame(maxWidth: .infinity, minHeight: 44)
-                    }.accessibilityIdentifier("plate.photo.rotate.left")
-                    Button { draft.photoRotationQuarterTurns = (draft.photoRotationQuarterTurns + 1) % 4 } label: {
-                        Label("右90°", systemImage: "rotate.right").frame(maxWidth: .infinity, minHeight: 44)
-                    }.accessibilityIdentifier("plate.photo.rotate.right")
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("回転角度：" + draft.photoAngle.formatted(.number.precision(.fractionLength(0...1))) + "°")
+                        .font(.subheadline).accessibilityIdentifier("plate.photo.angleValue")
+                    Slider(value: Binding(get: { draft.photoAngle }, set: { draft.setPhotoAngle($0) }), in: -180...180, step: 1)
+                        .accessibilityLabel("写真の回転角度")
+                        .accessibilityValue(draft.photoAngle.formatted() + "度")
+                        .accessibilityIdentifier("plate.photo.angle")
+                    Button("0°に戻す") { draft.setPhotoAngle(0) }
+                        .frame(minHeight: 44).disabled(draft.photoAngle == 0)
+                        .accessibilityIdentifier("plate.photo.angleZero")
                 }.disabled(session.image == nil || session.importingPhoto)
                 Text("写真をドラッグ、またはスライダーで調整できます。端を越えて移動しません。")
                     .font(.caption).foregroundStyle(editorPalette.tagText)
                 adjustmentSlider("倍率", keyPath: \.zoom, range: 1...3)
                 adjustmentSlider("左右", keyPath: \.x, range: -1...1)
                 adjustmentSlider("上下", keyPath: \.y, range: -1...1)
-                Button("このテンプレートの写真を元に戻す") { draft.photo = PlatePhotoAdjustment() }
-                    .frame(minHeight: 44).accessibilityIdentifier("plate.photo.reset")
+                Text("角度に応じて枠を覆う倍率と移動範囲を自動調整します。倍率・位置の保存値は保持します。")
+                    .font(.caption).foregroundStyle(editorPalette.tagText)
             }
         case .background:
             VStack(alignment: .leading, spacing: 12) {
@@ -525,21 +598,7 @@ struct PlateEditorView: View {
         case .decoration:
             Text("テンプレート固有の装飾を表示しています。装飾の追加・自由配置は今後対応予定です。")
                 .font(.subheadline).fixedSize(horizontal: false, vertical: true)
-        case .items:
-            VStack(alignment: .leading, spacing: 10) {
-                Text("選択中の用品：\(draft.products.count)件").font(.subheadline.weight(.semibold))
-                Text(draft.recipeOverflow > 0
-                     ? "Recipeの表示は先頭3件です。残り\(draft.recipeOverflow)件は非表示ですが、選択は保持しています。掲載順・件数は選び直せます。"
-                     : "Recipeに掲載順で表示します。他のテンプレートでも選択は保持します。")
-                    .font(.caption).foregroundStyle(editorPalette.tagText)
-                Button("用品を選び直す", action: onChooseProducts)
-                    .frame(minHeight: 44).accessibilityIdentifier("plate.reselectProducts")
-                ForEach(draft.products) { product in
-                    Text(product.name).font(.subheadline).fixedSize(horizontal: false, vertical: true)
-                }
-                Text("購入価格・購入場所・商品URLは掲載しません。長い品名は作品上の枠内で省略される場合があります。")
-                    .font(.caption).foregroundStyle(editorPalette.tagText)
-            }
+
         }
     }
 
@@ -698,6 +757,7 @@ struct PlateCanvasView: View {
     var image: UIImage? = nil
     var loadingPhoto = false
     var photoEditing = false
+    var itemImages: [UUID: UIImage] = [:]
 
     var body: some View {
         let template = draft.template
@@ -705,7 +765,7 @@ struct PlateCanvasView: View {
             PlateSurface(template: template, style: draft.background)
             RoundedRectangle(cornerRadius: 12).inset(by: 8)
                 .strokeBorder(template.metal.opacity(0.55), lineWidth: 0.7)
-            PlatePhotoViewport(adjustment: Binding(get: { draft.photo }, set: { draft.photo = $0 }), image: image, loading: loadingPhoto, template: template, frame: draft.frame, editing: photoEditing, quarterTurns: draft.photoRotationQuarterTurns)
+            PlatePhotoViewport(adjustment: Binding(get: { draft.photo }, set: { draft.photo = $0 }), image: image, loading: loadingPhoto, template: template, frame: draft.frame, editing: photoEditing, quarterTurns: draft.photoRotationQuarterTurns, degrees: draft.photoRotationDegrees)
                 .frame(width: template.photoRect.width, height: template.photoRect.height)
                 .offset(x: template.photoRect.minX, y: template.photoRect.minY)
             composition
@@ -721,8 +781,13 @@ struct PlateCanvasView: View {
         case .elegant:
             heading(x: 28, y: 25, width: 304, alignment: .center)
             caption(draft.date, size: 10).frame(width: 304).offset(x: 28, y: 69)
-            comment(size: 12).frame(width: 286, height: 55).offset(x: 37, y: 365)
-            Rectangle().fill(draft.template.metal.opacity(0.5)).frame(width: 66, height: 0.7).offset(x: 147, y: 356)
+            if draft.itemImagesEnabled {
+                itemStrip.frame(width: 286, height: 35).offset(x: 37, y: 349)
+                comment(size: 12, maxHeight: 45).frame(width: 286, height: 45, alignment: .top).clipped().offset(x: 37, y: 390)
+            } else {
+                comment(size: 12).frame(width: 286, height: 55).offset(x: 37, y: 365)
+                Rectangle().fill(draft.template.metal.opacity(0.5)).frame(width: 66, height: 0.7).offset(x: 147, y: 356)
+            }
         case .noir:
             VStack(alignment: .leading, spacing: 16) {
                 Text("NOIR").font(.system(size: 14, weight: .light, design: .serif)).tracking(2)
@@ -731,24 +796,47 @@ struct PlateCanvasView: View {
                 Text("NAIL\nCOLLECTION").font(.system(size: 9, weight: .medium)).tracking(1.5)
             }
             .foregroundStyle(draft.template.ink).frame(width: 84, alignment: .leading).offset(x: 253, y: 66)
+            if draft.itemImagesEnabled {
+                VStack(spacing: 5) {
+                    ForEach(Array(draft.products.prefix(3))) { product in
+                        HStack(spacing: 4) {
+                            itemPhoto(product, size: 27)
+                            Text(product.name).font(.system(size: 8)).lineLimit(2)
+                        }.frame(width: 84, height: 39, alignment: .leading)
+                    }
+                    if draft.products.count > 3 { Text("他\(draft.products.count - 3)点").font(.system(size: 7)) }
+                }.foregroundStyle(draft.template.ink).offset(x: 253, y: 195)
+            }
             heading(x: 22, y: 362, width: 316, alignment: .leading)
-            comment(size: 11).frame(width: 316, height: 42, alignment: .topLeading).offset(x: 22, y: 402)
+            comment(size: 11, maxHeight: draft.itemImagesEnabled ? 42 : nil).frame(width: 316, height: 42, alignment: .topLeading).offset(x: 22, y: 402)
         case .sweet:
             heading(x: 34, y: 26, width: 292, alignment: .center)
             caption(draft.date, size: 10).frame(width: 292).offset(x: 34, y: 68)
             Image(systemName: "heart.fill").font(.system(size: 15)).foregroundStyle(draft.template.metal.opacity(0.65)).offset(x: 26, y: 170)
             Image(systemName: "heart").font(.system(size: 19)).foregroundStyle(draft.template.metal).offset(x: 310, y: 289)
             PlateRibbon().fill(draft.template.metal.opacity(0.8)).frame(width: 65, height: 38).offset(x: 148, y: 76)
-            comment(size: 12).frame(width: 286, height: 56).offset(x: 37, y: 377)
+            if draft.itemImagesEnabled {
+                itemStrip.frame(width: 286, height: 34).offset(x: 37, y: 365)
+                comment(size: 12, lines: 2, maxHeight: 34).frame(width: 286, height: 34, alignment: .top).clipped().offset(x: 37, y: 403)
+            } else { comment(size: 12).frame(width: 286, height: 56).offset(x: 37, y: 377) }
         case .recipe:
             heading(x: 22, y: 18, width: 316, alignment: .leading)
             caption(draft.date + "  /  NAIL RECIPE", size: 9).frame(width: 316, alignment: .leading).offset(x: 22, y: 60)
-            VStack(spacing: 7) {
+            VStack(spacing: draft.itemImagesEnabled ? 4 : 7) {
                 if draft.products.isEmpty {
-                    caption("用品は選択されていません", size: 12).frame(height: 70)
+                    caption("アイテムは選択されていません", size: 12).frame(height: 70)
                 } else {
                     ForEach(Array(draft.products.prefix(PlateDraft.recipeLimit).enumerated()), id: \.element.id) { index, product in
-                        recipeRow(String(format: "%02d", index + 1), product.name)
+                        if draft.itemImagesEnabled {
+                            HStack(spacing: 8) {
+                                Text(String(format: "%02d", index + 1)).font(.system(size: 9)).foregroundStyle(draft.template.metal)
+                                itemPhoto(product, size: 24)
+                                Text(product.name).font(.system(size: 10, weight: .medium)).lineLimit(1)
+                                Spacer(minLength: 0)
+                            }.padding(.horizontal, 7).frame(height: 28)
+                                .foregroundStyle(draft.template.ink)
+                                .background(.white.opacity(0.45), in: RoundedRectangle(cornerRadius: 7))
+                        } else { recipeRow(String(format: "%02d", index + 1), product.name) }
                     }
                 }
             }.frame(width: 316).offset(x: 22, y: 293)
@@ -756,8 +844,29 @@ struct PlateCanvasView: View {
                 caption("掲載3 / 選択\(draft.products.count)件 · 他\(draft.recipeOverflow)件は非表示", size: 8)
                     .frame(width: 316, alignment: .leading).offset(x: 22, y: 389)
             }
-            comment(size: 11).frame(width: 316, height: 40, alignment: .topLeading).offset(x: 22, y: 403)
+            comment(size: 11, maxHeight: draft.itemImagesEnabled ? 40 : nil).frame(width: 316, height: 40, alignment: .topLeading).offset(x: 22, y: 403)
         }
+    }
+
+    private func itemPhoto(_ product: PlateProduct, size: CGFloat) -> some View {
+        ZStack {
+            draft.template.paper
+            if let image = itemImages[product.id] { Image(uiImage: image).resizable().scaledToFit() }
+            else { Image(systemName: PlateItemPresentation.symbol(for: product.category)).font(.system(size: size * 0.48)).foregroundStyle(draft.template.metal) }
+        }.frame(width: size, height: size).clipShape(RoundedRectangle(cornerRadius: 4))
+            .overlay(RoundedRectangle(cornerRadius: 4).stroke(draft.template.metal.opacity(0.4), lineWidth: 0.5))
+    }
+    private var itemStrip: some View {
+        HStack(spacing: 5) {
+            ForEach(Array(draft.products.prefix(3))) { product in
+                HStack(spacing: 4) {
+                    itemPhoto(product, size: 25)
+                    Text(product.name).font(.system(size: 8, weight: .medium)).lineLimit(2)
+                }.frame(maxWidth: .infinity, alignment: .leading)
+            }
+            if draft.products.isEmpty { Text("アイテムなし").font(.system(size: 9)) }
+            if draft.products.count > 3 { Text("+\(draft.products.count - 3)").font(.system(size: 7)) }
+        }.foregroundStyle(draft.template.ink)
     }
 
     private func heading(x: CGFloat, y: CGFloat, width: CGFloat, alignment: Alignment) -> some View {
@@ -769,10 +878,19 @@ struct PlateCanvasView: View {
         Text(text).font(.system(size: size)).foregroundStyle(draft.template.ink.opacity(0.85))
             .lineLimit(3).fixedSize(horizontal: false, vertical: true).allowsHitTesting(false)
     }
-    private func comment(size: CGFloat) -> some View {
-        Text(draft.comment).font(PlateFontCatalog.font(draft.commentTextStyle, role: .comment, size: size))
+    private func comment(size: CGFloat, lines: Int = 3, maxHeight: CGFloat? = nil) -> some View {
+        let style = draft.commentTextStyle ?? PlateTextStyle()
+        let uiFont = PlateFontCatalog.external(style.fontID, weight: style.weightID, size: size)
+            ?? (style.fontID == "hiramin" ? UIFont(name: style.weightID == "bold" ? "HiraMinProN-W6" : "HiraMinProN-W3", size: size) : nil)
+            ?? (style.fontID == "hiramaru" ? UIFont(name: "HiraMaruProN-W4", size: size) : nil)
+            ?? UIFont.systemFont(ofSize: size)
+        // 新構図だけ、和文・英字・絵文字の行高に収まる完全な行数を表示する。
+        let bounds = NSAttributedString(string: "あAg💅", attributes: [.font: uiFont]).boundingRect(with: CGSize(width: 1000, height: 1000), options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
+        let lineHeight = max(uiFont.lineHeight, ceil(bounds.height))
+        let visibleLines = maxHeight.map { max(1, min(lines, Int($0 / lineHeight))) } ?? lines
+        return Text(draft.comment).font(PlateFontCatalog.font(draft.commentTextStyle, role: .comment, size: size))
             .foregroundStyle(PlateFontCatalog.color(draft.commentTextStyle, role: .comment, template: draft.template))
-            .lineLimit(3).fixedSize(horizontal: false, vertical: true).allowsHitTesting(false)
+            .lineLimit(visibleLines).fixedSize(horizontal: false, vertical: true).allowsHitTesting(false)
     }
     private func recipeRow(_ number: String, _ name: String) -> some View {
         HStack(spacing: 10) {
@@ -832,6 +950,7 @@ private struct PlatePhotoViewport: View {
     let frame: PlateFrame
     let editing: Bool
     let quarterTurns: Int
+    var degrees: Double? = nil
     @State private var dragStart: PlatePhotoAdjustment?
 
     var body: some View {
@@ -839,14 +958,16 @@ private struct PlatePhotoViewport: View {
             let imageSize = image.map(PlatePhotoGeometry.pixelSize) ?? CGSize(width: 4, height: 5)
             let rotatedSize = quarterTurns % 2 == 0 ? imageSize : CGSize(width: imageSize.height, height: imageSize.width)
             let overflow = adjustment.overflow(in: proxy.size, image: rotatedSize)
+            let transform = degrees.map { PlatePhotoTransform(viewport: proxy.size, image: imageSize, zoom: adjustment.zoom, x: adjustment.x, y: adjustment.y, degrees: $0) }
+            let travel = transform?.travel ?? overflow
             let shape = RoundedRectangle(cornerRadius: template.photoRadius)
             ZStack {
                 if let image {
-                    let fill = max(proxy.size.width / rotatedSize.width, proxy.size.height / rotatedSize.height) * adjustment.zoom
+                    let fill = transform?.scale ?? (max(proxy.size.width / rotatedSize.width, proxy.size.height / rotatedSize.height) * adjustment.zoom)
                     Image(uiImage: image).resizable()
                         .frame(width: imageSize.width * fill, height: imageSize.height * fill)
-                        .rotationEffect(.degrees(Double(quarterTurns) * 90))
-                        .offset(x: adjustment.x * overflow.width, y: adjustment.y * overflow.height)
+                        .rotationEffect(.degrees(degrees ?? Double(quarterTurns) * 90))
+                        .offset(x: transform?.offset.width ?? adjustment.x * overflow.width, y: transform?.offset.height ?? adjustment.y * overflow.height)
                 } else {
                     Color.gray.opacity(0.15)
                     if loading { ProgressView("写真を読み込み中").font(.caption).tint(template.ink) }
@@ -862,8 +983,8 @@ private struct PlatePhotoViewport: View {
                 guard editing, image != nil else { return }
                 if dragStart == nil { dragStart = adjustment }
                 guard var start = dragStart else { return }
-                start.x += overflow.width > 0.1 ? value.translation.width / overflow.width : 0
-                start.y += overflow.height > 0.1 ? value.translation.height / overflow.height : 0
+                start.x += travel.width > 0.1 ? value.translation.width / travel.width : 0
+                start.y += travel.height > 0.1 ? value.translation.height / travel.height : 0
                 start.constrain(); adjustment = start
             }.onEnded { _ in dragStart = nil })
             .overlay {
@@ -875,6 +996,7 @@ private struct PlatePhotoViewport: View {
         }
         .onChange(of: template) { _, _ in dragStart = nil }
         .onChange(of: quarterTurns) { _, _ in dragStart = nil }
+        .onChange(of: degrees) { _, _ in dragStart = nil }
     }
 
     @ViewBuilder private func photoFrame(_ shape: RoundedRectangle) -> some View {
@@ -896,6 +1018,13 @@ private struct PlatePhotoViewport: View {
     @Published var photoState: PhotoState
     @Published var saving = false
     @Published private(set) var importingPhoto = false
+    @Published private(set) var loadingItemImages = false
+    @Published private(set) var itemImages: [UUID: UIImage] = [:]
+    private var itemImageBytes: [String: Data] = [:]
+    private var preparedItemRefs: [String: PlateFileReference] = [:]
+    private var resolvedItemIDs = Set<UUID>()
+    private var itemImageToken = UUID()
+    private var damagedItemHashes = Set<String>()
     @Published var photoImportError: String?
     private var photoImportToken = UUID()
     private var photoGeneration = UUID()
@@ -926,7 +1055,66 @@ private struct PlatePhotoViewport: View {
         photoData = loaded.photoData; image = decodedImage
         baselinePhotoHash = loaded.photoData.map(PlateRepository.digest); currentPhotoHash = baselinePhotoHash
         photoState = loaded.photoDamaged || (document.photoReference != nil && decodedImage == nil) ? .damagedSaved : (decodedImage == nil ? .none : .loaded)
+        itemImageBytes = loaded.itemImageData
+        preparedItemRefs = document.itemImageReferences ?? [:]
+        damagedItemHashes = loaded.damagedItemHashes
+        if value.itemImagesEnabled { resolvedItemIDs = Set(value.products.map(\.id)) }
+        refreshItemImages()
         startedPhoto = true
+    }
+
+    var itemImageRequestKey: String {
+        String(draft.itemImagesEnabled) + draft.products.map { $0.id.uuidString }.joined(separator: ":")
+    }
+    var itemImageNotice: String? {
+        damagedItemHashes.isEmpty ? nil : "一部の保存済みアイテム写真を読み込めません。カテゴリ表示で作品を表示し、旧画像参照を保持しています。"
+    }
+    private func refreshItemImages() {
+        var images: [UUID: UIImage] = [:]
+        for product in draft.products.prefix(PlateDraft.recipeLimit) {
+            if let ref = preparedItemRefs[product.id.uuidString], let bytes = itemImageBytes[ref.sha256], let image = UIImage(data: bytes) {
+                images[product.id] = image
+            }
+        }
+        itemImages = images
+    }
+    func prepareItemImages(in context: NSManagedObjectContext) async {
+        guard draft.itemImagesEnabled, !saving else { return }
+        let pending = Set(draft.products.map(\.id)).subtracting(resolvedItemIDs)
+        guard !pending.isEmpty else { refreshItemImages(); return }
+        let token = UUID(); itemImageToken = token; loadingItemImages = true
+        let request = NSFetchRequest<NailProduct>(entityName: "NailProduct")
+        request.predicate = NSPredicate(format: "id IN %@", pending.map { $0 as NSUUID })
+        var sources: [UUID: [URL]] = [:]
+        let products: [NailProduct]
+        do { products = try context.fetch(request) }
+        catch { loadingItemImages = false; self.error = "アイテム写真を準備できませんでした。編集内容は保持しています。"; return }
+        for product in products where !product.isDeleted {
+            guard let id = product.id else { continue }
+            sources[id] = [product.photoId, product.samplePhotoId].compactMap { $0 }.compactMap { ProductPhotoStore.sourceURL(photoId: $0) }
+        }
+        let capturedSources = sources
+        let bytes = await Task.detached(priority: .userInitiated) { () -> [UUID: Data] in
+            var result: [UUID: Data] = [:]
+            for id in pending {
+                for url in capturedSources[id] ?? [] {
+                    if let data = PlateItemImageCodec.jpeg(at: url) { result[id] = data; break }
+                }
+            }
+            return result
+        }.value
+        guard token == itemImageToken else { return }
+        defer { loadingItemImages = false }
+        guard !Task.isCancelled, draft.itemImagesEnabled else { return }
+        for id in pending {
+            if let data = bytes[id] {
+                let hash = PlateRepository.digest(data)
+                itemImageBytes[hash] = data
+                preparedItemRefs[id.uuidString] = .init(path: "item-images/\(hash).jpg", sha256: hash)
+            }
+            resolvedItemIDs.insert(id)
+        }
+        refreshItemImages()
     }
 
     var dirty: Bool {
@@ -975,33 +1163,50 @@ private struct PlatePhotoViewport: View {
         importingPhoto = false
         photoImportError = "写真を読み込めませんでした。変更前の写真は保持しています。"
     }
-    func finishPhotoImport(_ bytes: Data?, token: UUID) async {
-        guard token == photoImportToken else { return }
-        // 新しい候補だけを正規化し、元のDiary写真・保存済みassetには書き込まない。
-        let normalized = await Task.detached(priority: .userInitiated) { () -> Data? in
-            guard let bytes, bytes.count <= 100 * 1024 * 1024, PlateRepository.validImage(bytes), let image = UIImage(data: bytes) else { return nil }
-            let format = UIGraphicsImageRendererFormat(); format.scale = 1; format.opaque = true
-            let size = PlatePhotoGeometry.pixelSize(image)
-            return UIGraphicsImageRenderer(size: size, format: format).jpegData(withCompressionQuality: 0.95) { context in
-                UIColor.white.setFill(); context.fill(CGRect(origin: .zero, size: size))
-                image.draw(in: CGRect(origin: .zero, size: size))
-            }
+    func replacePhoto(from entry: NailEntry) async -> Bool {
+        guard !saving else { return false }
+        let token = beginPhotoImport()
+        guard !entry.isDeleted, let entryID = entry.id, let photoID = entry.photoId else { failPhotoImport(token: token); return false }
+        let url = EntryPhotoStore.fullURL(photoId: photoID)
+        let bytes = await Task.detached(priority: .userInitiated) { () -> Data? in
+            guard let size = try? url.resourceValues(forKeys: [.fileSizeKey]).fileSize, size <= 100 * 1024 * 1024 else { return nil }
+            return try? Data(contentsOf: url)
         }.value
-        guard token == photoImportToken, !Task.isCancelled else { return }
-        guard let normalized, PlateRepository.validImage(normalized), let image = UIImage(data: normalized) else { failPhotoImport(token: token); return }
+        guard token == photoImportToken, !Task.isCancelled else { return false }
+        guard !entry.isDeleted, entry.id == entryID, entry.photoId == photoID else { failPhotoImport(token: token); return false }
+        return await finishPhotoImport(bytes, token: token)
+    }
+
+    @discardableResult func finishPhotoImport(_ bytes: Data?, token: UUID) async -> Bool {
+        guard token == photoImportToken else { return false }
+        // デザインの既存フルJPEGを再圧縮せず固定し、元ファイルには書き込まない。
+        let validated = await Task.detached(priority: .userInitiated) { () -> Data? in
+            guard let bytes, bytes.count <= 100 * 1024 * 1024, PlateRepository.validImage(bytes) else { return nil }
+            return bytes
+        }.value
+        guard token == photoImportToken, !Task.isCancelled else { return false }
+        guard let bytes = validated, let image = UIImage(data: bytes) else { failPhotoImport(token: token); return false }
         photoGeneration = UUID(); startedPhoto = true
-        photoData = normalized; currentPhotoHash = PlateRepository.digest(normalized); self.image = image; photoState = .loaded
+        photoData = bytes; currentPhotoHash = PlateRepository.digest(bytes); self.image = image; photoState = .loaded
         explicitlyReplacedPhoto = true; draft.resetPhotoComposition(); importingPhoto = false
+        return true
     }
 
     func save() async -> Bool {
-        guard !saving, !importingPhoto, photoState != .loading else { return false }
+        guard !saving, !importingPhoto, !loadingItemImages, photoState != .loading else { return false }
+        guard draft.rotationSupported else { error = "未対応の写真角度を保護するため保存を停止しました。"; return false }
         guard draft.textStylesSupported else { error = "未対応の文字設定を保護するため保存を停止しました。編集内容は保持しています。"; return false }
         guard photoState != .damagedSaved else { error = PlateStorageError.damagedPhoto.localizedDescription; return false }
         saving = true
         defer { saving = false }
-        let value = draft
-        let renderer = ImageRenderer(content: PlateCanvasView(draft: .constant(value), image: image)
+        var value = draft
+        if value.itemImagesEnabled {
+            guard Set(value.products.map(\.id)).isSubset(of: resolvedItemIDs) else {
+                error = "アイテム写真の準備が完了していません。もう一度お試しください。"; return false
+            }
+            value.itemImageReferences = preparedItemRefs.filter { key, _ in value.products.contains { $0.id.uuidString == key } }
+        }
+        let renderer = ImageRenderer(content: PlateCanvasView(draft: .constant(value), image: image, itemImages: itemImages)
             .frame(width: 360, height: 450).environment(\.colorScheme, .light).dynamicTypeSize(.large))
         renderer.scale = 2
         guard let thumbnail = renderer.uiImage?.jpegData(compressionQuality: 0.8) else {
@@ -1009,8 +1214,8 @@ private struct PlatePhotoViewport: View {
         }
         let document = value.document(plateID: plateID, revisionID: UUID(), createdAt: createdAt)
         do {
-            let saved = try await repository.save(document, expectedRevision: revisionID, photo: photoData, thumbnail: thumbnail, replacingPhoto: explicitlyReplacedPhoto)
-            revisionID = saved.revisionID; createdAt = saved.createdAt; baseline = value
+            let saved = try await repository.save(document, expectedRevision: revisionID, photo: photoData, thumbnail: thumbnail, replacingPhoto: explicitlyReplacedPhoto, itemPhotos: itemImageBytes.filter { hash, _ in value.itemImageReferences.values.contains { $0.sha256 == hash } })
+            revisionID = saved.revisionID; createdAt = saved.createdAt; draft = value; baseline = value
             baselinePhotoHash = currentPhotoHash; explicitlyReplacedPhoto = false
             return true
         } catch { self.error = "保存できませんでした。編集内容は保持しています。\n" + error.localizedDescription; return false }
@@ -1024,10 +1229,13 @@ extension PlateDraft {
                   title: document.title, date: document.dateText, comment: document.comment,
                   products: document.selectedProducts.map { PlateProduct(id: $0.id, name: $0.name, category: $0.category) },
                   unavailableSourceProducts: document.unavailableSourceProducts)
+        itemImagesEnabled = document.rendererVersion == 5
+        itemImageReferences = document.itemImageReferences ?? [:]
         template = PlateTemplate(rawValue: document.templateID) ?? .elegant
         background = PlateBackground(rawValue: document.backgroundStyle) ?? .signature
         frame = PlateFrame(rawValue: document.frameStyle) ?? .signature
         photoRotationQuarterTurns = document.photoRotationQuarterTurns ?? 0
+        photoRotationDegrees = document.photoRotationDegrees
         titleTextStyle = document.titleTextStyle
         commentTextStyle = document.commentTextStyle
         photos = Dictionary(uniqueKeysWithValues: document.photoAdjustments.compactMap { key, value in
@@ -1051,6 +1259,10 @@ extension PlateDraft {
         document.photoRotationQuarterTurns = photoRotationQuarterTurns == 0 ? nil : photoRotationQuarterTurns
         document.rendererVersion = (titleTextStyle?.isLegacy ?? true) && (commentTextStyle?.isLegacy ?? true) ? 1 : 2
         if photoRotationQuarterTurns != 0 { document.rendererVersion = 3 }
+        if let degrees = photoRotationDegrees {
+            document.photoRotationDegrees = degrees; document.photoRotationQuarterTurns = nil; document.rendererVersion = 4
+        }
+        if itemImagesEnabled { document.rendererVersion = 5; document.itemImageReferences = itemImageReferences }
         return document
     }
 }

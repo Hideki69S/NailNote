@@ -3,20 +3,17 @@
 <!-- latest-status:start -->
 ## 最新状況サマリー
 
-- 最終更新：2026-11-04 11:50 JST。識別子 `PlateUIThirdResearch-20261104`。履歴保持。
-- 現在：実機からの改善要望6点を調査・設計。今回は製品コード未変更、実装承認待ちで停止。前回の実装・74項目／169項目・UI検証結果は過去履歴を参照し、今回の新仕様の成功とは扱わない。
-- 写真案：新規作成と再編集で同じアプリ内デザイン選択UIを共有。差し替えでは写真のみ更新し、作成元sourceEntryID・文字・テンプレート・使用用品は維持。候補読込成功まで旧写真を維持し、全写真調整・角度を初期化。既存hash／明示差替えdirty・revision保護を再利用。
-- 回転案：−180〜＋180°の連続Slider＋数値＋0°操作。schemaVersion=1、任意photoRotationDegrees:Double?とrendererVersion=4を提案。旧quarterTurns／renderer3はそのまま読み込み、角度を編集しなければ旧表現を維持。新角度作品は旧版の誤上書きを拒否。まだ未実装。
-- 描画案：逆回転座標で写真枠の四隅を覆う倍率を算出し、移動中心も写真軸で制限する。独立数学モデル8,640条件／34,560隅で確認。SwiftUI描画・保存・実機検証とは別。
-- 右側用品案：通常はプレビュー60％／用品40％。用品欄は掲載順の小サムネイル・名称・行メニュー（上へ／下へ／掲載解除）＋既存選択画面への入口。保存済みスナップショット優先、Itemは写真参照のみ。狭幅・文字拡大時は縦配置へ適応する案。
-- その他：写真リセットのUIだけを削除。テンプレートのメニューボタンは維持し、他メニューを共通寸法へ。プレート一覧だけnavigationBarを非表示にしてタイトルと予約高さを除き、広告・追加・Safe Area・編集画面の戻る／保存を維持する案。
-- 予定対象：PlateEditorView.swift／PlateHomeView.swift／PlateRepository.swiftの3製品Swift。CoreData・Root・タブアイコン・テーマキー・写真ストア・AI休止は変更しない。
-- Git：ユーザー承認により現在の完成状態を保存する作業中。main／9a732c2から62ファイルを候補化。必要なXcode登録を含め、IDE設定3点は対象外。候補そのもののDebug／署名なしReleaseビルド成功。第3次改善の実装は依然承認待ち。
-- 容量：df Data空き314.5728GB（11:39:12→11:51:08、同方式）で変化なし。数学モデル結果と読取hashだけを保存し、既存キャッシュ・検証資料は保持。
-- Google Drive：前回調査版は同期・クラウド確認済み。今回のcommit／push結果を追記後、既存の単発同期を再実行する。
-- 次：任意角度の保存方式、sourceEntryID維持、用品欄と適応レイアウトの承認。承認まで実装しない。Phase4・アイコン変更は対象外。
+- 最終更新：2026-11-04 18:08 JST。識別子 `PlateCompletionGitCheckpoint-20261104`。第3次・第4次改善と作品内アイテム写真の完成状態をGitHubへ保存する作業。過去履歴保持。
+- ユーザー実機確認済み：iPhone17eで新規プレート、4テンプレート、既存プレートへの写真追加、写真fallback、保存・再編集、掲載順変更、複製、4タブ。今回Codexによる実機操作・インストールなし。
+- 完成内容：アプリ内デザインから写真差し替え、任意角度回転、右側アイテム編集、広告／メニュー／表示用語統一、軽量JPEG共有snapshot。schema1／renderer5、旧1〜4の表示と保存互換性を維持。詳細は各実装履歴参照。
+- 今回の確認：全14ファイルの変更を確認。承認済み11Swift＋連携2文書を保存対象とする。project.pbxprojの既存IDE設定（LastUpgradeCheckとSTRING_CATALOG_GENERATE_SYMBOLS）は対象外でローカル保持。生成物・実機データ・秘密情報・不要な診断引数の混入なし。
+- ビルド：今回の固定Debug（Simulator）／署名なしRelease（iOS）とも成功。アプリコード追加変更なし。以前の分離テスト結果を維持し、今回UIテストの再実行はしていない。
+- Git：開始main a2b203ac3a200718f9a8dfa23356e8e736b83622、GitHub mainも同一。推奨メッセージで1回のcommit・通常pushを実施予定。確定ID／push結果は完了後追記し、その2文書は未コミットとして残す。追加commit／pushはしない。
+- 容量：df -k /System/Volumes/Data、18:03:47→18:07:37ともAvailable304400000KiB＝311.7056GB、表示上増減0。固定キャッシュ再利用、削除なし。
+- Google Drive：今回の保存結果記録後に既存単発同期を実行し、ローカル一致・クラウド本文を別々に確認する。直前の17:00同期は確認済み。
+- 次：今回のGitHub保存完了後停止。GC・破損画像修復UI・関連付きItem削除導線は別件。VoiceOver、実機メモリピーク／FPS、全書体×構図網羅は未検証。Phase4・追加機能には進まない。
 
-詳細：末尾「プレート編集UI・第3次改善／調査完了」。
+詳細：末尾「完成状態のGitHub保存・事前確認」。今回資料 `/private/tmp/NailNoteValidation/PlateGitCheckpoint/`。
 <!-- latest-status:end -->
 
 
@@ -3129,3 +3126,113 @@ main／HEAD 9a732c2。開始時の未コミット9ファイルを保持し、新
 - 素のgit diff --cached --checkには第三者ライセンス原文6ファイルのCRLF／末尾空白警告がある。ライセンス8本文とTTF12本の既定SHA256一致を確認したため改変しない。ライセンス原文だけを除いた全候補のdiff --checkは成功し、独自コード／文書の空白不備はない。
 - コミットメッセージ予定：`Add plate features and improve editing workflows`。commit・通常push後に確定ID／同期状態を報告する。push後の結果追記で連携2文書に未コミット差分が残る場合は、その旨を明示し、追加commit／pushを繰り返さない。
 - 現在の作業変更・フォント・画像・検証資料を保護。reset／clean／強制push・既存ファイル削除なし。追加UI実装・AI再開・Phase4は対象外。ビルドログ、候補一覧、部分ステージ検証を上記GitHubPlateCheckpointフォルダに保持。容量とGoogle Driveの最終結果はpush後の履歴に追記する。
+
+## 2026-11-04 12:02 JST：GitHub保存完了（GitHubCheckpointPush-20261104-a2b203a）
+
+- ユーザー承認により、`a2b203ac3a200718f9a8dfa23356e8e736b83622`／`Add plate features and improve editing workflows` をmainへcommitし、既存SSHのorigin/mainへ通常push成功。push出力は9a732c2..a2b203a main→main。git ls-remoteでGitHub側refs/heads/mainも同じ完全IDを取得し、ローカル／origin/mainのahead/behindは0/0と確認した。強制push・履歴書換えなし。
+- 62ファイルを保存。対象は完成済みプレート機能・写真／90°回転・文字スタイル・編集遷移・カテゴリ／購入場所改善・承認済み8外部書体／12TTF・原文ライセンス・独自サンプル素材・開発運用／連携文書。第3次改善の新仕様は調査文書だけで、任意角度／右用品欄等は未実装・承認待ち。commit対象一覧は `/private/tmp/NailNoteValidation/GitHubPlateCheckpoint/staged-files.txt`。
+- 必須のXcodeソース登録だけを部分ステージして含め、project.pbxprojの作業ツリーは変更しなかった。除外指定済みのLastUpgradeCheckとDebug／ReleaseのSTRING_CATALOG_GENERATE_SYMBOLSだけがローカルに残る。
+- コミット候補の分離コピーでDebug／署名なしRelease成功。外部ライセンス原文のCRLF／末尾空白警告を除きdiff --check成功。8ライセンス・12TTFのSHA256は台帳と一致し、原文は改変していない。秘密情報形式・診断用の製品引数／Probe／tmp参照・CoreDataモデル／写真ストア変更・実機データ・ビルド成果物の混入なし。
+- push直後の未コミット差分はproject.pbxprojのIDE設定のみ。この確定結果をPROJECT_STATUS.md／docs/CHATGPT_HANDOFF.mdへ追記するため、終了時はその2文書も未コミットとなる。これを隠してcleanとは報告しない。結果追記の追加commit／pushは行わない。
+- 容量：同じdf Dataで11:53:36開始／12:01:08終了のAvailable307200000KiB＝314.5728GB、表示上の空き変化なし。新規GitHubPlateCheckpointは55360KiB（約56.69MB）で、コミット候補の分離ソース／登録patch／候補一覧／検証ログを再現用に保持。固定Debug652624KiB（約668.29MB）・Release232664KiB（約238.25MB）を再利用・保持。割当とAPFS実増加は同一視しない。ファイル・共有キャッシュ・実機／Simulatorデータの削除なし。
+- アプリコードへの追加変更、実機インストール／操作、新UI実装、AI再開、Phase4移行なし。現在状態のGitHub保存を完了し、第3次改善の承認待ちで停止する。連携2文書を既存Google Drive単発同期で反映し、最終結果は追記／完了報告で記録する。
+
+- GitHub保存の連携最終確認（2026-11-04 12:03 JST／GitHubCheckpointPush-20261104-a2b203a）：Google Drive単発同期は2文書更新・終了0、クラウド両本文の今回push記録を取得確認済み。この確認記録も再同期する。mainとorigin/mainは0/0。未コミットは除外IDE設定とpush後の結果記録2文書の3ファイル。追加commit／pushは実施せず停止。
+
+
+## 2026-11-04 12:55 JST プレート編集・第3次改善／実装と分離検証完了
+
+識別子：`PlateUIThirdImplementation-20261104`。承認済み6項目を実装。実機確認待ち、次Phaseの承認なし。
+
+- 変更：`NailNote/Features/Plates/PlateEditorView.swift`、`PlateHomeView.swift`、`PlateRepository.swift`、本書、`docs/CHATGPT_HANDOFF.md`。
+- 共通デザイン選択から写真だけを更新。sourceEntryID・文字・用品・テンプレートを保持し、成功時だけ全crop／角度を初期化。キャンセル・欠損・破損・削除済み・古い非同期結果は旧写真を維持。元JPEGを再圧縮しない。
+- 写真リセットボタンと90°ボタンのUIを撤去。内部初期化を維持。−180〜180°／1°Slider・数値・0°操作へ変更。
+- renderer4／任意角度を追加し、schema1・旧quarterTurnsとの互換性を維持。保存先検証・atomic head・revision方式は変更しない。破損写真の同一hash復旧でも新asset UUIDとなり、旧asset／revisionが残ることを確認。
+- メニューはテンプレートを維持し、他は72×56ptを基準にDynamic Typeで拡大。用品編集は独立スクロール・順番変更・掲載解除・追加・全文確認。保存済みスナップショットを優先し、Recipe4件目以降を消さない。Homeだけnavを非表示、広告位置と子画面の操作を維持。
+- 最終ビルド：Debug Simulator／Release iphoneos署名なし、ともに成功。`git diff --check`成功。
+- 分離検証：55保存・geometryチェック、8,640条件／34,560隅。Simulator750アサーション（704回の画素検査を含む。750種類の独立機能テストではない）、旧4テンプレート×4回転16画像は全画素一致、704実描画で枠内の空白0。文字スタイル169項目成功。
+- UI6ケース成功：写真選択キャンセル・欠損・差し替え・保存再起動、角度保存・復元・破棄確認、用品追加・順番・解除・保存再起動・元Itemなし、用品の独立スクロール、文字モーダルの反映／キャンセル／再起動、保存失敗Draft保持。4タブは表示だけでなくタップ可能性を確認。
+- 比較画像16枚：320／390／430ptの通常・AX3、用品0／1／3／18、変更前390pt、5テーマ。幅変更は同じSimulatorのUIHostingController表示領域による。実機・別端末実測ではない。AX縦配置では上部領域をスクロールして用品欄を利用する。
+- テスト途中のコンパイル不足import、寸法の浮動小数点完全一致、親accessibilityIdentifierの継承、旧検証バイナリ残留を切り分け是正し、個別の最終成功結果を確認。失敗ログも削除せず保持。詳細・各結果束はHANDOFF参照。
+- 未検証：iPhone17e／iOS26.5、VoiceOver実読み上げと角度増減、実機文字拡大・キーボード・写真ドラッグ／負荷、実データ全機能回帰。SimulatorはiOS27.0であり実機成功扱いにしない。
+- Git・保護：main a2b203aからcommit／pushなし。既存pbxprojのSHA256は開始時と一致。変更監査で製品3Swift以外が開始時と同じことを確認。CoreData・元データ・AI休止の分離確認も成功。
+- 容量：12:10:36→12:53:19、df -k /System/Volumes/DataのAvailable307200000→306000000KiB、314.5728→313.3440GB（1.2288GB減）。専用検証約0.927GB、固定Debug約0.724GB／Release約0.239GB。比較画像・失敗を含むテスト証拠・再利用キャッシュとして保持。親子の合算や回収可能容量への読み替えはしない。削除なし。
+- 次の作業：実機デザイン・操作確認。正式なPhase4・アイコン・他画面の追加変更へ自動着手しない。
+
+
+### 2026-11-04 12:56 JST 第3次改善・ChatGPT連携の最終確認
+
+- 既存sync.zsh：更新2・変更なし0、終了0。元2文書とローカルDriveコピーは内容一致。
+- 接続済みGoogle Driveから両ファイルを取得し、`PlateUIThirdImplementation-20261104`と実装・分離検証完了節をクラウド本文で確認。ローカルコピー成功だけをクラウド成功と扱っていない。
+- この確認追記を含む最終版も同じ単発方式で再同期し、クラウドの識別子 `PlateThirdSyncFinal-20261104` を再取得確認する。連携対象は2文書のみ、検証画像・アプリは未送信。
+- 終了時12:55:54のdfもAvailable306000000KiB（313.3440GB）で上記測定と同じ。資料保持・削除なし。次はユーザー実機確認待ちで停止。
+
+
+## 2026-11-04 15:02 JST プレート編集・第4次微調整／第1〜6項完了・第7項設計承認待ち
+
+識別子 `PlateUIFourthAdjustment-20261104`。第3次改善の未コミット状態を起点に保護して作業。
+
+- 第1項：アイテムの重複したprivate広告Viewを撤去し、NailDesignAdPlaceholderRow(appearanceArea: .items)へ統合。デザイン／プレートの既存外観・文・余白を共用し、itemsの個別配色は保持。カード描画は変更なし。
+- 第2〜4項：メニューの表示名だけプレートへ。不可視の旧ラベル領域を使い元の寸法を保持。調整・用品caseをローカルToolから除去。倍率・左右・上下・任意回転・0°・差し替えは写真に保持、アイテムの配列と右側選択導線を維持。Toolは保存されないStateなので移行なし。
+- 第5項：プレートの選択・説明・確認・AX、記録の追加／編集／選択、アイテムの追加／編集／空表示、設定の説明をアイテムへ統一。型・保存キー・カテゴリrawValue・利用者が入力済みの名称は変更しない。コードコメント／開発ログの旧語は内部情報として残す。既存サムネイル内の旧文字も一括再生成しない。
+- 第6項：左にアイテム見出し、右上に44×44ptの＋、下に掲載順とリスト。AXラベル「アイテムを追加」、既存IDと選択sheetへ接続。旧横長追加行を撤去し一覧領域を確保。
+- 製品9ファイル：Design/GlassCard.swift、Features/Products/ProductListView.swift・AddOrEditProductView.swift、Features/Plates/PlateEditorView.swift・PlateHomeView.swift、Features/Entries/AddEntryView.swift・EditEntryView.swift・ProductMultiSelectView.swift、Features/Settings/SettingsView.swift。その他は本書とdocs/CHATGPT_HANDOFF.md。既存Repository／pbxprojのローカル変更はそのまま。
+- 第7項は未実装。商品画像→サンプル→カテゴリという現在の編集用fallbackは維持。作品内に写真を固定するには新画像参照・画像assets・SHA・staging／revision／head、複製／削除等の一体拡張が必要。schema1＋新renderer5、全選択画像の独立snapshot、旧1〜4据置を推奨するが承認待ち。4構図と容量見込みはHANDOFFの設計節を参照。画像保存・版変更・移行は実行していない。
+- Debug Simulator／Release iphoneos署名なし：成功。固定ビルド先を再利用しcleanなし。git diff --check成功。
+- Simulator iOS27.0／iPhone17e分離bundle：UI7/7成功（広告3ページ・新表記・写真調整・右上＋・追加／順番／解除・独立スクロール・保存再起動・文字モーダル・失敗時保護・4タブhittable）。750保存／描画アサーション成功（704回の画素検査含む）、旧アイテムあり16画像一致、704描画で枠内空白0、文字169項目成功。広告9チェックで5テーマ画素一致・items個別色独立確認。未実装の作品内アイテム写真は成功扱いにしない。
+- 比較16画像：320／390／430の通常・AX3、0／1／3／18件、5テーマ、変更前390。幅は同一SimulatorのUIHostingControllerで変更しており実機／別端末実測ではない。UI.xcresultとUIScreenshots/manifest.jsonに実操作画像。
+- 未検証：実機iOS26.5、VoiceOver実読み上げ・AX全操作・実写真性能・全既存データ操作・一覧下端誤タップの実機再確認。Root／clip処理は不変の静的監査。第7項の新描画／画像永続化テストは保留。
+- Git：main a2b203a、origin/main参照との差0/0。開始時hash監査でRepository・Root・モデル・ストア・pbxproj維持、アイテムカード描画部分一致を確認。今回commit／push／reset／clean・実機操作・削除なし。
+- 容量：df -k /System/Volumes/Data、14:46:24 Available306000000→15:01:06 305200000KiB。313.3440→312.5248GB、0.8192GB減。今回733688KiB≒0.751GB、既存固定Debug708180KiB≒0.725GB／Release233588KiB≒0.239GB。合計約1.716GBを比較証拠・分離検証とキャッシュ再利用のため保持（ほかの既存資料も削除せず、今回再集計の対象外）。親子二重計上・回収保証への読み替えなし。
+- 次：第1〜6項の実機確認、第7項の設計承認待ち。Phase4や追加リファクタリングへ進まない。
+
+
+### 2026-11-04 15:04 JST 第4次微調整・ChatGPT連携最終確認
+
+- sync.zsh終了0、更新2件。元2文書とローカルDriveコピーの内容一致を確認。
+- 接続済みDriveから両ファイルの本文を取得し、`PlateUIFourthAdjustment-20261104`と第7項設計承認待ちの最新状態を確認。ローカルコピーとクラウド確認を区別した。
+- この確認記録を含む最終版も既存方式で再同期し、`PlateFourthSyncFinal-20261104`をクラウド両本文から再取得確認する。写真・検証画像・アプリは送らない。
+- 終了測定15:03:13もAvailable305200000KiB（312.5248GB）で15:01:06と同値。削除・Git操作なし。第1〜6項は実機確認待ち、第7項は設計承認待ちで停止。
+
+
+## 2026-11-04 16:57 JST 第4次残タスク／軽量アイテム写真snapshot・共有画像実装完了
+
+識別子 `PlateItemSnapshots-20261104`。前回保留だった写真部分を今回の承認に基づき追加実装。UI6項目を再実装せず保持。
+
+- 変更：NailNote/Features/Plates/PlateRepository.swift（DTO・共通保管庫・参照調査）、PlateEditorView.swift（RAM準備・4構図・snapshot復元）、PlateHomeView.swift（縮小codec・カテゴリ共用・旧作品の明示入口）、NailNote/Core/ProductPhotoStore.swift（読み取りURL APIのみ）、本書・docs/CHATGPT_HANDOFF.md。既存の写真保存／削除APIとCoreDataモデルは変えない。
+- schema1／renderer5にoptional itemImageReferencesを追加。キーは掲載Item UUID、値は共通相対pathとSHA256。正規化後の同一JPEGを全作品／複製で共有、元Item UUID自体は重複排除キーにしない。旧1〜4はimage mapなし、開くだけで移行しない。新規は5、旧作品の「写真表示を追加」→保存は明示移行。
+- 画像は元ファイルをImageIOで直接縮小、長辺256px以内・縦横比維持・sRGB JPEG0.82。EXIF方向を適用しGPS等の元metadataはコピーしない。透過は白へ合成。商品→サンプル→カテゴリfallback、保存済みはsnapshot（画像なしも含む）を優先し、現Itemの変更で自動差し替えしない。
+- 編集候補はRAMだけ、キャンセル前の画像ファイル作成なし。保存時はstaging・JSON・全画像検証→共有画像配置→revision→head atomic更新。保存失敗の旧head／主写真／文字／順序を保護。失敗後の復旧staging・revisionは保持し、無断削除しない。
+- 共通画像の実体はPlates/item-images/<sha>.jpg。通常の作品削除では共有画像を消さず、itemImageInventoryで全revision／staging／他作品の参照を再構築。解析不能のhead／JSONがあれば未参照候補を返さない。自動GCは未実装で、未参照が一定量残り得る。
+- 4構図：Elegant・Sweet下部の小帯、Noir右列、Recipeは従来の先頭3行に写真。各先頭3件と超過件数を表示し、4件目以降も全選択・写真参照を保存して並べ替え後に使える。renderer5だけコメント枠に書体行高が収まる行数へ調整、全文・文字設定は保存。旧1〜4の表示は維持。
+- 最終Debug／Release（iphoneos署名なし）成功、git diff --check成功。固定出力先再利用。UI10/10成功。新機能102、native安全性9、主写真なし16条件、旧回帰750アサーション（704実描画を含む）、文字169成功。旧4形式×4構図の画像一致・旧版5拒否・元Item削除後復元・3段階失敗・共有破損／欠損・未参照延期・symlink拒否・100作品1画像を検証。
+- 容量：自然写真369110→14208 B、JPEG0.65／0.82／0.90は10589／14208／17567 Bで0.82を採用。4素材平均4806.25 B（平坦色2・透過1・自然写真1の限定標本）。100／500ユニークの見込み0.481／2.403MB、自然写真相当は1.421／7.104MB。100作品で同一画像1ファイル1629 B（非共有なら162900 B）。これはアイテム写真の論理バイト数だけ。主写真304787 B、作品thumb107388 Bは別。
+- メモリ：Simulator全体RSSの時点差で準備0.90MB増、再編集0.08MB増、50回正規化前後0.07MB増。機能単独の厳密分離や実機ピークではない。元画像の全展開を避け、Canvasに復号するのは先頭3枚。
+- 未検証・制約：iPhone17e／iOS26.5、実機メモリ・FPS・VoiceOver、全書体×全新構図の実機目視。写真参照500件／作品・各256KiB以内の安全上限あり（超過時は削除せず保存エラー）。共有破損を無条件修復しない。関連付きItem削除の既存導線は別途調査候補、今回CoreData／製品削除処理は未変更。
+- 作業途中：独立テストで使用Itemリンクを残した削除が必須関連エラーになりfixtureの手順を修正。参照調査で削除後の空revisionを不明版と誤認したため、現行head検証を加え空ディレクトリを区別した。共有画像を誤削除した事象はない。失敗資料も保持。
+- Git main a2b203a／origin/main参照0/0。開始hashで製品変更は上記4Swiftのみ、pbxproj・既存UI6項目・他の未コミット変更は保持。実機未操作、AI休止維持、commit／push／reset／cleanなし。
+- Mac：df -k /System/Volumes/Data、15:55:16 Available305200000→16:46:06 304400000KiB、312.5248→311.7056GB（0.8192GB減）。検証du959580KiB≒0.983GB、Debug712724KiB≒0.730GB、Release234724KiB≒0.240GBを保持。物理共有の重複を避け回収量として合算しない。キャッシュ・過去資料の清掃なし（削除テストは新規分離fixture内のみ）。
+- 次：ユーザー実機確認待ちで停止。Phase4・アイコン・追加デザイン変更へ進まない。
+
+
+### 2026-11-04 17:00 JST アイテム写真snapshot・ChatGPT連携最終確認
+
+- 既存sync.zsh終了0、2文書更新。元文書とローカルDriveコピーの内容一致を確認。
+- 接続済みDriveから両本文を取得し、`PlateItemSnapshots-20261104`と共有画像実装完了節を確認。ローカルコピーのみをクラウド成功扱いにしていない。
+- 本記録を含む最終版も同じ単発方式で再同期し、`PlateItemSnapshotSyncFinal-20261104`を両クラウド本文から再確認する。検証画像・フォント・アプリ・写真などは同期しない。
+- 終了測定16:57:53もData Available304400000KiB（311.7056GB）で前記と同じ。今回du959608KiB≒0.983GB、固定Debug712724KiB／Release234724KiB。証拠と再利用目的で保持、無断清掃なし。
+- 次はiPhone17eの実機確認待ち。GC・別件削除導線・Phase4等へは自動着手しない。Git変更操作なし。
+
+
+## 2026-11-04 18:08 JST 完成状態のGitHub保存・事前確認
+
+識別子 `PlateCompletionGitCheckpoint-20261104`。ユーザーが第3次・第4次改善と作品内アイテム写真の実機確認完了を報告し、mainへのcommit・通常pushを明示承認した。実機確認項目は新規プレート、4テンプレート、既存プレートへの写真追加、fallback、保存・再編集、掲載順変更、複製、4タブ。以前の実機確認待ちという履歴は当時の状態として保持する。
+
+- 開始HEAD／GitHub refs/heads/main：a2b203ac3a200718f9a8dfa23356e8e736b83622、main、ahead/behind 0/0。originは既存SSH。全14変更ファイルを確認し、次の13ファイルだけを明示ステージする。
+- 保存対象：NailNote/Core/ProductPhotoStore.swift、NailNote/Design/GlassCard.swift、NailNote/Features/Entries/AddEntryView.swift、EditEntryView.swift、ProductMultiSelectView.swift、NailNote/Features/Plates/PlateEditorView.swift、PlateHomeView.swift、PlateRepository.swift、NailNote/Features/Products/AddOrEditProductView.swift、ProductListView.swift、NailNote/Features/Settings/SettingsView.swift、PROJECT_STATUS.md、docs/CHATGPT_HANDOFF.md。
+- 除外・保護：NailNote.xcodeproj/project.pbxprojのIDE更新（LastUpgradeCheck 2620→2710、Debug／Release STRING_CATALOG_GENERATE_SYMBOLS=YES）。過去のユーザー指示どおり今回も含めず、ファイル内容を変更しない。未追跡ファイルなし。TTF・ライセンス・サンプル等は前回commit済みで今回の新規追加ではない。
+- 全ソース差分は承認範囲と一致。追加差分の秘密鍵／APIキー形式／認証値／診断専用引数の検査0件。実機データ、写真素材、比較画像、一時テストコード、ログ、ビルド成果物、キャッシュを含めない。CoreData・Root・AI休止制御の追加変更なし。
+- Debug／署名なしReleaseとも今回BUILD SUCCEEDED。固定DerivedDataの構成別パスを再利用、cleanなし。ログはPlateGitCheckpoint/build-Debug.log、build-Release.log。git diff --check成功。既存UI／分離テストは各実装履歴参照、今回の保存作業で再実行していない。
+- 作業開始18:03:47とビルド後18:07:37のdf Data Availableはいずれも304400000KiB＝311.7056GB（10進）。固定Debug712720KiB≒0.730GB、Release234712KiB≒0.240GBを次回利用のため保持。今回監査ログ等200KiB時点、既存検証資料はそのまま。親子やAPFS共有ブロックを物理容量として加算しない。削除なし。
+- commit予定メッセージ：Complete Plate UI improvements and shared item photo snapshots。確定IDとpush結果は後続記録へ追記。ユーザー指示に従い結果追記2文書はローカル未コミットで残し、追加commit／pushしない。
+- 保存形式・画像処理・既存データへの新規変更なし。実機操作なし。恒久GC、画像の明示修復UI、関連付きItem削除導線、VoiceOver、実機メモリ／FPS等は既存の残課題として区別。Phase4や新しいUI変更には着手しない。

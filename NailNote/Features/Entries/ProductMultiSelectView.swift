@@ -38,7 +38,7 @@ struct ProductMultiSelectView: View {
                 }
             }
         }
-        .navigationTitle("使用した用品")
+        .navigationTitle("使用したアイテム")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button("クリア") {

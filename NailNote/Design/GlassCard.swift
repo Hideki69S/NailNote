@@ -166,12 +166,13 @@ private struct NailFloatingAddButtonStyle: ButtonStyle {
 }
 
 struct NailDesignAdPlaceholderRow: View {
+    var appearanceArea: NailAppearance.Area = .design
     @AppStorage(NailAppearance.key) private var appearanceRaw = ""
     @AppStorage(GlassTheme.Keys.backgroundPreset) private var presetRaw = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
 
     var body: some View {
         let preset = GlassTheme.BackgroundPreset(rawValue: presetRaw) ?? .smokySageChampagne
-        let palette = NailAppearance.designPalette(preset.refinedSurfacePalette, choice: NailAppearance.Document.decode(appearanceRaw).resolved(.design))
+        let palette = NailAppearance.designPalette(preset.refinedSurfacePalette, choice: NailAppearance.Document.decode(appearanceRaw).resolved(appearanceArea))
         GlassCard(
             strokeGradient: LinearGradient(colors: [palette.outerStrokeStart.opacity(0.40), palette.glowFillTop.opacity(0.65), palette.outerStrokeEnd.opacity(0.32)], startPoint: .topLeading, endPoint: .bottomTrailing),
             backgroundGradient: LinearGradient(colors: [palette.glowFillTop, palette.glowFillMid, palette.glowFillBottom], startPoint: .topLeading, endPoint: .bottomTrailing)

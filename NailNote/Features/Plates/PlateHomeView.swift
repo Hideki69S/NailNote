@@ -2,6 +2,34 @@ import SwiftUI
 import CoreData
 import UIKit
 import Combine
+import ImageIO
+
+// 元画像のEXIF方向を適用して縮小し、透過部分は白地へ合成する。
+nonisolated enum PlateItemImageCodec {
+    static func jpeg(at url: URL, quality: CGFloat = 0.82) -> Data? {
+        autoreleasepool {
+            guard let source = CGImageSourceCreateWithURL(url as CFURL, [kCGImageSourceShouldCache: false] as CFDictionary),
+                  let cg = CGImageSourceCreateThumbnailAtIndex(source, 0, [
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceThumbnailMaxPixelSize: 256,
+                    kCGImageSourceShouldCacheImmediately: true
+                  ] as CFDictionary) else { return nil }
+            let color = CGColorSpace(name: CGColorSpace.sRGB)!
+            guard let context = CGContext(data: nil, width: cg.width, height: cg.height, bitsPerComponent: 8,
+                                          bytesPerRow: cg.width * 4, space: color, bitmapInfo: CGImageAlphaInfo.noneSkipLast.rawValue) else { return nil }
+            context.setFillColor(CGColor(gray: 1, alpha: 1)); context.fill(CGRect(x: 0, y: 0, width: cg.width, height: cg.height))
+            context.draw(cg, in: CGRect(x: 0, y: 0, width: cg.width, height: cg.height))
+            guard let image = context.makeImage() else { return nil }
+            let data = NSMutableData()
+            guard let destination = CGImageDestinationCreateWithData(data, "public.jpeg" as CFString, 1, nil) else { return nil }
+            CGImageDestinationAddImage(destination, image, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+            guard CGImageDestinationFinalize(destination) else { return nil }
+            let bytes = data as Data
+            return PlateRepository.validItemImage(bytes) ? bytes : nil
+        }
+    }
+}
 
 // 購入価格・購入場所・URLはDraftにも掲載用スナップショットにも取り込まない。
 struct PlateProduct: Identifiable, Equatable {
@@ -15,7 +43,7 @@ enum PlateSourceAdapter {
         guard !product.isDeleted, let id = product.id else { return nil }
         let name = (product.name ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
         let category = NailProductCategory(rawValue: product.category ?? "")?.displayName ?? "その他"
-        return PlateProduct(id: id, name: name.isEmpty ? "名称未設定の用品" : name, category: category)
+        return PlateProduct(id: id, name: name.isEmpty ? "名称未設定のアイテム" : name, category: category)
     }
 
     static func title(_ entry: NailEntry) -> String {
@@ -152,8 +180,7 @@ struct PlateHomeView: View {
                     }
                 }
             }
-            .navigationTitle(PlateCopy.tab).navigationBarTitleDisplayMode(.inline)
-            .toolbarColorScheme(darkBackground ? .dark : .light, for: .navigationBar)
+            .toolbar(.hidden, for: .navigationBar)
         }
         .modifier(NailTabStackReset())
         .onChange(of: tabResetID) { _, _ in showingCreate = false; editing = nil; deleting = nil }
@@ -172,7 +199,7 @@ struct PlateHomeView: View {
                 Button("削除", role: .destructive) { Task { await remove(deleting) } }
             }
             Button("キャンセル", role: .cancel) { deleting = nil }
-        } message: { Text("「\(deleting?.title ?? "")」だけを削除します。元の記録・用品・写真は削除しません。") }
+        } message: { Text("「\(deleting?.title ?? "")」だけを削除します。元の記録・アイテム・写真は削除しません。") }
         .alert("プレート", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
             Button("OK") { message = nil }
         } message: { Text(message ?? "") }
@@ -207,43 +234,14 @@ struct PlateHomeView: View {
 private struct PlateCreationView: View {
     let onSaved: () -> Void
     @Environment(\.dismiss) private var dismiss
-    @FetchRequest(sortDescriptors: [NSSortDescriptor(keyPath: \NailEntry.date, ascending: false)])
-    private var entries: FetchedResults<NailEntry>
     @State private var initialDraft: PlateDraft?
     @State private var showingProducts = false
 
     var body: some View {
         NavigationStack {
-            List {
-                if entries.isEmpty {
-                    ContentUnavailableView("デザインがありません", systemImage: "photo.on.rectangle", description: Text("デザインタブで記録を登録してから、プレートを作成してください。"))
-                } else {
-                    Section {
-                        ForEach(entries) { entry in
-                            Button {
-                                guard let draft = PlateSourceAdapter.draft(from: entry) else { return }
-                                initialDraft = draft; showingProducts = true
-                            } label: {
-                                HStack(spacing: 14) {
-                                    PlateEntryThumbnail(photoID: entry.photoId)
-                                    VStack(alignment: .leading, spacing: 5) {
-                                        Text(PlateSourceAdapter.title(entry)).font(.headline)
-                                            .fixedSize(horizontal: false, vertical: true)
-                                        Text(PlateSourceAdapter.date(entry)).font(.caption).foregroundStyle(.secondary)
-                                        if entry.photoId == nil { Text("写真なし・代替表示で作成").font(.caption).foregroundStyle(.secondary) }
-                                        if entry.id == nil { Text("識別子がないため選択できません").font(.caption).foregroundStyle(.secondary) }
-                                    }
-                                    Spacer(minLength: 0)
-                                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
-                                }.frame(minHeight: 76).contentShape(Rectangle())
-                            }
-                            .buttonStyle(.plain).disabled(entry.id == nil || entry.isDeleted)
-                            .accessibilityIdentifier("plate.entry.\(entry.id?.uuidString ?? "unavailable")")
-                        }
-                    } footer: {
-                        Text("デザインを1件選んでください。写真のない記録や読込できない写真は代替表示になります。元の記録は変更しません。")
-                    }
-                }
+            PlateDesignSelectionView(replacingPhoto: false) { entry in
+                guard let draft = PlateSourceAdapter.draft(from: entry) else { return }
+                initialDraft = draft; showingProducts = true
             }
             .navigationTitle("デザインを選択").navigationBarTitleDisplayMode(.inline)
             .modifier(NailTabExitProtection(dirty: false))
@@ -255,6 +253,59 @@ private struct PlateCreationView: View {
                 }
             }
         }
+    }
+}
+
+// 新規作成と写真差し替えで共有する、読取専用のデザイン選択一覧。
+struct PlateDesignSelectionView: View {
+    let replacingPhoto: Bool
+    var blocked = false
+    let onSelect: (NailEntry) -> Void
+    @FetchRequest(sortDescriptors: [NSSortDescriptor(keyPath: \NailEntry.date, ascending: false)])
+    private var entries: FetchedResults<NailEntry>
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
+    @AppStorage(GlassTheme.Keys.backgroundPreset) private var backgroundRaw = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
+    var body: some View {
+        let preset = GlassTheme.BackgroundPreset(rawValue: backgroundRaw) ?? .smokySageChampagne
+        let choice = NailAppearance.Document.decode(appearanceRaw).resolved(.design)
+        let dark = choice.flatMap { $0.changesColor ? $0.dark : nil } ?? (preset == .noirGold || preset == .noirSilver)
+            List {
+                if entries.isEmpty {
+                    ContentUnavailableView("デザインがありません", systemImage: "photo.on.rectangle", description: Text("デザインタブで記録を登録してから、プレートを作成してください。"))
+                } else {
+                    Section {
+                        ForEach(entries) { entry in
+                            Button {
+                                onSelect(entry)
+                            } label: {
+                                HStack(spacing: 14) {
+                                    PlateEntryThumbnail(photoID: entry.photoId)
+                                    VStack(alignment: .leading, spacing: 5) {
+                                        Text(PlateSourceAdapter.title(entry)).font(.headline)
+                                            .fixedSize(horizontal: false, vertical: true)
+                                        Text(PlateSourceAdapter.date(entry)).font(.caption).foregroundStyle(.secondary)
+                                        if entry.photoId == nil { Text(replacingPhoto ? "写真がないため差し替えできません" : "写真なし・代替表示で作成").font(.caption).foregroundStyle(.secondary) }
+                                        if entry.id == nil { Text("識別子がないため選択できません").font(.caption).foregroundStyle(.secondary) }
+                                    }
+                                    Spacer(minLength: 0)
+                                    Image(systemName: "chevron.right").font(.caption).foregroundStyle(.secondary)
+                                }.frame(minHeight: 76).contentShape(Rectangle())
+                            }
+                            .buttonStyle(.plain).disabled(blocked || entry.id == nil || entry.isDeleted || (replacingPhoto && entry.photoId == nil))
+                            .accessibilityIdentifier("plate.entry.\(entry.id?.uuidString ?? "unavailable")")
+                        }
+                    } footer: {
+                        Text(replacingPhoto ? "写真のみ差し替えます。作成元の記録・文章・アイテムは変わりません。写真のない記録は選択できません。" : "デザインを1件選んでください。写真のない記録や読込できない写真は代替表示になります。元の記録は変更しません。")
+                    }
+                }
+            }
+        .scrollContentBackground(.hidden)
+        .background { GlassBackgroundView(refined: true, appearanceArea: .design) { Color.clear } }
+        .overlay(alignment: .top) { if blocked { ProgressView("写真を準備中").padding(12).background(.regularMaterial, in: Capsule()) } }
+        .navigationTitle("デザインを選択").navigationBarTitleDisplayMode(.inline)
+        .toolbar(.visible, for: .navigationBar)
+        .toolbarColorScheme(dark ? .dark : .light, for: .navigationBar)
+        .environment(\.colorScheme, dark ? .dark : .light)
     }
 }
 
@@ -283,6 +334,7 @@ private struct PlateEntryThumbnail: View {
 private struct PlateDraftSessionView: View {
     @StateObject private var session: PlateEditingSession
     @State private var showingEditor = false
+    @State private var showingProductsSheet = false
     @State private var entered = false
     let startsInEditor: Bool
     let onCancel: () -> Void
@@ -299,7 +351,7 @@ private struct PlateDraftSessionView: View {
     var body: some View {
         PlateProductSelectionView(draft: $session.draft)
             .modifier(NailTabExitProtection(dirty: session.dirty, blocked: session.saving))
-            .navigationTitle("掲載する用品").navigationBarTitleDisplayMode(.inline)
+            .navigationTitle("掲載するアイテム").navigationBarTitleDisplayMode(.inline)
             .navigationBarBackButtonHidden(true)
             .modifier(NailEditorExit(dirty: session.dirty, blocked: session.saving, enabled: !showingEditor, onReturn: onCancel))
             .toolbar {
@@ -310,8 +362,18 @@ private struct PlateDraftSessionView: View {
                 }
             }
             .navigationDestination(isPresented: $showingEditor) {
-                PlateEditorView(draft: $session.draft, onCancel: onCancel, onChooseProducts: { showingEditor = false }, session: session, onSaved: onSaved)
+                PlateEditorView(draft: $session.draft, onCancel: onCancel, onChooseProducts: { showingProductsSheet = true }, session: session, onSaved: onSaved)
                     .modifier(PlateSessionAlerts(session: session, enabled: true))
+            }
+            .sheet(isPresented: $showingProductsSheet) {
+                NavigationStack {
+                    PlateProductSelectionView(draft: $session.draft)
+                        .navigationTitle("掲載するアイテム").navigationBarTitleDisplayMode(.inline)
+                        .toolbar(.visible, for: .navigationBar)
+                        .toolbar { ToolbarItem(placement: .confirmationAction) {
+                            Button("完了") { showingProductsSheet = false }.accessibilityIdentifier("plate.products.done")
+                        } }
+                }.interactiveDismissDisabled(session.saving || session.importingPhoto)
             }
             .onAppear { if !entered { entered = true; showingEditor = startsInEditor } }
             .disabled(session.saving)
@@ -443,10 +505,10 @@ struct PlateProductSelectionView: View {
         List {
             Section {
                 Text("選択中：\(draft.products.count)件").font(.headline).accessibilityIdentifier("plate.productCount")
-                Text("選択中の用品名・掲載順はプレート内に保持します。元用品が変更・削除されても自動更新しません。0件でも編集できます。")
+                Text("選択中のアイテム名・掲載順はプレート内に保持します。元アイテムが変更・削除されても自動更新しません。0件でも編集できます。")
                     .font(.caption).foregroundStyle(.secondary)
                 if draft.unavailableSourceProducts > 0 {
-                    Text("参照できない使用用品が\(draft.unavailableSourceProducts)件あります。元データは変更していません。")
+                    Text("参照できない使用アイテムが\(draft.unavailableSourceProducts)件あります。元データは変更していません。")
                         .font(.caption).foregroundStyle(.secondary)
                 }
                 if draft.recipeOverflow > 0 {
@@ -455,13 +517,13 @@ struct PlateProductSelectionView: View {
                 }
             }
             Section("掲載順") {
-                if draft.products.isEmpty { Text("用品なしで作成できます").foregroundStyle(.secondary) }
+                if draft.products.isEmpty { Text("アイテムなしで作成できます").foregroundStyle(.secondary) }
                 ForEach(Array(draft.products.enumerated()), id: \.element.id) { index, product in
                     let information = HStack(spacing: 8) {
                         PlateProductThumbnail(source: sources[product.id], category: product.category, cache: thumbnails)
                         VStack(alignment: .leading, spacing: 4) {
                             Text(product.name).fixedSize(horizontal: false, vertical: true)
-                            Text(draft.inheritedProductIDs.contains(product.id) ? "記録から引き継ぎ" : "追加した用品")
+                            Text(draft.inheritedProductIDs.contains(product.id) ? "記録から引き継ぎ" : "追加したアイテム")
                                 .font(.caption).foregroundStyle(.secondary)
                         }
                     }
@@ -488,8 +550,8 @@ struct PlateProductSelectionView: View {
                     }
                 }
             }
-            Section("登録済みの用品から選択") {
-                if availableProducts.isEmpty { Text("該当する用品がありません").foregroundStyle(.secondary) }
+            Section("登録済みのアイテムから選択") {
+                if availableProducts.isEmpty { Text("該当するアイテムがありません").foregroundStyle(.secondary) }
                 ForEach(availableProducts) { product in
                     let selected = draft.products.contains { $0.id == product.id }
                     let displayed = draft.products.first { $0.id == product.id } ?? product
@@ -510,7 +572,90 @@ struct PlateProductSelectionView: View {
                 }
             }
         }
-        .searchable(text: $query, prompt: "用品名を検索")
+        .searchable(text: $query, prompt: "アイテム名を検索")
+    }
+}
+
+// 完成作品の外に置く編集用リスト。作品のCanvas・サムネイルには含めない。
+struct PlateProductEditingSidebar: View {
+    @Binding var draft: PlateDraft
+    let compact: Bool
+    let palette: GlassTheme.DesignCardPalette
+    let onChoose: () -> Void
+    @FetchRequest(sortDescriptors: [NSSortDescriptor(keyPath: \NailProduct.name, ascending: true)])
+    private var products: FetchedResults<NailProduct>
+    @StateObject private var thumbnails = PlateProductThumbnailCache()
+    @State private var inspecting: PlateProduct?
+
+    private var sources: [UUID: PlateProductPhotoSource] {
+        var values: [UUID: PlateProductPhotoSource] = [:]
+        for item in products where !item.isDeleted {
+            guard let id = item.id, values[id] == nil else { continue }
+            values[id] = .init(photoID: item.photoId, sampleID: item.samplePhotoId)
+        }
+        return values
+    }
+    var body: some View {
+        let photos = sources
+        VStack(alignment: .leading, spacing: 6) {
+            HStack(alignment: .top, spacing: 0) {
+                Text("アイテム").font(.caption.weight(.semibold))
+                    .fixedSize(horizontal: false, vertical: true)
+                    .frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
+                Button(action: onChoose) {
+                    Image(systemName: "plus").font(.body.weight(.semibold))
+                        .frame(width: 44, height: 44).contentShape(Rectangle())
+                }.buttonStyle(.plain).accessibilityIdentifier("plate.products")
+                    .accessibilityLabel("アイテムを追加")
+            }
+            Text("掲載順 · \(draft.products.count)点").font(.caption2)
+            if !draft.itemImagesEnabled {
+                Button("写真表示を追加") { draft.itemImagesEnabled = true }
+                    .font(.caption).frame(minHeight: 44).accessibilityIdentifier("plate.items.enableImages")
+                    .accessibilityHint("作品の構図を更新します。保存するまでは旧作品を保持します")
+            }
+            ScrollView {
+                LazyVStack(spacing: 6) {
+                    if draft.products.isEmpty { Text("アイテムなし").font(.caption).padding(.vertical, 8) }
+                    ForEach(Array(draft.products.enumerated()), id: \.element.id) { index, item in
+                        Menu {
+                            Button("アイテム名を確認") { inspecting = item }
+                            Button("1つ上へ") { draft.moveProduct(id: item.id, offset: -1) }
+                                .disabled(index == 0).accessibilityIdentifier("plate.sidebar.up." + item.id.uuidString)
+                            Button("1つ下へ") { draft.moveProduct(id: item.id, offset: 1) }
+                                .disabled(index == draft.products.count - 1).accessibilityIdentifier("plate.sidebar.down." + item.id.uuidString)
+                            Button("掲載から外す", role: .destructive) { draft.toggleProduct(item) }
+                                .accessibilityIdentifier("plate.sidebar.remove." + item.id.uuidString)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                HStack { Text(String(format: "%02d", index + 1)); Spacer(minLength: 0); Image(systemName: "ellipsis") }.font(.caption)
+                                HStack(spacing: 5) {
+                                    if !compact {
+                                        PlateProductThumbnail(source: photos[item.id], category: item.category, cache: thumbnails)
+                                            .scaleEffect(0.6).frame(width: 29, height: 29)
+                                    }
+                                    Text(item.name).font(.caption).lineLimit(2).multilineTextAlignment(.leading)
+                                }
+                                if draft.template == .recipe && index >= PlateDraft.recipeLimit {
+                                    Text("作品では非表示").font(.caption2)
+                                }
+                            }.padding(7).frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)
+                                .background(palette.glowFillTop, in: RoundedRectangle(cornerRadius: 9))
+                        }
+                        .accessibilityLabel("掲載順\(index + 1)、" + item.name)
+                        .accessibilityHint("メニューから掲載順の変更・解除・全文確認ができます")
+                        .accessibilityIdentifier("plate.sidebar.menu." + item.id.uuidString)
+                    }
+                }
+            }.accessibilityIdentifier("plate.sidebar.list")
+        }
+        .foregroundStyle(palette.titleText).padding(8)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
+        .background(palette.glowFillMid.opacity(0.85), in: RoundedRectangle(cornerRadius: 12))
+        .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(palette.tagStroke, lineWidth: 0.7))
+        .alert("掲載アイテム", isPresented: Binding(get: { inspecting != nil }, set: { if !$0 { inspecting = nil } })) {
+            Button("閉じる") { inspecting = nil }
+        } message: { Text((inspecting?.name ?? "") + "\n" + (inspecting?.category ?? "")) }
     }
 }
 
@@ -548,21 +693,7 @@ private struct PlateProductThumbnail: View {
     @State private var image: UIImage?
 
     // 既存12カテゴリに対応する表示専用の代替アイコン。保存値には追加しない。
-    private var symbol: String {
-        let value = NailProductCategory.allCases.first { $0.displayName == category } ?? .other
-        switch value {
-        case .color: return "paintpalette"
-        case .base, .top: return "drop"
-        case .deco, .parts: return "sparkles"
-        case .art: return "paintbrush.pointed"
-        case .sticker: return "square.on.square"
-        case .care: return "hand.raised"
-        case .remove: return "drop.degreesign"
-        case .tool: return "wrench.and.screwdriver"
-        case .stock: return "archivebox"
-        case .other: return "shippingbox"
-        }
-    }
+    private var symbol: String { PlateItemPresentation.symbol(for: category) }
 
     var body: some View {
         ZStack {
@@ -580,4 +711,24 @@ private struct PlateProductThumbnail: View {
             image = cache.image(for: source)
         }
     }
+}
+
+// 編集用サムネイルと作品のカテゴリ代替表示を共通化する。
+enum PlateItemPresentation {
+    static func symbol(for category: String) -> String {
+        let value = NailProductCategory.allCases.first { $0.displayName == category || $0.rawValue == category } ?? .other
+        switch value {
+        case .color: return "paintpalette"
+        case .base, .top: return "drop"
+        case .deco, .parts: return "sparkles"
+        case .art: return "paintbrush.pointed"
+        case .sticker: return "square.on.square"
+        case .care: return "hand.raised"
+        case .remove: return "drop.degreesign"
+        case .tool: return "wrench.and.screwdriver"
+        case .stock: return "archivebox"
+        case .other: return "shippingbox"
+        }
+    }
+
 }
