@@ -4,13 +4,20 @@ import PhotosUI
 import UIKit
 
 struct AddOrEditProductView: View {
+    @State private var originalFields: [String]?
+    @State private var saving = false
+    @State private var saveCompleted = false
+    @State private var saveFailed = false
+    private var editFields: [String] {
+        [name, category.rawValue, String(purchasedAt.timeIntervalSince1970), purchasePlace, priceText, productURLText, mainUIImage.map { String(describing: ObjectIdentifier($0)) } ?? "", sampleUIImage.map { String(describing: ObjectIdentifier($0)) } ?? "", String(removeMain), String(removeSample), String(mainPhotoItem != nil), String(samplePhotoItem != nil)]
+    }
     enum Mode {
         case add
         case edit(NailProduct)
 
         var title: String {
             switch self {
-            case .add: return "所持ネイルアイテムを追加"
+            case .add: return "用品を追加"
             case .edit: return "用品を編集"
             }
         }
@@ -215,18 +222,17 @@ struct AddOrEditProductView: View {
             .navigationTitle(mode.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { save() }
-                        .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                        .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || saving || saveCompleted)
                 }
             }
             .onAppear {
-                loadInitialState()
+                if originalFields == nil { loadInitialState(); originalFields = editFields }
             }
+            .modifier(NailEditorExit(dirty: originalFields.map { $0 != editFields } ?? false, blocked: saving || saveFailed, onReturn: { dismiss() }))
         }
+        .modifier(NailTabExitProtection(dirty: originalFields.map { $0 != editFields } ?? false, blocked: saving || saveFailed))
     }
 
     // MARK: - Previews
@@ -346,6 +352,9 @@ struct AddOrEditProductView: View {
     // MARK: - Save
 
     private func save() {
+        guard !saving, !saveCompleted else { return }
+        saving = true
+        defer { saving = false }
         let p: NailProduct
 
         switch mode {
@@ -375,8 +384,10 @@ struct AddOrEditProductView: View {
 
         do {
             try context.save()
+            saveCompleted = true; saveFailed = false
             dismiss()
         } catch {
+            saveFailed = true
             print("用品保存エラー: \(error)")
         }
     }
@@ -480,6 +491,7 @@ private struct ShopSelectionField: View {
 
     @State private var isAddingCustom = false
     @State private var customName: String = ""
+    @State private var addedOptions: [String] = []
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -490,7 +502,7 @@ private struct ShopSelectionField: View {
                     labelRow(title: "未選択", isSelected: selection.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
 
-                ForEach(options, id: \.self) { shop in
+                ForEach(availableOptions, id: \.self) { shop in
                     Button {
                         selection = shop
                         isAddingCustom = false
@@ -535,15 +547,32 @@ private struct ShopSelectionField: View {
                         Button("追加") {
                             let trimmed = customName.trimmingCharacters(in: .whitespacesAndNewlines)
                             guard !trimmed.isEmpty else { return }
-                            selection = trimmed
+                            let shop = availableOptions.first {
+                                $0.localizedCaseInsensitiveCompare(trimmed) == .orderedSame
+                            } ?? trimmed
+                            if !availableOptions.contains(shop) {
+                                addedOptions.append(shop)
+                            }
+                            selection = shop
                             customName = ""
                             isAddingCustom = false
                         }
                         .disabled(customName.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                     }
+                    // Formの行全体で両ボタンが実行されるのを防ぐ。
+                    .buttonStyle(.borderless)
                 }
                 .padding(.top, 4)
             }
+        }
+    }
+
+    private var availableOptions: [String] {
+        let names = (options + addedOptions + [selection])
+            .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty }
+        return Array(Set(names)).sorted {
+            $0.localizedCaseInsensitiveCompare($1) == .orderedAscending
         }
     }
 

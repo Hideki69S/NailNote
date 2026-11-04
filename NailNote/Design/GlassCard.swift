@@ -1,6 +1,40 @@
 import SwiftUI
 import UIKit
 
+/// フィルタの内容をひとまとまりで中央へ置き、文字サイズと内側余白を揃える。
+struct NailFilterControlLayout: ViewModifier {
+    @ScaledMetric(relativeTo: .subheadline) private var minimumContentHeight: CGFloat = 20
+
+    func body(content: Content) -> some View {
+        content
+            .font(.subheadline.weight(.semibold))
+            .multilineTextAlignment(.center)
+            .frame(minHeight: minimumContentHeight, maxHeight: .infinity)
+            .padding(.vertical, 8)
+            .padding(.horizontal, 12)
+            .frame(minWidth: 0, maxWidth: .infinity, alignment: .center)
+    }
+}
+
+/// 入力欄を表示文字の幅に合わせ、アイコンと合わせた全体を中央へ配置できるようにする。
+struct NailCenteredFilterTextField: View {
+    let title: String
+    @Binding var text: String
+    var promptColor: Color = .secondary
+
+    var body: some View {
+        Text(text.isEmpty ? title : text)
+            .lineLimit(1)
+            .padding(.horizontal, 4)
+            .hidden()
+            .overlay {
+                TextField(title, text: $text, prompt: Text(title).foregroundColor(promptColor))
+                    .textFieldStyle(.plain)
+                    .multilineTextAlignment(.center)
+            }
+    }
+}
+
 /// Glassmorphism風カード。文字が白飛びしないよう前景色を制御。
 struct GlassCard<Content: View>: View {
     let content: Content
@@ -128,5 +162,35 @@ private struct NailFloatingAddButtonStyle: ButtonStyle {
         configuration.label
             .opacity(configuration.isPressed ? 0.75 : 1)
             .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: configuration.isPressed)
+    }
+}
+
+struct NailDesignAdPlaceholderRow: View {
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
+    @AppStorage(GlassTheme.Keys.backgroundPreset) private var presetRaw = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
+
+    var body: some View {
+        let preset = GlassTheme.BackgroundPreset(rawValue: presetRaw) ?? .smokySageChampagne
+        let palette = NailAppearance.designPalette(preset.refinedSurfacePalette, choice: NailAppearance.Document.decode(appearanceRaw).resolved(.design))
+        GlassCard(
+            strokeGradient: LinearGradient(colors: [palette.outerStrokeStart.opacity(0.40), palette.glowFillTop.opacity(0.65), palette.outerStrokeEnd.opacity(0.32)], startPoint: .topLeading, endPoint: .bottomTrailing),
+            backgroundGradient: LinearGradient(colors: [palette.glowFillTop, palette.glowFillMid, palette.glowFillBottom], startPoint: .topLeading, endPoint: .bottomTrailing)
+        ) {
+            HStack {
+                VStack(alignment: .leading, spacing: 6) {
+                    Text("広告枠（将来用）")
+                        .font(.headline)
+                        .foregroundStyle(palette.titleText)
+                    Text("ここにキャンペーンやお知らせが入る予定。現在はプレースホルダです。")
+                        .font(.caption)
+                        .foregroundStyle(palette.titleText)
+                }
+                Spacer()
+                Image(systemName: "megaphone")
+                    .font(.title3.weight(.semibold))
+                    .foregroundStyle(palette.titleText)
+            }
+        }
+        .frame(maxWidth: .infinity)
     }
 }

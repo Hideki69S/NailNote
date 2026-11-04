@@ -3,6 +3,7 @@ import CoreData
 import UIKit
 
 struct EntryListView: View {
+    @Environment(\.nailTabResetID) private var tabResetID
     @AppStorage(NailAppearance.key) private var appearanceRaw = ""
     var bottomNavigationTop: CGFloat? = nil
     var hideBottomScrollEdgeEffect: Bool = false
@@ -41,7 +42,7 @@ struct EntryListView: View {
         NavigationStack {
             GlassBackgroundView(refined: true, appearanceArea: .design) {
                 VStack(spacing: 10) {
-                    EntryAdPlaceholderRow()
+                    NailDesignAdPlaceholderRow()
                         .padding(.top, 12)
                         .padding(.horizontal, 16)
 
@@ -72,6 +73,8 @@ struct EntryListView: View {
                 }
             }
         }
+        .modifier(NailTabStackReset())
+        .onChange(of: tabResetID) { _, _ in showingAddSheet = false; activeFilter = nil; showingDeleteAlert = false }
         .modifier(NailAppearanceEnvironment(area: .design))
         .sheet(isPresented: $showingAddSheet) {
             AddEntryView()
@@ -522,36 +525,6 @@ struct EntryThumbnailView: View {
     }
 }
 
-private struct EntryAdPlaceholderRow: View {
-    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
-    @AppStorage(GlassTheme.Keys.backgroundPreset) private var presetRaw = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
-
-    var body: some View {
-        let preset = GlassTheme.BackgroundPreset(rawValue: presetRaw) ?? .smokySageChampagne
-        let palette = NailAppearance.designPalette(preset.refinedSurfacePalette, choice: NailAppearance.Document.decode(appearanceRaw).resolved(.design))
-        GlassCard(
-            strokeGradient: LinearGradient(colors: [palette.outerStrokeStart.opacity(0.40), palette.glowFillTop.opacity(0.65), palette.outerStrokeEnd.opacity(0.32)], startPoint: .topLeading, endPoint: .bottomTrailing),
-            backgroundGradient: LinearGradient(colors: [palette.glowFillTop, palette.glowFillMid, palette.glowFillBottom], startPoint: .topLeading, endPoint: .bottomTrailing)
-        ) {
-            HStack {
-                VStack(alignment: .leading, spacing: 6) {
-                    Text("広告枠（将来用）")
-                        .font(.headline)
-                        .foregroundStyle(palette.titleText)
-                    Text("ここにキャンペーンやお知らせが入る予定。現在はプレースホルダです。")
-                        .font(.caption)
-                        .foregroundStyle(palette.titleText)
-                }
-                Spacer()
-                Image(systemName: "megaphone")
-                    .font(.title3.weight(.semibold))
-                    .foregroundStyle(palette.titleText)
-            }
-        }
-        .frame(maxWidth: .infinity)
-    }
-}
-
 // MARK: - Filter Helpers
 
 private struct EntryBottomScrollEdgeModifier: ViewModifier {
@@ -704,6 +677,7 @@ private extension EntryListView {
             }
         }
         .padding(.vertical, 4)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     // 両段へ同じ幅の提案を渡し、選択文字数による列幅のずれを防ぐ。
@@ -716,6 +690,7 @@ private extension EntryListView {
             leading().frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
             trailing().frame(minWidth: 0, maxWidth: .infinity, alignment: .leading)
         }
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     var sortControls: some View {
@@ -734,9 +709,7 @@ private extension EntryListView {
                     .font(.subheadline.weight(.semibold))
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 12)
-            .frame(minWidth: 0, maxWidth: .infinity)
+            .modifier(NailFilterControlLayout())
             .modifier(EntryHybridControlStyle(palette: controlPalette))
         }
         .buttonStyle(.plain)
@@ -759,9 +732,7 @@ private extension EntryListView {
                     .font(.subheadline.weight(.semibold))
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.vertical, 8)
-            .padding(.horizontal, 12)
-            .frame(minWidth: 0, maxWidth: .infinity)
+            .modifier(NailFilterControlLayout())
             .modifier(EntryHybridControlStyle(palette: controlPalette))
         }
         .buttonStyle(.plain)
@@ -783,14 +754,11 @@ private extension EntryListView {
             Image(systemName: "text.magnifyingglass")
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(controlPalette.tagText)
-            TextField("キーワード", text: $keywordText, prompt: Text("キーワード").foregroundColor(controlPalette.tagText))
-                .textFieldStyle(.plain)
+                .frame(width: 20, height: 20)
+            NailCenteredFilterTextField(title: "キーワード", text: $keywordText, promptColor: controlPalette.tagText)
         }
-            .frame(minHeight: filterContentMinimumSide)
-            .padding(.vertical, 8)
-            .padding(.horizontal, 14)
+            .modifier(NailFilterControlLayout())
             .modifier(EntryHybridControlStyle(palette: controlPalette))
-            .frame(maxWidth: .infinity, alignment: .leading)
             .submitLabel(.search)
     }
 
@@ -809,14 +777,12 @@ private extension EntryListView {
             HStack(spacing: 8) {
                 Image(systemName: "arrow.up.arrow.down.circle")
                     .font(.subheadline.weight(.semibold))
+                    .frame(width: 20, height: 20)
                 Text(selectedSortField.displayName)
                     .font(.subheadline.weight(.semibold))
                     .fixedSize(horizontal: false, vertical: true)
             }
-            .frame(minHeight: filterContentMinimumSide)
-            .padding(.vertical, 8)
-            .padding(.horizontal, 14)
-            .frame(minWidth: 0, maxWidth: .infinity)
+            .modifier(NailFilterControlLayout())
             .modifier(EntryHybridControlStyle(palette: controlPalette))
         }
         .accessibilityLabel("ソート項目")
@@ -844,6 +810,8 @@ private extension EntryListView {
                 Image(systemName: "checkmark")
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .multilineTextAlignment(.leading)
     }
 
     func matchesKeyword(_ entry: NailEntry) -> Bool {

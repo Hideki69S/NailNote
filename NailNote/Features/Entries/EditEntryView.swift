@@ -4,6 +4,13 @@ import PhotosUI
 import UIKit
 
 struct EditEntryView: View {
+    @State private var originalFields: [String]?
+    @State private var saving = false
+    @State private var saveCompleted = false
+    @State private var saveFailed = false
+    private var editFields: [String] {
+        [title, String(date.timeIntervalSince1970), note, designCategory?.rawValue ?? "", colorTone?.rawValue ?? "", String(rating), selectedProductIDs.map(\.uuidString).joined(separator: ","), selectedUIImage.map { String(describing: ObjectIdentifier($0)) } ?? "", String(removeExistingPhoto), String(photoItem != nil)]
+    }
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
 
@@ -55,16 +62,16 @@ struct EditEntryView: View {
         }
         .navigationTitle("記録を編集")
         .toolbar {
-            ToolbarItem(placement: .cancellationAction) {
-                Button("キャンセル") { dismiss() }
-            }
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") { save() }
+                    .disabled(saving || saveCompleted)
             }
         }
         .onAppear {
-            loadFromEntry()
+            if originalFields == nil { loadFromEntry(); originalFields = editFields }
         }
+        .modifier(NailTabExitProtection(dirty: originalFields.map { $0 != editFields } ?? false, blocked: saving || saveFailed))
+        .modifier(NailEditorExit(dirty: originalFields.map { $0 != editFields } ?? false, blocked: saving || saveFailed, onReturn: { dismiss() }))
         .confirmationDialog("写真を変更しますか？", isPresented: $showingPhotoChangeConfirm, titleVisibility: .visible) {
             Button("写真を変更") {
                 showingPhotoPicker = true
@@ -335,6 +342,9 @@ struct EditEntryView: View {
     // MARK: - Save
 
     private func save() {
+        guard !saving, !saveCompleted else { return }
+        saving = true
+        defer { saving = false }
         entry.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
         entry.date = date
         entry.note = note
@@ -366,8 +376,10 @@ struct EditEntryView: View {
 
         do {
             try viewContext.save()
+            saveCompleted = true; saveFailed = false
             dismiss()
         } catch {
+            saveFailed = true
             print("編集保存エラー: \(error)")
         }
     }

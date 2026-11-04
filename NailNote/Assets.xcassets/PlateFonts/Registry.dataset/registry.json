@@ -1,0 +1,238 @@
+[
+  {
+    "directory": "zenmarugothic",
+    "family": "Zen Maru Gothic",
+    "repositoryCommit": "2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc",
+    "license": "OFL-1.1",
+    "licenseURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/zenmarugothic/OFL.txt",
+    "licenseSHA256": "2a20cf7ce1909d8ee1e949095d340f7d7656705f7c810a2d6faf56800ad0cb3d",
+    "files": [
+      {
+        "filename": "ZenMaruGothic-Regular.ttf",
+        "sourceURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/zenmarugothic/ZenMaruGothic-Regular.ttf",
+        "bytes": 3832756,
+        "sha256": "a0c0b53543e0993ae2225e629c833f3d51495ad31720694ff112ce4ce11111ef",
+        "nameTable": {
+          "0": "Copyright 2021 The Zen Maru Gothic Authors (https://github.com/googlefonts/zen-marugothic)",
+          "1": "Zen Maru Gothic",
+          "2": "Regular",
+          "5": "Version 1.002",
+          "6": "ZenMaruGothic-Regular"
+        }
+      },
+      {
+        "filename": "ZenMaruGothic-Medium.ttf",
+        "sourceURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/zenmarugothic/ZenMaruGothic-Medium.ttf",
+        "bytes": 3810988,
+        "sha256": "3cfdb98a13571ede17fcc769f5093a97c38b80a7b9b2ab754a26b4d822092b3b",
+        "nameTable": {
+          "0": "Copyright 2021 The Zen Maru Gothic Authors (https://github.com/googlefonts/zen-marugothic)",
+          "1": "Zen Maru Gothic Medium",
+          "2": "Regular",
+          "5": "Version 1.001",
+          "6": "ZenMaruGothic-Medium"
+        }
+      },
+      {
+        "filename": "ZenMaruGothic-Bold.ttf",
+        "sourceURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/zenmarugothic/ZenMaruGothic-Bold.ttf",
+        "bytes": 3779008,
+        "sha256": "fe24426b9c8b5523a0146a8235c8674eccf0493af354a53ec895c3596d9eb745",
+        "nameTable": {
+          "0": "Copyright 2021 The Zen Maru Gothic Authors (https://github.com/googlefonts/zen-marugothic)",
+          "1": "Zen Maru Gothic",
+          "2": "Bold",
+          "5": "Version 1.001",
+          "6": "ZenMaruGothic-Bold"
+        }
+      }
+    ]
+  },
+  {
+    "directory": "kosugimaru",
+    "family": "Kosugi Maru",
+    "repositoryCommit": "2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc",
+    "license": "Apache-2.0",
+    "licenseURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/apache/kosugimaru/LICENSE.txt",
+    "licenseSHA256": "cfc7749b96f63bd31c3c42b5c471bf756814053e847c10f3eb003417bc523d30",
+    "files": [
+      {
+        "filename": "KosugiMaru-Regular.ttf",
+        "sourceURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/apache/kosugimaru/KosugiMaru-Regular.ttf",
+        "bytes": 3565716,
+        "sha256": "4b8d0022c8dadd090ef67cd1f71f130714767af7806cba2eb4ebe4b0271c1d68",
+        "nameTable": {
+          "0": "Copyright 2010 The Kosugi Maru Project Authors \\(https://github.com/googlefonts/kosugi-maru\\)",
+          "1": "Kosugi Maru",
+          "2": "Regular",
+          "5": "Version 4.002",
+          "6": "KosugiMaru-Regular"
+        }
+      }
+    ]
+  },
+  {
+    "directory": "hachimarupop",
+    "family": "Hachi Maru Pop",
+    "repositoryCommit": "2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc",
+    "license": "OFL-1.1",
+    "licenseURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/hachimarupop/OFL.txt",
+    "licenseSHA256": "8d3c434650e84f42ddb33e9b5929089ea51c39b231b798dacb33087d5f05d9f1",
+    "files": [
+      {
+        "filename": "HachiMaruPop-Regular.ttf",
+        "sourceURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/hachimarupop/HachiMaruPop-Regular.ttf",
+        "bytes": 4385624,
+        "sha256": "78408910c8f1a2f174a279cbc1484b48b71780039eba3fe1be2bfcc5d4df3f98",
+        "nameTable": {
+          "0": "Copyright 2020 The Hachi Maru Pop Project Authors (https://github.com/noriokanisawa/HachiMaruPop)",
+          "1": "Hachi Maru Pop",
+          "2": "Regular",
+          "5": "Version 1.300",
+          "6": "HachiMaruPop-Regular"
+        }
+      }
+    ]
+  },
+  {
+    "directory": "yomogi",
+    "family": "Yomogi",
+    "repositoryCommit": "2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc",
+    "license": "OFL-1.1",
+    "licenseURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/yomogi/OFL.txt",
+    "licenseSHA256": "bc0330d5973ab1f200553f51b4cb4ef11b81187fdcd0249f7f83992726c02a48",
+    "files": [
+      {
+        "filename": "Yomogi-Regular.ttf",
+        "sourceURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/yomogi/Yomogi-Regular.ttf",
+        "bytes": 4045904,
+        "sha256": "ec280f473a03187292905618f24fdb08a6dcbf8620b52637e3b589fe745259b9",
+        "nameTable": {
+          "0": "Copyright 2020 The Yomogi Project Authors (https://github.com/satsuyako/YomogiFont), all rights reserved.",
+          "1": "Yomogi",
+          "2": "Regular",
+          "5": "Version 3.206",
+          "6": "Yomogi-Regular"
+        }
+      }
+    ]
+  },
+  {
+    "directory": "zenkurenaido",
+    "family": "Zen Kurenaido",
+    "repositoryCommit": "2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc",
+    "license": "OFL-1.1",
+    "licenseURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/zenkurenaido/OFL.txt",
+    "licenseSHA256": "fdfcb596ac910b447e482f42d4d1e5df3cfcb71c681a9f10e7f2d0126b274111",
+    "files": [
+      {
+        "filename": "ZenKurenaido-Regular.ttf",
+        "sourceURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/zenkurenaido/ZenKurenaido-Regular.ttf",
+        "bytes": 4303112,
+        "sha256": "58b8d930d9fc10c8a5810c085bae378dacb98d0779073ee6d53d919f19ee6a4f",
+        "nameTable": {
+          "0": "Copyright 2021 The Zen Kurenaido Project Authors (https://github.com/googlefonts/zen-kurenaido)",
+          "1": "Zen Kurenaido",
+          "2": "Regular",
+          "5": "Version 1.001",
+          "6": "ZenKurenaido-Regular"
+        }
+      }
+    ]
+  },
+  {
+    "directory": "yuseimagic",
+    "family": "Yusei Magic",
+    "repositoryCommit": "2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc",
+    "license": "OFL-1.1",
+    "licenseURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/yuseimagic/OFL.txt",
+    "licenseSHA256": "c74e8c47951ddd9c902f07097761cfa0457993e28d8e1e946e273c0250be77c9",
+    "files": [
+      {
+        "filename": "YuseiMagic-Regular.ttf",
+        "sourceURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/yuseimagic/YuseiMagic-Regular.ttf",
+        "bytes": 3134968,
+        "sha256": "82098615f39ed9da6a8ccc674b9006e49c70dd5b775a7a1697f6bedd22ce25a2",
+        "nameTable": {
+          "0": "Copyright 2020 The Yusei Magic Project Authors (https://github.com/tanukifont/YuseiMagic)",
+          "1": "Yusei Magic",
+          "2": "Regular",
+          "5": "Version 1.200",
+          "6": "YuseiMagic-Regular"
+        }
+      }
+    ]
+  },
+  {
+    "directory": "kaiseidecol",
+    "family": "Kaisei Decol",
+    "repositoryCommit": "2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc",
+    "license": "OFL-1.1",
+    "licenseURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/kaiseidecol/OFL.txt",
+    "licenseSHA256": "6c5445d4febbf6d84025b874a85c51e7e4bfa7495279eccdb4c317a6de857b46",
+    "files": [
+      {
+        "filename": "KaiseiDecol-Regular.ttf",
+        "sourceURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/kaiseidecol/KaiseiDecol-Regular.ttf",
+        "bytes": 4503152,
+        "sha256": "fb9202b97944fa00b5f145ad4701def5c306bcd0d26407917baef9e01b042056",
+        "nameTable": {
+          "0": "Copyright 2020 The Kaisei Project Authors (https://github.com/Font-Kai/Kaisei)",
+          "1": "Kaisei Decol",
+          "2": "Regular",
+          "5": "Version 5.003",
+          "6": "KaiseiDecol-Regular"
+        }
+      },
+      {
+        "filename": "KaiseiDecol-Medium.ttf",
+        "sourceURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/kaiseidecol/KaiseiDecol-Medium.ttf",
+        "bytes": 4297772,
+        "sha256": "6db5273d6807f4f575222a70ebf3bb548173dcdda2f22d9bf272d6d0e7161aa1",
+        "nameTable": {
+          "0": "Copyright 2020 The Kaisei Project Authors (https://github.com/Font-Kai/Kaisei)",
+          "1": "Kaisei Decol Medium",
+          "2": "Regular",
+          "5": "Version 5.003",
+          "6": "KaiseiDecol-Medium"
+        }
+      },
+      {
+        "filename": "KaiseiDecol-Bold.ttf",
+        "sourceURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/kaiseidecol/KaiseiDecol-Bold.ttf",
+        "bytes": 4286896,
+        "sha256": "0e3a6da5145fdbba32cfb1c806812d95457506e1698f5d61e8f834fb847f0d6f",
+        "nameTable": {
+          "0": "Copyright 2020 The Kaisei Project Authors (https://github.com/Font-Kai/Kaisei)",
+          "1": "Kaisei Decol",
+          "2": "Bold",
+          "5": "Version 5.003",
+          "6": "KaiseiDecol-Bold"
+        }
+      }
+    ]
+  },
+  {
+    "directory": "mochiypopone",
+    "family": "Mochiy Pop One",
+    "repositoryCommit": "2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc",
+    "license": "OFL-1.1",
+    "licenseURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/mochiypopone/OFL.txt",
+    "licenseSHA256": "76be26178f13ef82866cf6a5c54272191bb583c203ad7035021c7681c9043558",
+    "files": [
+      {
+        "filename": "MochiyPopOne-Regular.ttf",
+        "sourceURL": "https://raw.githubusercontent.com/google/fonts/2fe1e8c6b137fb13041a7cfca6fdcd8a910ea4dc/ofl/mochiypopone/MochiyPopOne-Regular.ttf",
+        "bytes": 5163948,
+        "sha256": "9e009430e1316c271a5f34759c6b65fc343c4e806f193042528887e7235a92c6",
+        "nameTable": {
+          "0": "Copyright 2020 The MochiyPop Project Authors (https://github.com/fontdasu/Mochiypop)",
+          "1": "Mochiy Pop One",
+          "2": "Regular",
+          "5": "Version 2.000",
+          "6": "MochiyPopOne-Regular"
+        }
+      }
+    ]
+  }
+]

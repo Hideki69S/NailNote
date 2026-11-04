@@ -7,6 +7,9 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		B8B208073098974900821CCA /* PlateEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8B208053098974900821CCA /* PlateEditorView.swift */; };
+		B8B208093098C80B00821CCA /* PlateHomeView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8B208083098C80B00821CCA /* PlateHomeView.swift */; };
+		B8B2080B309909EA00821CCA /* PlateRepository.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8B2080A309909EA00821CCA /* PlateRepository.swift */; };
 		EEDC660D2F460A940024C3F3 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = EEDC66062F460A940024C3F3 /* Assets.xcassets */; };
 		EEDC660E2F460A940024C3F3 /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC660A2F460A940024C3F3 /* Persistence.swift */; };
 		EEDC660F2F460A940024C3F3 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EEDC66072F460A940024C3F3 /* ContentView.swift */; };
@@ -33,6 +36,9 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		B8B208053098974900821CCA /* PlateEditorView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateEditorView.swift; sourceTree = "<group>"; };
+		B8B208083098C80B00821CCA /* PlateHomeView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateHomeView.swift; sourceTree = "<group>"; };
+		B8B2080A309909EA00821CCA /* PlateRepository.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlateRepository.swift; sourceTree = "<group>"; };
 		EEDC65F22F4607920024C3F3 /* NailNote.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = NailNote.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		EEDC66062F460A940024C3F3 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		EEDC66072F460A940024C3F3 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -71,9 +77,21 @@
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
+		B8B208063098974900821CCA /* Plates */ = {
+			isa = PBXGroup;
+			children = (
+				B8B2080A309909EA00821CCA /* PlateRepository.swift */,
+				B8B208083098C80B00821CCA /* PlateHomeView.swift */,
+				B8B208053098974900821CCA /* PlateEditorView.swift */,
+			);
+			name = Plates;
+			path = NailNote/Features/Plates;
+			sourceTree = "<group>";
+		};
 		EEDC65E92F4607920024C3F3 = {
 			isa = PBXGroup;
 			children = (
+				B8B208063098974900821CCA /* Plates */,
 				EEDC65F32F4607920024C3F3 /* Products */,
 				EEDC660B2F460A940024C3F3 /* NailNote */,
 			);
@@ -257,10 +275,13 @@
 				EEDC660E2F460A940024C3F3 /* Persistence.swift in Sources */,
 				EEDC660F2F460A940024C3F3 /* ContentView.swift in Sources */,
 				EEDC66302F46A9A40024C3F3 /* EditEntryView.swift in Sources */,
+				B8B2080B309909EA00821CCA /* PlateRepository.swift in Sources */,
 				EEDC66512F475C650024C3F3 /* EntryPhotoStore.swift in Sources */,
 				EEDC66102F460A940024C3F3 /* NailNote.xcdatamodeld in Sources */,
 				EEDC661F2F4616400024C3F3 /* RootView.swift in Sources */,
+				B8B208073098974900821CCA /* PlateEditorView.swift in Sources */,
 				EEDC663B2F46B7450024C3F3 /* AddOrEditProductView.swift in Sources */,
+				B8B208093098C80B00821CCA /* PlateHomeView.swift in Sources */,
 				EEDC66112F460A940024C3F3 /* NailNoteApp.swift in Sources */,
 				EEDC66332F46AEF50024C3F3 /* NailProductCategory.swift in Sources */,
 				EEFF00122F4ABC8400A1B234 /* NailDesignCategory.swift in Sources */,

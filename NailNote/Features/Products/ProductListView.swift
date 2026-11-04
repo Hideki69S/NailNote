@@ -2,8 +2,10 @@ import SwiftUI
 import CoreData
 
 struct ProductListView: View {
+    @Environment(\.nailTabResetID) private var tabResetID
     var bottomNavigationTop: CGFloat? = nil
     @Environment(\.managedObjectContext) private var context
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
 
     @FetchRequest(
         sortDescriptors: [
@@ -16,7 +18,7 @@ struct ProductListView: View {
 
     @State private var showingAddSheet = false
     @State private var editingProduct: NailProduct?
-    @State private var selectedCategory: NailProductCategory = .color
+    @State private var selectedCategories = NailProductCategorySelection()
     @State private var shopFilterText: String = ""
     @State private var keywordFilterText: String = ""
     @AppStorage("FavoriteProductIDs") private var favoriteIDsRaw: String = ""
@@ -25,16 +27,17 @@ struct ProductListView: View {
     var body: some View {
         NavigationStack {
             GlassBackgroundView(appearanceArea: .items) {
+                GeometryReader { page in
                 VStack(spacing: 10) {
-                    AdPlaceholderRow()
-                        .padding(.top, 12)
-                        .padding(.horizontal, 16)
-
-                    VStack(spacing: 8) {
-                        filterControls
-                        CategoryTabBar(selected: $selectedCategory)
+                    if dynamicTypeSize.isAccessibilitySize {
+                        // 大きな文字でも全ボタンへ到達できるよう、上部だけを縦にスクロールする。
+                        ScrollView(.vertical) {
+                            productHeader
+                        }
+                        .frame(maxHeight: page.size.height * 0.65)
+                    } else {
+                        productHeader
                     }
-                    .padding(.horizontal, 16)
 
                     GeometryReader { proxy in
                         // デザイン一覧と同じ境界で、バー背後のカードへのタップを防ぐ。
@@ -55,8 +58,11 @@ struct ProductListView: View {
                         showingAddSheet = true
                     }
                 }
+                }
             }
         }
+        .modifier(NailTabStackReset())
+        .onChange(of: tabResetID) { _, _ in showingAddSheet = false; editingProduct = nil }
         .modifier(NailAppearanceEnvironment(area: .items))
         .sheet(isPresented: $showingAddSheet) {
             NavigationStack {
@@ -406,46 +412,130 @@ private struct ProductThumbnail: View {
 // MARK: - Category Tab Bar
 
 private struct CategoryTabBar: View {
+    @Environment(\.dynamicTypeSize) private var categoryTypeSize
     @AppStorage(NailAppearance.key) private var appearanceRaw = ""
-    private var customPalette: GlassTheme.DesignCardPalette? {
-        guard let choice = NailAppearance.Document.decode(appearanceRaw).resolved(.items), choice.changesColor else { return nil }
-        return NailAppearance.designPalette(GlassTheme.designCardPalette(for: .roseChampagne), choice: choice)
+    @AppStorage(GlassTheme.Keys.itemCardPreset) private var itemPresetRaw = GlassTheme.ItemCardPreset.roseChampagne.rawValue
+    private var palette: GlassTheme.DesignCardPalette {
+        let preset = GlassTheme.DesignCardPreset(rawValue: itemPresetRaw) ?? .roseChampagne
+        return NailAppearance.designPalette(GlassTheme.designCardPalette(for: preset), choice: NailAppearance.Document.decode(appearanceRaw).resolved(.items))
+    }
+    private var isDark: Bool {
+        if let choice = NailAppearance.Document.decode(appearanceRaw).resolved(.items), choice.changesColor {
+            return choice.dark
+        }
+        return itemPresetRaw == GlassTheme.ItemCardPreset.noirGold.rawValue || itemPresetRaw == GlassTheme.ItemCardPreset.noirSilver.rawValue
     }
 
-    @Binding var selected: NailProductCategory
+    // 領域別設定を解決した既存パレットのアクセントから、濃い同系色を作る。
+    private var selectedColors: [Color] {
+        var r: CGFloat = 0, g: CGFloat = 0, b: CGFloat = 0, a: CGFloat = 0
+        let accent = UIColor(palette.outerStrokeEnd)
+        if !accent.getRed(&r, green: &g, blue: &b, alpha: &a) {
+            UIColor(palette.titleIcon).getRed(&r, green: &g, blue: &b, alpha: &a)
+        }
+        let ink = NailAppearance.RGB(r: 0.04, g: 0.04, b: 0.05)
+        var base = NailAppearance.RGB(r: Double(r), g: Double(g), b: Double(b)).mixed(with: ink, amount: 0.25)
+        func luminance(_ value: NailAppearance.RGB) -> Double {
+            func linear(_ v: Double) -> Double { v <= 0.04045 ? v / 12.92 : pow((v + 0.055) / 1.055, 2.4) }
+            return 0.2126 * linear(value.r) + 0.7152 * linear(value.g) + 0.0722 * linear(value.b)
+        }
+        // 明るい自由色でも白文字との明暗差を確保する。保存色そのものは変更しない。
+        while luminance(base) > 0.15 { base = base.mixed(with: ink, amount: 0.10) }
+        return [base.color, base.mixed(with: ink, amount: 0.20).color]
+    }
+
+    @Binding var selected: NailProductCategorySelection
 
     var body: some View {
-        ScrollView(.horizontal, showsIndicators: true) {
-            HStack(spacing: 10) {
-                ForEach(NailProductCategory.allCases) { category in
+        let selectedFill = selectedColors
+        ProductCategoryGridLayout(columns: categoryTypeSize.isAccessibilitySize ? 2 : 4) {
+                ForEach(NailProductCategoryFilter.allCases) { category in
+                    let isSelected = selected.isSelected(category)
                     Button {
                         withAnimation(.spring(response: 0.3, dampingFraction: 0.8)) {
-                            selected = category
+                            selected.toggle(category)
                         }
                     } label: {
-                        Text(category.displayName)
-                            .font(.subheadline.weight(.semibold))
-                            .padding(.vertical, 8)
-                            .padding(.horizontal, 14)
+                        HStack(spacing: 3) {
+                            Image(systemName: "checkmark").font(.system(size: 9, weight: .bold))
+                                .frame(width: 10).opacity(isSelected ? 1 : 0).accessibilityHidden(true)
+                            ZStack {
+                                Text(category.buttonTitle).font(.footnote.weight(.semibold)).hidden().accessibilityHidden(true)
+                                Text(category.buttonTitle).font(.footnote.weight(isSelected ? .semibold : .regular))
+                            }
+                        }
+                            .multilineTextAlignment(.center)
+                            .fixedSize(horizontal: false, vertical: true)
+                            .padding(.vertical, 6)
+                            .padding(.horizontal, 4)
+                            .frame(minHeight: 34)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                             .background(
                                 Capsule()
-                                    .fill(customPalette.map { selected == category ? $0.outerFillBottom : $0.glowFillTop } ?? (selected == category ? Color.accentColor.opacity(0.9) : Color.white.opacity(0.85)))
+                                    .fill(LinearGradient(colors: isSelected ? selectedFill : [palette.glowFillTop.opacity(isDark ? 0.85 : 0.45), palette.glowFillBottom.opacity(isDark ? 0.75 : 0.35)], startPoint: .topLeading, endPoint: .bottomTrailing))
+                                    .overlay(Capsule().strokeBorder(isSelected ? palette.outerStrokeStart : palette.outerStrokeEnd.opacity(0.30), lineWidth: isSelected ? 1 : 0.6))
+                                    .shadow(color: palette.outerStrokeEnd.opacity(isSelected ? 0.12 : 0.03), radius: 2, x: 0, y: 1)
                             )
-                            .foregroundStyle(customPalette?.titleText ?? (selected == category ? Color.white : .primary))
+                            .foregroundStyle(isSelected ? Color.white : palette.titleText.opacity(isDark ? 0.90 : 0.78))
+                            // 見える面は34pt、操作面は上下5ptずつ広げて44pt以上にする。
+                            .padding(.vertical, 5)
+                            .contentShape(Rectangle())
                     }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(category.title)
+                    .accessibilityAddTraits(isSelected ? .isSelected : [])
+                    .accessibilityValue(isSelected ? "オン" : "オフ")
+                    .accessibilityIdentifier("product.category.\(category.rawValue)")
                 }
-            }
-            .padding(.vertical, 4)
-            .padding(.horizontal, 4)
         }
-        .background(.ultraThinMaterial)
-        .clipShape(RoundedRectangle(cornerRadius: 26, style: .continuous))
+        .fixedSize(horizontal: false, vertical: true)
+    }
+}
+
+/// 通常は4列、文字拡大時は2列で、全セルへ文字が収まる共通の自然高を提案する。
+private struct ProductCategoryGridLayout: Layout {
+    var columns = 4
+    private let spacing: CGFloat = 4
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        let width = proposal.width ?? 320
+        let cellWidth = max(0, (width - spacing * CGFloat(columns - 1)) / CGFloat(columns))
+        let height = subviews.map {
+            $0.sizeThatFits(ProposedViewSize(width: cellWidth, height: nil)).height
+        }.max() ?? 44
+        let rows = (subviews.count + columns - 1) / columns
+        return CGSize(width: width, height: max(44, height) * CGFloat(rows) + spacing * CGFloat(max(0, rows - 1)))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        let rows = max(1, (subviews.count + columns - 1) / columns)
+        let width = max(0, (bounds.width - spacing * CGFloat(columns - 1)) / CGFloat(columns))
+        let height = max(44, (bounds.height - spacing * CGFloat(rows - 1)) / CGFloat(rows))
+        for (index, subview) in subviews.enumerated() {
+            subview.place(at: CGPoint(x: bounds.minX + CGFloat(index % columns) * (width + spacing),
+                                     y: bounds.minY + CGFloat(index / columns) * (height + spacing)),
+                          anchor: .topLeading, proposal: ProposedViewSize(width: width, height: height))
+        }
     }
 }
 
 // MARK: - Filters & Floating Button
 
 private extension ProductListView {
+    var productHeader: some View {
+        VStack(spacing: 10) {
+            AdPlaceholderRow()
+                .padding(.top, 12)
+                .padding(.horizontal, 16)
+            VStack(spacing: 8) {
+                filterControls
+                CategoryTabBar(selected: $selectedCategories)
+            }
+            .padding(.horizontal, 16)
+        }
+        .fixedSize(horizontal: false, vertical: true)
+    }
+
     var filterControls: some View {
         VStack(alignment: .leading, spacing: 10) {
             HStack {
@@ -475,10 +565,11 @@ private extension ProductListView {
             }
         }
         .padding(.vertical, 4)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     func matchesCategory(_ product: NailProduct) -> Bool {
-        category(for: product) == selectedCategory
+        selectedCategories.matches(category(for: product))
     }
 
     var shopOptions: [String] {
@@ -558,21 +649,20 @@ private struct StyledFilterField: View {
     var keyboard: UIKeyboardType = .default
 
     var body: some View {
-        HStack(spacing: 10) {
+        HStack(spacing: 8) {
             Image(systemName: systemImage)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.secondary)
+                .frame(width: 20, height: 20)
 
-            TextField(title, text: $text)
+            NailCenteredFilterTextField(title: title, text: $text)
                 .keyboardType(keyboard)
                 .textInputAutocapitalization(.none)
                 .disableAutocorrection(true)
                 .font(.subheadline.weight(.semibold))
                 .foregroundStyle(.primary)
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 16)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .modifier(NailFilterControlLayout())
         .background(customPalette?.glowFillMid ?? Color.white)
         .overlay(
             Capsule()
@@ -612,13 +702,12 @@ private struct ShopFilterMenu: View {
             HStack(spacing: 8) {
                 Image(systemName: "storefront")
                     .font(.subheadline.weight(.semibold))
+                    .frame(width: 20, height: 20)
                 Text(title)
                     .font(.subheadline.weight(.semibold))
-                    .lineLimit(1)
+                    .fixedSize(horizontal: false, vertical: true)
             }
-            .padding(.vertical, 10)
-            .padding(.horizontal, 16)
-            .frame(maxWidth: .infinity)
+            .modifier(NailFilterControlLayout())
             .background(customPalette?.glowFillMid ?? Color.white)
             .overlay(
                 Capsule()
@@ -636,6 +725,8 @@ private struct ShopFilterMenu: View {
                 Image(systemName: "checkmark")
             }
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .multilineTextAlignment(.leading)
     }
 }
 

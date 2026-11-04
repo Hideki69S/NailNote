@@ -1,5 +1,172 @@
 import SwiftUI
 import UIKit
+import Combine
+
+// タブの選択を確定する前に、表示中の編集画面へ移動の可否を問い合わせる。
+final class NailTabNavigation: ObservableObject {
+    struct GuardState { let tab: Int; var dirty: Bool; var blocked: Bool; var hidesTabBar: Bool }
+    @Published private(set) var editingTabs = Set<Int>()
+    @Published private(set) var resetIDs = [0, 0, 0, 0]
+    @Published private(set) var pendingOwner: UUID?
+    private var guards: [UUID: GuardState] = [:]
+    private var order: [UUID] = []
+    private var pending: (from: Int, to: Int, commit: (Int) -> Void)?
+
+    func register(_ owner: UUID, tab: Int, dirty: Bool, blocked: Bool, hidesTabBar: Bool = true) {
+        if guards[owner] == nil { order.append(owner) }
+        guards[owner] = GuardState(tab: tab, dirty: dirty, blocked: blocked, hidesTabBar: hidesTabBar)
+        refreshEditingTabs()
+    }
+    func unregister(_ owner: UUID) {
+        guards[owner] = nil; order.removeAll { $0 == owner }
+        refreshEditingTabs()
+        if pendingOwner == owner { cancel() }
+    }
+    // 非表示になった親画面の遅い更新から、解除済みの登録を復活させない。
+    func update(_ owner: UUID, dirty: Bool, blocked: Bool) {
+        guard var state = guards[owner] else { return }
+        state.dirty = dirty; state.blocked = blocked
+        guards[owner] = state
+    }
+    func request(_ to: Int, from: Int, commit: @escaping (Int) -> Void) {
+        guard to != from, (0..<4).contains(to), pending == nil else { return }
+        let candidates = order.reversed().filter { guards[$0]?.tab == from }
+        if let owner = candidates.first(where: { guards[$0]?.blocked == true }) ?? candidates.first(where: { guards[$0]?.dirty == true }) {
+            pending = (from, to, commit); pendingOwner = owner
+        } else { move(from: from, to: to, commit: commit) }
+    }
+    var movementBlocked: Bool { pendingOwner.flatMap { guards[$0]?.blocked } ?? false }
+    func cancel() { pendingOwner = nil; pending = nil }
+    private func refreshEditingTabs() {
+        let next = Set(guards.values.filter(\.hidesTabBar).map(\.tab))
+        if next != editingTabs { editingTabs = next }
+    }
+    func discardAndMove() {
+        guard !movementBlocked, let pending else { return }
+        cancel(); move(from: pending.from, to: pending.to, commit: pending.commit)
+    }
+    private func move(from: Int, to: Int, commit: (Int) -> Void) {
+        guards = guards.filter { $0.value.tab != from }
+        order.removeAll { guards[$0] == nil }
+        refreshEditingTabs()
+        resetIDs[from] += 1; resetIDs[to] += 1
+        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+        commit(to)
+    }
+}
+
+private struct NailTabNavigationKey: EnvironmentKey { static let defaultValue: NailTabNavigation? = nil }
+private struct NailTabIndexKey: EnvironmentKey { static let defaultValue = 0 }
+private struct NailTabResetKey: EnvironmentKey { static let defaultValue = 0 }
+extension EnvironmentValues {
+    var nailTabNavigation: NailTabNavigation? { get { self[NailTabNavigationKey.self] } set { self[NailTabNavigationKey.self] = newValue } }
+    var nailTabIndex: Int { get { self[NailTabIndexKey.self] } set { self[NailTabIndexKey.self] = newValue } }
+    var nailTabResetID: Int { get { self[NailTabResetKey.self] } set { self[NailTabResetKey.self] = newValue } }
+}
+
+struct NailTabStackReset: ViewModifier {
+    @Environment(\.nailTabResetID) private var resetID
+    func body(content: Content) -> some View { content.id(resetID) }
+}
+
+struct NailTabExitProtection: ViewModifier {
+    @Environment(\.nailTabNavigation) private var navigation
+    @Environment(\.nailTabIndex) private var tab
+    @State private var owner = UUID()
+    let dirty: Bool
+    var blocked = false
+    var hidesTabBar = true
+    func body(content: Content) -> some View {
+        content.background {
+            if let navigation { NailTabExitObserver(navigation: navigation, owner: owner, dirty: dirty, blocked: blocked) }
+        }
+        .onAppear { navigation?.register(owner, tab: tab, dirty: dirty, blocked: blocked, hidesTabBar: hidesTabBar) }
+        .onChange(of: dirty) { _, _ in update() }
+        .onChange(of: blocked) { _, _ in update() }
+        .onDisappear { navigation?.unregister(owner) }
+    }
+    private func update() { navigation?.update(owner, dirty: dirty, blocked: blocked) }
+}
+
+// 終了経路を一本化し、シートの下スワイプも同じ破棄確認へ渡す。
+struct NailEditorExit: ViewModifier {
+    let dirty: Bool
+    var blocked = false
+    var enabled = true
+    let onReturn: () -> Void
+    @State private var confirming = false
+
+    private func requestReturn() {
+        if blocked || dirty { confirming = true } else { onReturn() }
+    }
+    func body(content: Content) -> some View {
+        content.navigationBarBackButtonHidden(true)
+            .toolbar {
+                if enabled {
+                    ToolbarItem(placement: .topBarLeading) {
+                        Button("戻る", action: requestReturn)
+                            .accessibilityIdentifier("editor.back")
+                    }
+                }
+            }
+            .background {
+                if enabled {
+                    PlateDismissGuard(blocked: { dirty || blocked }, onAttempt: requestReturn)
+                    NailEditorPopGuard()
+                }
+            }
+            .alert(blocked ? "編集中の内容を保持しています" : "変更を破棄して戻りますか？", isPresented: $confirming) {
+                if !blocked { Button("破棄して戻る", role: .destructive, action: onReturn) }
+                Button("編集を続ける", role: .cancel) {}
+            } message: {
+                Text(blocked ? "保存中、または保存に失敗しています。編集内容を保持し、保存結果を確認してください。" : "未保存の変更だけを破棄します。保存済みデータは変更しません。")
+            }
+    }
+}
+
+// 標準の横スワイプで未保存確認を迂回しない。元のジェスチャー設定は復元する。
+private struct NailEditorPopGuard: UIViewControllerRepresentable {
+    func makeUIViewController(context: Context) -> Controller { Controller() }
+    func updateUIViewController(_ controller: Controller, context: Context) { DispatchQueue.main.async { controller.attach() } }
+    static func dismantleUIViewController(_ controller: Controller, coordinator: ()) { controller.restore() }
+    final class Controller: UIViewController {
+        private weak var gesture: UIGestureRecognizer?
+        private var previous = true
+        override func loadView() { view = UIView(); view.isUserInteractionEnabled = false }
+        override func viewDidAppear(_ animated: Bool) { super.viewDidAppear(animated); attach() }
+        override func viewWillDisappear(_ animated: Bool) { restore(); super.viewWillDisappear(animated) }
+        func attach() {
+            guard view.window != nil else { return }
+            var node: UIViewController? = self
+            while let current = node {
+                if let candidate = current.navigationController?.interactivePopGestureRecognizer {
+                    if gesture !== candidate { restore(); gesture = candidate; previous = candidate.isEnabled }
+                    candidate.isEnabled = false; return
+                }
+                node = current.parent
+            }
+        }
+        func restore() { gesture?.isEnabled = previous; gesture = nil }
+    }
+}
+
+private struct NailTabExitObserver: View {
+    @ObservedObject var navigation: NailTabNavigation
+    let owner: UUID
+    let dirty: Bool
+    let blocked: Bool
+    var body: some View {
+        Color.clear.allowsHitTesting(false).accessibilityHidden(true)
+            .alert(navigation.movementBlocked ? "編集中の内容を保持しています" : "変更を破棄して移動しますか？", isPresented: Binding(get: { navigation.pendingOwner == owner }, set: { _ in })) {
+                if !navigation.movementBlocked {
+                    Button("破棄して移動", role: .destructive) { navigation.discardAndMove() }
+                }
+                Button("編集を続ける", role: .cancel) { navigation.cancel() }
+            } message: {
+                Text(navigation.movementBlocked ? "保存中、または保存に失敗した編集内容があります。移動せず、保存結果を確認してください。" : "未保存の変更は保存されません。")
+            }
+    }
+}
 
 enum NailNoteFeatureFlags {
     // AI評価は再開承認まで、ビルド構成やAPIキーにかかわらず停止する。
@@ -7,18 +174,22 @@ enum NailNoteFeatureFlags {
 }
 
 struct RootView: View {
+    @StateObject private var navigation = NailTabNavigation()
     @State private var selectedTab = 0
     @State private var bottomNavigationTop: CGFloat?
-    private var tabSelection: Binding<Int> { $selectedTab }
+    private var tabSelection: Binding<Int> {
+        Binding(get: { selectedTab }, set: { value in navigation.request(value, from: selectedTab) { selectedTab = $0 } })
+    }
 
     var body: some View {
-        customTabBarBody
+        customTabBarBody.environment(\.nailTabNavigation, navigation)
     }
 
     private var pages: some View {
         TabView(selection: tabSelection) {
             // 記録（Entries）
             EntryListView(bottomNavigationTop: bottomNavigationTop, hideBottomScrollEdgeEffect: true)
+                .environment(\.nailTabIndex, 0).environment(\.nailTabResetID, navigation.resetIDs[0])
                 .accessibilityHidden(tabSelection.wrappedValue != 0)
                 .toolbar(.hidden, for: .tabBar)
                 .tabItem {
@@ -28,6 +199,7 @@ struct RootView: View {
 
             // 用品（Products）
             ProductListView(bottomNavigationTop: bottomNavigationTop)
+                .environment(\.nailTabIndex, 1).environment(\.nailTabResetID, navigation.resetIDs[1])
                 .accessibilityHidden(tabSelection.wrappedValue != 1)
                 .toolbar(.hidden, for: .tabBar)
                 .tabItem {
@@ -41,23 +213,32 @@ struct RootView: View {
                     .tabItem {
                         Label("AI", systemImage: "pencil.and.outline")
                     }
-                    .tag(3)
+                    .tag(4)
             }
+
+            PlateHomeView()
+                .environment(\.nailTabIndex, 2).environment(\.nailTabResetID, navigation.resetIDs[2])
+                .accessibilityHidden(tabSelection.wrappedValue != 2)
+                .toolbar(.hidden, for: .tabBar)
+                .tabItem { LuxuryTabLabel(kind: .plate) }
+                .tag(2)
 
             // 設定（Settings）
             SettingsView()
-                .accessibilityHidden(tabSelection.wrappedValue != 2)
+                .environment(\.nailTabIndex, 3).environment(\.nailTabResetID, navigation.resetIDs[3])
+                .accessibilityHidden(tabSelection.wrappedValue != 3)
                 .toolbar(.hidden, for: .tabBar)
                 .tabItem {
                     LuxuryTabLabel(kind: .settings)
                 }
-                .tag(2)
+                .tag(3)
         }
         .toolbar(.hidden, for: .tabBar)
     }
 
     private var customTabBarBody: some View {
         GeometryReader { geometry in
+            let hidesBar = navigation.editingTabs.contains(selectedTab)
             VStack(spacing: 0) {
                 // TabViewの子へSafe Areaの予約が届かないため、表示領域そのものを分ける。
                 pages
@@ -68,7 +249,8 @@ struct RootView: View {
                         width: geometry.size.width + geometry.safeAreaInsets.leading + geometry.safeAreaInsets.trailing,
                         height: geometry.size.height + geometry.safeAreaInsets.top + geometry.safeAreaInsets.bottom
                     ))
-                    .frame(height: max(0, geometry.size.height - 49))
+                    .frame(height: max(0, geometry.size.height - (hidesBar ? 0 : 49)))
+                if !hidesBar {
                 CustomLuxuryTabBar(selection: tabSelection)
                     .frame(height: 49, alignment: .top)
                     .background {
@@ -76,13 +258,15 @@ struct RootView: View {
                             Color.clear.preference(key: CustomTabTopKey.self, value: proxy.frame(in: .global).minY)
                         }
                     }
+                }
             }
+            .onChange(of: hidesBar) { _, hidden in if hidden { bottomNavigationTop = nil } }
             .onPreferenceChange(CustomTabTopKey.self) { top in
                 if let top { bottomNavigationTop = top }
             }
             .background {
                 // 別の不透明面で覆わず、選択画面と同じ背景描画を下端まで延ばす。
-                GlassBackgroundView(refined: tabSelection.wrappedValue == 0, appearanceArea: tabSelection.wrappedValue == 0 ? .design : (tabSelection.wrappedValue == 1 ? .items : .settings)) {
+                GlassBackgroundView(refined: tabSelection.wrappedValue == 0 || tabSelection.wrappedValue == 2, appearanceArea: tabSelection.wrappedValue == 0 || tabSelection.wrappedValue == 2 ? .design : (tabSelection.wrappedValue == 1 ? .items : .settings)) {
                     Color.clear
                 }
                 .allowsHitTesting(false)
@@ -111,7 +295,7 @@ private struct CustomLuxuryTabBar: View {
         let palette = NailAppearance.designPalette(preset.refinedSurfacePalette, choice: choice)
         let dark = choice.flatMap { $0.changesColor ? $0.dark : nil } ?? (preset == .noirSilver || preset == .noirGold)
         GeometryReader { proxy in
-            let width = min(282, max(132, proxy.size.width - 32))
+            let width = min(352, max(176, proxy.size.width - 32))
             HStack(spacing: 0) {
                 ForEach(LuxuryTabArtwork.Kind.allCases, id: \.rawValue) { kind in
                     Button {
@@ -146,6 +330,7 @@ private struct CustomLuxuryTabBar: View {
                     }
                     .accessibilityElement(children: .ignore)
                     .accessibilityLabel(kind.title)
+                    .accessibilityValue(selection == kind.rawValue ? "選択中" : "未選択")
                     .accessibilityIdentifier("prototype-tab-\(kind.rawValue)")
                     .accessibilityAddTraits(selection == kind.rawValue ? [.isSelected] : [])
                 }
@@ -205,11 +390,12 @@ struct NailPolishFilterIcon: View {
 /// パスを表示解像度で描く。PNGの拡大や参照画像の切り抜きは使わない。
 private enum LuxuryTabArtwork {
     enum Kind: Int, CaseIterable {
-        case design, items, settings
+        case design, items, plate, settings
         var title: String {
             switch self {
             case .design: return "デザイン"
             case .items: return "アイテム"
+            case .plate: return PlateCopy.tab
             case .settings: return "設定"
             }
         }
@@ -280,6 +466,21 @@ private enum LuxuryTabArtwork {
                 c.move(to: CGPoint(x: 5.5, y: 6))
                 c.addLine(to: CGPoint(x: 22, y: 6))
                 c.strokePath()
+            case .plate:
+                face(CGPath(roundedRect: CGRect(x: 3.5, y: 2.5, width: 21, height: 23), cornerWidth: 2.8, cornerHeight: 2.8, transform: nil), cap: true)
+                face(CGPath(roundedRect: CGRect(x: 6.3, y: 5.4, width: 15.4, height: 12.5), cornerWidth: 1.6, cornerHeight: 1.6, transform: nil))
+                c.setStrokeColor(UIColor(palette.titleText).cgColor)
+                c.setLineWidth(0.85)
+                c.move(to: CGPoint(x: 7.5, y: 15.5))
+                c.addLine(to: CGPoint(x: 11, y: 11))
+                c.addLine(to: CGPoint(x: 14.5, y: 14))
+                c.addLine(to: CGPoint(x: 18, y: 9.5))
+                c.addLine(to: CGPoint(x: 20.5, y: 14))
+                c.move(to: CGPoint(x: 8, y: 21.5))
+                c.addLine(to: CGPoint(x: 20, y: 21.5))
+                c.strokePath()
+                c.setFillColor(UIColor.white.withAlphaComponent(0.7).cgColor)
+                c.fillEllipse(in: CGRect(x: 8.1, y: 7, width: 2, height: 2))
             case .settings:
                 let gear = CGMutablePath()
                 for index in 0..<32 {

@@ -4,6 +4,13 @@ import PhotosUI
 import UIKit
 
 struct AddEntryView: View {
+    @State private var originalFields: [String]?
+    @State private var saving = false
+    @State private var saveCompleted = false
+    @State private var saveFailed = false
+    private var editFields: [String] {
+        [title, String(date.timeIntervalSince1970), note, designCategory?.rawValue ?? "", colorTone?.rawValue ?? "", String(rating), selectedProductIDs.map(\.uuidString).joined(separator: ","), selectedUIImage.map { String(describing: ObjectIdentifier($0)) } ?? "", String(photoItem != nil)]
+    }
     @Environment(\.managedObjectContext) private var viewContext
     @Environment(\.dismiss) private var dismiss
 
@@ -126,15 +133,12 @@ struct AddEntryView: View {
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
             }
-            .navigationTitle("ネイルデザインの登録")
+            .navigationTitle("記録を追加")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("キャンセル") { dismiss() }
-                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { save() }
-                        .disabled(!isBasicInfoValid)
+                        .disabled(!isBasicInfoValid || saving || saveCompleted)
                 }
             }
             .alert("必須項目を入力してください", isPresented: $showValidationAlert) {
@@ -164,7 +168,10 @@ struct AddEntryView: View {
                      : "選択した写真を取り除きます。")
             }
             .photosPicker(isPresented: $showingPhotoPicker, selection: $photoItem, matching: .images)
+            .modifier(NailEditorExit(dirty: originalFields.map { $0 != editFields } ?? false, blocked: saving || saveFailed, onReturn: { dismiss() }))
         }
+        .onAppear { if originalFields == nil { originalFields = editFields } }
+        .modifier(NailTabExitProtection(dirty: originalFields.map { $0 != editFields } ?? false, blocked: saving || saveFailed))
     }
 
     private var trimmedTitle: String {
@@ -321,10 +328,13 @@ struct AddEntryView: View {
     // MARK: - Save
 
     private func save() {
+        guard !saving, !saveCompleted else { return }
         guard isBasicInfoValid else {
             showValidationAlert = true
             return
         }
+        saving = true
+        defer { saving = false }
 
         let entry = NailEntry(context: viewContext)
         entry.id = UUID()
@@ -357,8 +367,10 @@ struct AddEntryView: View {
 
         do {
             try viewContext.save()
+            saveCompleted = true; saveFailed = false
             dismiss()
         } catch {
+            saveFailed = true
             print("新規保存エラー: \(error)")
         }
     }

@@ -33,6 +33,7 @@ struct SettingsView: View {
                     }
 
                     Section("アプリ情報") {
+                        NavigationLink("フォントライセンス") { PlateFontLicensesView() }
                         SettingInfoRow(
                             title: "アプリについて",
                             description: NailNoteFeatureFlags.aiEvaluationEnabled
@@ -74,6 +75,7 @@ struct SettingsView: View {
             .navigationTitle("設定")
             .modifier(NailAppearanceEnvironment(area: .settings))
         }
+        .modifier(NailTabStackReset())
     }
 
 
@@ -280,6 +282,7 @@ private func appearanceSummary(_ choice: NailAppearance.Choice, showsBackground:
 struct NailAppearanceEditor: View {
     let area: NailAppearance.Area?
     @StateObject private var draft: NailAppearanceEditSession
+    @State private var originalChoice: NailAppearance.Choice?
     @State private var previewArea: NailAppearance.Area = .design
     @AppStorage(NailAppearance.key) private var raw = ""
     @Environment(\.dismiss) private var dismiss
@@ -348,7 +351,11 @@ struct NailAppearanceEditor: View {
             }
         }
         .navigationTitle(area?.title ?? "全体設定")
-        .onAppear { draft.refreshIfClean(from: document) }
+        .onAppear {
+            draft.refreshIfClean(from: document)
+            if originalChoice == nil { originalChoice = draft.choice }
+        }
+        .modifier(NailTabExitProtection(dirty: originalChoice.map { $0 != draft.choice } ?? false, hidesTabBar: false))
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
                 Button("保存") {
