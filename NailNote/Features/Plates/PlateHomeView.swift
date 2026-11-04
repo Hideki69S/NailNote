@@ -96,6 +96,7 @@ struct PlateHomeView: View {
     @State private var editing: PlateLoadedDocument?
     @State private var deleting: PlateListItem?
     @State private var working = false
+    @State private var exporting: PlateExportSnapshot?
     @Environment(\.dynamicTypeSize) private var typeSize
 
     private var palette: GlassTheme.DesignCardPalette {
@@ -163,6 +164,7 @@ struct PlateHomeView: View {
                                     .buttonStyle(.plain).disabled(item.issue != nil || working)
                                     .accessibilityIdentifier("plate.saved.\(item.id.uuidString)")
                                     Menu {
+                                        Button("書き出し", systemImage: "square.and.arrow.up") { Task { await export(item) } }
                                         Button("複製", systemImage: "plus.square.on.square") { Task { await duplicate(item) } }
                                         Button("削除", systemImage: "trash", role: .destructive) { deleting = item }
                                     } label: {
@@ -194,6 +196,7 @@ struct PlateHomeView: View {
                 PlateDraftSessionView(loaded: loaded, onCancel: { editing = nil }, onSaved: { editing = nil })
             }.environment(\.managedObjectContext, context)
         }
+        .sheet(item: $exporting) { snapshot in PlateExportSheet(snapshot: snapshot) }
         .confirmationDialog("プレートを削除しますか？", isPresented: Binding(get: { deleting != nil }, set: { if !$0 { deleting = nil } }), titleVisibility: .visible) {
             if let deleting {
                 Button("削除", role: .destructive) { Task { await remove(deleting) } }
@@ -214,6 +217,15 @@ struct PlateHomeView: View {
         guard !working else { return }; working = true; defer { working = false }
         do { editing = try await PlateRepository.shared.load(item.id) }
         catch { message = error.localizedDescription }
+    }
+    private func export(_ item: PlateListItem) async {
+        guard !working else { return }
+        working = true; defer { working = false }
+        do {
+            let loaded = try await PlateRepository.shared.load(item.id)
+            guard loaded.document.revisionID == item.revisionID else { throw PlateStorageError.conflict }
+            exporting = try PlateExportSnapshot(loaded: loaded)
+        } catch { message = "書き出しを準備できませんでした。\n" + error.localizedDescription }
     }
     private func duplicate(_ item: PlateListItem) async {
         guard !working, let revision = item.revisionID else { return }
@@ -609,11 +621,7 @@ struct PlateProductEditingSidebar: View {
                     .accessibilityLabel("アイテムを追加")
             }
             Text("掲載順 · \(draft.products.count)点").font(.caption2)
-            if !draft.itemImagesEnabled {
-                Button("写真表示を追加") { draft.itemImagesEnabled = true }
-                    .font(.caption).frame(minHeight: 44).accessibilityIdentifier("plate.items.enableImages")
-                    .accessibilityHint("作品の構図を更新します。保存するまでは旧作品を保持します")
-            }
+            if !draft.usesNewLayout { PlateLayoutUpdateButton(draft: $draft).font(.caption) }
             ScrollView {
                 LazyVStack(spacing: 6) {
                     if draft.products.isEmpty { Text("アイテムなし").font(.caption).padding(.vertical, 8) }

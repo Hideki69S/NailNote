@@ -4,11 +4,13 @@ import Combine
 import CoreText
 import CryptoKit
 import CoreData
+import Photos
+import UniformTypeIdentifiers
 
 enum PlateTextRole: String, Identifiable {
-    case title, comment
+    case title, comment, itemNames
     var id: String { rawValue }
-    var label: String { self == .title ? "タイトル" : "コメント" }
+    var label: String { self == .title ? "タイトル" : (self == .comment ? "コメント" : "アイテム名") }
 }
 
 // 既存のAsset Catalogから取得し、改変を検出してからデータ由来の書体を生成する。
@@ -53,7 +55,7 @@ enum PlateFontCatalog {
     }
     static func font(_ original: PlateTextStyle?, role: PlateTextRole, size: CGFloat) -> Font {
         let style = original?.supported == true ? original! : PlateTextStyle()
-        let weight: Font.Weight = style.weightID == "light" ? .light : (style.weightID == "bold" ? .bold : (style.weightID == "medium" ? .medium : (style.weightID == "auto" && role == .title ? .medium : .regular)))
+        let weight: Font.Weight = style.weightID == "light" ? .light : (style.weightID == "bold" ? .bold : (style.weightID == "medium" ? .medium : (style.weightID == "auto" && role != .comment ? .medium : .regular)))
         if style.fontID == "standard" { return .system(size: size, weight: weight, design: role == .title ? .serif : .default) }
         if style.fontID == "modern" { return .system(size: size, weight: weight) }
         if style.fontID == "hiramin", let f = UIFont(name: style.weightID == "bold" ? "HiraMinProN-W6" : "HiraMinProN-W3", size: size) { return Font(f) }
@@ -161,6 +163,14 @@ enum PlateTemplate: String, CaseIterable, Identifiable, Codable {
         }
     }
     var photoRadius: CGFloat { self == .sweet ? 65 : (self == .noir ? 4 : 17) }
+    var layoutSixPhotoRect: CGRect {
+        switch self {
+        case .elegant: return CGRect(x: 28, y: 35, width: 304, height: 278)
+        case .sweet: return CGRect(x: 40, y: 43, width: 280, height: 270)
+        case .noir: return CGRect(x: 18, y: 25, width: 228, height: 335)
+        case .recipe: return CGRect(x: 22, y: 32, width: 316, height: 211)
+        }
+    }
 }
 
 enum PlateBackground: String, CaseIterable, Identifiable, Codable {
@@ -253,6 +263,7 @@ struct PlateDraft: Equatable {
     var background: PlateBackground = .signature
     var frame: PlateFrame = .signature
     var itemImagesEnabled = true
+    var usesNewLayout = true
     var itemImageReferences: [String: PlateFileReference] = [:]
     var photoRotationQuarterTurns = 0
     var photoRotationDegrees: Double? = nil
@@ -267,7 +278,13 @@ struct PlateDraft: Equatable {
     }
     var titleTextStyle: PlateTextStyle? = nil
     var commentTextStyle: PlateTextStyle? = nil
-    var textStylesSupported: Bool { (titleTextStyle?.supported ?? true) && (commentTextStyle?.supported ?? true) }
+    var itemNameTextStyle: PlateTextStyle? = nil
+    var itemNameFontSize: PlateStyleValue? = nil
+    var commentFontSize: PlateStyleValue? = nil
+    var textStylesSupported: Bool {
+        (titleTextStyle?.supported ?? true) && (commentTextStyle?.supported ?? true) && (itemNameTextStyle?.supported ?? true)
+        && PlateTextStyle.validSize(itemNameFontSize, range: 7...14) && PlateTextStyle.validSize(commentFontSize, range: 8...16)
+    }
     private(set) var photos: [PlateTemplate: PlatePhotoAdjustment] = [:]
     init(sourceEntryID: UUID, photoID: UUID?, inheritedProductIDs: Set<UUID>, title: String, date: String, comment: String, products: [PlateProduct], unavailableSourceProducts: Int = 0) {
         self.sourceEntryID = sourceEntryID; self.photoID = photoID
@@ -328,9 +345,10 @@ struct PlateEditorView: View {
     @State private var tool: PlateTool = .template
     @State private var choosingFont: PlateTextRole?
     @State private var resetUnknown: PlateTextRole?
-    @State private var textRole: PlateTextRole = .title
+    @State private var textRole: PlateTextRole = .itemNames
     @State private var editingText: PlateTextRole?
     @State private var choosingDesignPhoto = false
+    @State private var exporting: PlateExportSnapshot?
     @ScaledMetric(relativeTo: .caption) private var menuWidth: CGFloat = 72
     @ScaledMetric(relativeTo: .caption) private var menuHeight: CGFloat = 56
     @ScaledMetric(relativeTo: .caption) private var menuIconSize: CGFloat = 18
@@ -409,6 +427,17 @@ struct PlateEditorView: View {
             .navigationTitle(PlateCopy.editorTitle).navigationBarTitleDisplayMode(.inline)
             .toolbarColorScheme(editorDark ? .dark : .light, for: .navigationBar)
             .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        focusedField = nil
+                        exporting = session.exportSnapshot()
+                    } label: {
+                        Image(systemName: "square.and.arrow.up").frame(minWidth: 44, minHeight: 44)
+                    }
+                    .accessibilityLabel("編集中のプレートを書き出す")
+                    .accessibilityIdentifier("plate.export")
+                    .disabled(session.saving || session.importingPhoto || session.loadingItemImages || session.photoState == .loading || !draft.textStylesSupported)
+                }
                 ToolbarItem(placement: .confirmationAction) {
                     Button(session.saving ? "保存中…" : "保存") {
                         focusedField = nil
@@ -435,6 +464,7 @@ struct PlateEditorView: View {
         .navigationBarBackButtonHidden(true)
         .onChange(of: textRole) { _, _ in focusedField = nil; weightNotice = nil }
         .sheet(item: $choosingFont) { role in fontSheet(role) }
+        .sheet(item: $exporting) { snapshot in PlateExportSheet(snapshot: snapshot) }
         .sheet(item: $editingText) { role in
             PlateTextInputSheet(role: role, initialText: role == .title ? draft.title : draft.comment) { value in
                 // 入力対象はシートを開いた時点のroleに固定する。作品の保存は行わない。
@@ -463,7 +493,7 @@ struct PlateEditorView: View {
             Button("OK") { session.photoImportError = nil }
         } message: { Text(session.photoImportError ?? "") }
         .confirmationDialog("未対応の文字設定を標準に戻しますか？ この文字の保存情報を置き換えます。", isPresented: Binding(get: { resetUnknown != nil }, set: { if !$0 { resetUnknown = nil } })) {
-            Button("標準に戻す", role: .destructive) { if let role = resetUnknown { styleBinding(role).wrappedValue = PlateTextStyle() }; resetUnknown = nil }
+            Button("標準に戻す", role: .destructive) { if let role = resetUnknown { resetStyle(role) }; resetUnknown = nil }
             Button("編集を続ける", role: .cancel) { resetUnknown = nil }
         }
         .alert("写真を読み込めません", isPresented: $confirmingMissingPhoto) {
@@ -570,7 +600,7 @@ struct PlateEditorView: View {
         case .text:
             VStack(alignment: .leading, spacing: 10) {
                 Picker("編集する文字", selection: $textRole) {
-                    Text("タイトル").tag(PlateTextRole.title)
+                    Text("アイテム名").tag(PlateTextRole.itemNames)
                     Text("コメント").tag(PlateTextRole.comment)
                 }.pickerStyle(.segmented).frame(minHeight: 44).accessibilityIdentifier("plate.text.target")
                 if typeSize.isAccessibilitySize {
@@ -578,19 +608,28 @@ struct PlateEditorView: View {
                         .font(.caption).foregroundStyle(editorPalette.tagText)
                         .accessibilityIdentifier("plate.weight.explanation")
                 }
-                Button { focusedField = nil; editingText = textRole } label: {
+                if !draft.usesNewLayout {
+                    Text("旧レイアウトを保持しています。アイテム欄の「新レイアウトに更新」から確認後、アイテム名と文字サイズを調整できます。")
+                        .font(.caption).foregroundStyle(editorPalette.tagText)
+                }
+                if textRole == .comment {
+                Button { focusedField = nil; editingText = .comment } label: {
                     HStack(spacing: 10) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(textRole.label + "を編集").font(.caption)
-                            let value = textRole == .title ? draft.title : draft.comment
+                            Text("コメントを編集").font(.caption)
+                            let value = draft.comment
                             Text(value.isEmpty ? "タップして入力" : value).lineLimit(3).multilineTextAlignment(.leading)
                         }
                         Spacer(minLength: 0)
                         Image(systemName: "square.and.pencil")
                     }.padding(12).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         .background(editorPalette.glowFillTop, in: RoundedRectangle(cornerRadius: 12))
-                }.buttonStyle(.plain).accessibilityIdentifier("plate.text.edit." + textRole.rawValue)
-                textStyleControls(textRole)
+                }.buttonStyle(.plain).accessibilityIdentifier("plate.text.edit.comment")
+                } else {
+                    Text("掲載する全アイテム名に共通で適用します。名前そのものは変更しません。")
+                        .font(.caption).foregroundStyle(editorPalette.tagText)
+                }
+                textStyleControls(textRole).disabled(textRole == .itemNames && !draft.usesNewLayout)
                 TextField("制作日", text: $draft.date).focused($focusedField, equals: .date).accessibilityIdentifier("plate.date")
                 Text("文字は各テンプレートの表示枠に収まる範囲で表示します。入力した全文は切替後も保持します。")
                     .font(.caption).foregroundStyle(editorPalette.tagText)
@@ -613,10 +652,25 @@ struct PlateEditorView: View {
     }
 
     private func styleBinding(_ role: PlateTextRole) -> Binding<PlateTextStyle> {
-        Binding(get: { (role == .title ? draft.titleTextStyle : draft.commentTextStyle) ?? PlateTextStyle() }, set: { value in
+        Binding(get: {
+            (role == .itemNames ? draft.itemNameTextStyle : (role == .title ? draft.titleTextStyle : draft.commentTextStyle)) ?? PlateTextStyle()
+        }, set: { value in
             let normalized: PlateTextStyle? = value.isLegacy ? nil : value
-            if role == .title { draft.titleTextStyle = normalized } else { draft.commentTextStyle = normalized }
+            if role == .itemNames { draft.itemNameTextStyle = normalized }
+            else if role == .title { draft.titleTextStyle = normalized }
+            else { draft.commentTextStyle = normalized }
         })
+    }
+    private func sizeValue(_ role: PlateTextRole) -> PlateStyleValue? {
+        role == .itemNames ? draft.itemNameFontSize : draft.commentFontSize
+    }
+    private func sizeRange(_ role: PlateTextRole) -> ClosedRange<Double> { role == .itemNames ? 7...14 : 8...16 }
+    private func setSize(_ value: PlateStyleValue?, role: PlateTextRole) {
+        if role == .itemNames { draft.itemNameFontSize = value } else { draft.commentFontSize = value }
+    }
+    private func resetStyle(_ role: PlateTextRole) {
+        styleBinding(role).wrappedValue = PlateTextStyle()
+        setSize(nil, role: role)
     }
     private func textStyleControls(_ role: PlateTextRole) -> some View {
         let binding = styleBinding(role), style = binding.wrappedValue
@@ -627,6 +681,19 @@ struct PlateEditorView: View {
             Button { focusedField = nil; choosingFont = role } label: {
                 HStack { Text("書体"); Spacer(); Text(PlateFontCatalog.names[style.fontID] ?? "未対応"); Image(systemName: "chevron.right") }.frame(minHeight: 44)
             }.disabled(!style.supported).accessibilityLabel(role.label + "の書体").accessibilityIdentifier("plate.font." + role.rawValue)
+            if draft.usesNewLayout {
+                let validSize = PlateTextStyle.validSize(sizeValue(role), range: sizeRange(role))
+                VStack(alignment: .leading, spacing: 5) {
+                    let stored: Double? = { if case .number(let number) = sizeValue(role) { return number }; return nil }()
+                    Text(role.label + "の文字サイズ：" + (stored.map { $0.formatted() + " pt" } ?? "自動"))
+                        .font(.subheadline).accessibilityIdentifier("plate.size.value." + role.rawValue)
+                    if !validSize { Text("未対応の文字サイズを保護しています。標準に戻す操作で解除できます。").font(.caption).foregroundStyle(.red) }
+                    Slider(value: Binding(get: { stored ?? (role == .itemNames ? 9 : 12) }, set: { setSize(.number($0), role: role) }), in: sizeRange(role), step: 0.5)
+                        .accessibilityLabel(role.label + "の文字サイズ").accessibilityIdentifier("plate.size." + role.rawValue)
+                        .disabled(!validSize)
+                    Button("文字サイズを自動に戻す") { setSize(nil, role: role) }.frame(minHeight: 44).disabled(!validSize)
+                }
+            }
             Menu {
                 ForEach(PlateTextStyle.weights(style.fontID), id: \.self) { weight in
                     Button { var v = binding.wrappedValue; v.weightID = weight; binding.wrappedValue = v } label: {
@@ -669,7 +736,7 @@ struct PlateEditorView: View {
                 }
             }
             Button {
-                if style.supported { binding.wrappedValue = PlateTextStyle() } else { resetUnknown = role }
+                if style.supported && PlateTextStyle.validSize(sizeValue(role), range: sizeRange(role)) { resetStyle(role) } else { resetUnknown = role }
             } label: { Text(role.label + "を標準に戻す").frame(maxWidth: .infinity, minHeight: 44, alignment: .leading) }.accessibilityIdentifier("plate.text.reset." + role.rawValue)
         }
     }
@@ -766,15 +833,18 @@ struct PlateCanvasView: View {
             RoundedRectangle(cornerRadius: 12).inset(by: 8)
                 .strokeBorder(template.metal.opacity(0.55), lineWidth: 0.7)
             PlatePhotoViewport(adjustment: Binding(get: { draft.photo }, set: { draft.photo = $0 }), image: image, loading: loadingPhoto, template: template, frame: draft.frame, editing: photoEditing, quarterTurns: draft.photoRotationQuarterTurns, degrees: draft.photoRotationDegrees)
-                .frame(width: template.photoRect.width, height: template.photoRect.height)
-                .offset(x: template.photoRect.minX, y: template.photoRect.minY)
-            composition
+                .frame(width: photoRect.width, height: photoRect.height)
+                .offset(x: photoRect.minX, y: photoRect.minY)
+            if draft.usesNewLayout { layoutSixComposition } else { composition }
         }
         .frame(width: 360, height: 450).clipShape(RoundedRectangle(cornerRadius: 12))
+        .modifier(PlateLayoutSixComposite(enabled: draft.usesNewLayout))
         .shadow(color: .black.opacity(0.16), radius: 9, x: 1, y: 5)
         // 作品の構図は操作UIの文字拡大やアプリのテーマから独立させる。
         .dynamicTypeSize(.large).environment(\.colorScheme, .light)
     }
+
+    private var photoRect: CGRect { draft.usesNewLayout ? draft.template.layoutSixPhotoRect : draft.template.photoRect }
 
     @ViewBuilder private var composition: some View {
         switch draft.template {
@@ -846,6 +916,70 @@ struct PlateCanvasView: View {
             }
             comment(size: 11, maxHeight: draft.itemImagesEnabled ? 40 : nil).frame(width: 316, height: 40, alignment: .topLeading).offset(x: 22, y: 403)
         }
+    }
+
+    private var layoutSixComposition: some View {
+        let layout = PlateLayoutSixGeometry(template: draft.template)
+        return ZStack(alignment: .topLeading) {
+            if draft.template == .noir {
+                Text("NOIR").font(.system(size: 12, weight: .light, design: .serif)).tracking(1.6)
+                    .foregroundStyle(draft.template.metal).frame(width: 88).offset(x: 254, y: 27)
+            }
+            caption(draft.date, size: draft.template == .noir ? 8 : 9)
+                .frame(width: layout.date.width, height: layout.date.height, alignment: .top)
+                .clipped().offset(x: layout.date.minX, y: layout.date.minY)
+            if draft.template == .sweet {
+                PlateRibbon().fill(draft.template.metal.opacity(0.8)).frame(width: 60, height: 30).offset(x: 150, y: 23)
+                Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(draft.template.metal).offset(x: 19, y: 145)
+                Image(systemName: "heart").font(.system(size: 17)).foregroundStyle(draft.template.metal).offset(x: 321, y: 285)
+            }
+            if draft.products.isEmpty {
+                caption("アイテムなし", size: 10).frame(width: layout.empty.width, height: layout.empty.height)
+                    .offset(x: layout.empty.minX, y: layout.empty.minY)
+            }
+            ForEach(Array(draft.products.prefix(3).enumerated()), id: \.element.id) { index, product in
+                let slot = layout.slots[index]
+                if draft.template == .recipe {
+                    RoundedRectangle(cornerRadius: 7).fill(.white.opacity(0.20))
+                        .frame(width: 316, height: 42).offset(x: 22, y: 254 + CGFloat(index) * 45)
+                    Text(String(format: "%02d", index + 1)).font(.system(size: 9)).foregroundStyle(draft.template.metal)
+                        .frame(width: 12, height: 42).offset(x: 29, y: 254 + CGFloat(index) * 45)
+                }
+                itemPhoto(product, size: slot.photo.width).offset(x: slot.photo.minX, y: slot.photo.minY)
+                layoutSixText(product.name, style: draft.itemNameTextStyle, value: draft.itemNameFontSize,
+                              defaultSize: draft.template == .recipe ? 10 : 9, role: .itemNames, rect: slot.name, lines: 2)
+            }
+            if draft.products.count > 3 {
+                Text("+\(draft.products.count - 3)").font(.system(size: 8)).foregroundStyle(draft.template.ink.opacity(0.85)).lineLimit(1)
+                    .frame(width: layout.overflow.width, height: layout.overflow.height, alignment: .trailing)
+                    .clipped()
+                    .offset(x: layout.overflow.minX, y: layout.overflow.minY)
+            }
+            layoutSixText(draft.comment, style: draft.commentTextStyle, value: draft.commentFontSize,
+                          defaultSize: draft.template == .elegant || draft.template == .sweet ? 12 : 11,
+                          role: .comment, rect: layout.comment, lines: 3)
+        }.frame(width: 360, height: 450, alignment: .topLeading).allowsHitTesting(false)
+    }
+
+    private func layoutSixText(_ text: String, style: PlateTextStyle?, value: PlateStyleValue?, defaultSize: CGFloat,
+                               role: PlateTextRole, rect: CGRect, lines: Int) -> some View {
+        let range: ClosedRange<Double> = role == .itemNames ? 7...14 : 8...16
+        let size: CGFloat = {
+            if PlateTextStyle.validSize(value, range: range), case .number(let number) = value { return CGFloat(number) }
+            return defaultSize
+        }()
+        let safeStyle = style?.supported == true ? style! : PlateTextStyle()
+        let font = PlateFontCatalog.external(safeStyle.fontID, weight: safeStyle.weightID, size: size)
+            ?? (safeStyle.fontID == "hiramin" ? UIFont(name: safeStyle.weightID == "bold" ? "HiraMinProN-W6" : "HiraMinProN-W3", size: size) : nil)
+            ?? (safeStyle.fontID == "hiramaru" ? UIFont(name: "HiraMaruProN-W4", size: size) : nil)
+            ?? UIFont.systemFont(ofSize: size, weight: safeStyle.weightID == "bold" ? .bold : .regular)
+        let bounds = NSAttributedString(string: "あAg💅", attributes: [.font: font]).boundingRect(with: CGSize(width: 1000, height: 1000), options: [.usesLineFragmentOrigin, .usesFontLeading], context: nil)
+        let count = max(1, min(lines, Int(rect.height / max(font.lineHeight, ceil(bounds.height)))))
+        return Text(text).font(PlateFontCatalog.font(style, role: role, size: size))
+            .foregroundStyle(PlateFontCatalog.color(style, role: role, template: draft.template))
+            .lineLimit(count).truncationMode(.tail).multilineTextAlignment(.leading)
+            .frame(width: rect.width, height: rect.height, alignment: .topLeading).clipped()
+            .offset(x: rect.minX, y: rect.minY)
     }
 
     private func itemPhoto(_ product: PlateProduct, size: CGFloat) -> some View {
@@ -1229,7 +1363,8 @@ extension PlateDraft {
                   title: document.title, date: document.dateText, comment: document.comment,
                   products: document.selectedProducts.map { PlateProduct(id: $0.id, name: $0.name, category: $0.category) },
                   unavailableSourceProducts: document.unavailableSourceProducts)
-        itemImagesEnabled = document.rendererVersion == 5
+        itemImagesEnabled = document.rendererVersion >= 5
+        usesNewLayout = document.rendererVersion == 6
         itemImageReferences = document.itemImageReferences ?? [:]
         template = PlateTemplate(rawValue: document.templateID) ?? .elegant
         background = PlateBackground(rawValue: document.backgroundStyle) ?? .signature
@@ -1238,6 +1373,9 @@ extension PlateDraft {
         photoRotationDegrees = document.photoRotationDegrees
         titleTextStyle = document.titleTextStyle
         commentTextStyle = document.commentTextStyle
+        itemNameTextStyle = document.itemNameTextStyle
+        itemNameFontSize = document.itemNameFontSize
+        commentFontSize = document.commentFontSize
         photos = Dictionary(uniqueKeysWithValues: document.photoAdjustments.compactMap { key, value in
             PlateTemplate(rawValue: key).map { ($0, PlatePhotoAdjustment(zoom: value.zoom, x: value.x, y: value.y)) }
         })
@@ -1263,6 +1401,357 @@ extension PlateDraft {
             document.photoRotationDegrees = degrees; document.photoRotationQuarterTurns = nil; document.rendererVersion = 4
         }
         if itemImagesEnabled { document.rendererVersion = 5; document.itemImageReferences = itemImageReferences }
+        if usesNewLayout {
+            document.rendererVersion = 6
+            document.itemImageReferences = itemImageReferences
+            document.itemNameTextStyle = itemNameTextStyle
+            document.itemNameFontSize = itemNameFontSize
+            document.commentFontSize = commentFontSize
+        }
         return document
+    }
+}
+
+// 書き出し用の不変コピー。編集Session・Repositoryへの書き込み経路を持たない。
+@MainActor struct PlateExportSnapshot: Identifiable {
+    let id = UUID()
+    let draft: PlateDraft
+    let image: UIImage?
+    let itemImages: [UUID: UIImage]
+    let sourceDescription: String
+    let warnings: [String]
+
+    init(draft: PlateDraft, image: UIImage?, itemImages: [UUID: UIImage], sourceDescription: String, warnings: [String] = []) {
+        self.draft = draft; self.image = image; self.itemImages = itemImages
+        self.sourceDescription = sourceDescription; self.warnings = warnings
+    }
+    init(loaded: PlateLoadedDocument) throws {
+        try loaded.document.validate()
+        guard loaded.document.textStylesSupported else { throw PlateStorageError.unsupported }
+        let session = PlateEditingSession(loaded: loaded)
+        let value = session.exportSnapshot(source: "最後に保存した完成状態（確定revision）")
+        self.init(draft: value.draft, image: value.image, itemImages: value.itemImages, sourceDescription: value.sourceDescription, warnings: value.warnings)
+    }
+}
+
+extension PlateEditingSession {
+    func exportSnapshot(source: String = "現在の編集中の表示（未保存の変更を含む）") -> PlateExportSnapshot {
+        var warnings: [String] = []
+        if photoState == .damagedSaved || photoState == .missingSource {
+            warnings.append("主写真を読み込めません。写真なしの代替表示になります。")
+        }
+        if !damagedItemHashes.isEmpty {
+            warnings.append("一部のアイテム写真が欠損・破損しています。カテゴリのアイコンで表示します。")
+        }
+        return .init(draft: draft, image: image, itemImages: itemImages, sourceDescription: source, warnings: warnings)
+    }
+}
+
+nonisolated enum PlateExportFormat: String, CaseIterable, Identifiable, Sendable {
+    case jpeg, png
+    var id: Self { self }
+    var title: String { self == .jpeg ? "JPEG" : "PNG" }
+    var type: String { self == .jpeg ? UTType.jpeg.identifier : UTType.png.identifier }
+    var suffix: String { self == .jpeg ? "jpg" : "png" }
+}
+nonisolated enum PlateExportResolution: Int, CaseIterable, Identifiable, Sendable {
+    case standard = 3, high = 4
+    var id: Self { self }
+    var title: String { self == .standard ? "標準：1080 × 1350" : "高解像度：1440 × 1800" }
+}
+nonisolated enum PlateExportError: LocalizedError {
+    case render, encode, permission, restricted, configuration, unsafeTemporary
+    var errorDescription: String? {
+        switch self {
+        case .render: return "完成画像を描画できませんでした。編集内容は変更していません。"
+        case .encode: return "画像ファイルを作成できませんでした。"
+        case .permission: return "写真への追加が許可されていません。必要な場合はiPhoneの設定でNailNoteの写真への追加を許可してください。"
+        case .restricted: return "この端末では写真への追加が制限されています。"
+        case .configuration: return "写真保存の権限説明が設定されていないため、安全のため処理を停止しました。"
+        case .unsafeTemporary: return "共有用の安全な一時領域を確認できませんでした。"
+        }
+    }
+}
+
+@MainActor enum PlateExportRenderer {
+    static func render(_ snapshot: PlateExportSnapshot, resolution: PlateExportResolution) throws -> CGImage {
+        guard snapshot.draft.rotationSupported, snapshot.draft.textStylesSupported else { throw PlateStorageError.unsupported }
+        let renderer = ImageRenderer(content: PlateCanvasView(draft: .constant(snapshot.draft), image: snapshot.image, itemImages: snapshot.itemImages)
+            .frame(width: 360, height: 450).background(Color.white)
+            .environment(\.colorScheme, .light).dynamicTypeSize(.large))
+        renderer.scale = CGFloat(resolution.rawValue)
+        renderer.isOpaque = true
+        guard let image = renderer.cgImage, image.width == 360 * resolution.rawValue, image.height == 450 * resolution.rawValue else { throw PlateExportError.render }
+        return image
+    }
+    nonisolated static func encode(_ image: CGImage, format: PlateExportFormat) throws -> Data {
+        try autoreleasepool {
+            let bytes = NSMutableData()
+            guard let destination = CGImageDestinationCreateWithData(bytes, format.type as CFString, 1, nil) else { throw PlateExportError.encode }
+            let options: [CFString: Any] = format == .jpeg ? [kCGImageDestinationLossyCompressionQuality: 0.95] : [:]
+            CGImageDestinationAddImage(destination, image, options as CFDictionary)
+            guard CGImageDestinationFinalize(destination) else { throw PlateExportError.encode }
+            return bytes as Data
+        }
+    }
+}
+
+// 追加専用PhotoKit。読み取り・既存assetの変更／削除は要求しない。
+@MainActor enum PlatePhotoLibraryWriter {
+    static func validate(_ status: PHAuthorizationStatus) throws {
+        if status == .restricted { throw PlateExportError.restricted }
+        guard status == .authorized else { throw PlateExportError.permission }
+    }
+    static func save(_ data: Data, format: PlateExportFormat) async throws {
+        guard let description = Bundle.main.object(forInfoDictionaryKey: "NSPhotoLibraryAddUsageDescription") as? String, !description.isEmpty else { throw PlateExportError.configuration }
+        var status = PHPhotoLibrary.authorizationStatus(for: .addOnly)
+        if status == .notDetermined { status = await PHPhotoLibrary.requestAuthorization(for: .addOnly) }
+        try validate(status)
+        try await PHPhotoLibrary.shared().performChanges {
+            let options = PHAssetResourceCreationOptions()
+            options.uniformTypeIdentifier = format.type
+            options.originalFilename = "NailNote-Plate." + format.suffix
+            PHAssetCreationRequest.forAsset().addResource(with: .photo, data: data, options: options)
+        }
+    }
+}
+
+// 共有ごとに専用URLを発行。完了が不明なファイルを他の共有から清掃しない。
+@MainActor final class PlateShareFile: Identifiable {
+    let id: UUID
+    let url: URL
+    private let folder: URL
+    init(data: Data, format: PlateExportFormat, temporaryRoot: URL = FileManager.default.temporaryDirectory,
+         write: (Data, URL) throws -> Void = { try $0.write(to: $1, options: .withoutOverwriting) }) throws {
+        id = UUID()
+        let root = temporaryRoot.resolvingSymlinksInPath().standardizedFileURL
+        guard try root.resourceValues(forKeys: [.isDirectoryKey]).isDirectory == true else { throw PlateExportError.unsafeTemporary }
+        folder = root.appendingPathComponent("NailNote-PlateExport-" + id.uuidString, isDirectory: true)
+        try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: false)
+        url = folder.appendingPathComponent("NailNote-Plate." + format.suffix)
+        let values = try folder.resourceValues(forKeys: [.isDirectoryKey, .isSymbolicLinkKey])
+        guard values.isDirectory == true, values.isSymbolicLink != true,
+              folder.resolvingSymlinksInPath().pathComponents == root.pathComponents + [folder.lastPathComponent] else { throw PlateExportError.unsafeTemporary }
+        // 未公開の固有フォルダへ完全に書き終えてから共有する。atomicとの併用は不可。
+        do { try write(data, url) }
+        catch {
+            // 未公開の自分の部分ファイルだけ整理する。共有済み・他セッションには触れない。
+            if folder.resolvingSymlinksInPath() == folder,
+               let value = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]),
+               value.isRegularFile == true, value.isSymbolicLink != true { try? FileManager.default.removeItem(at: url) }
+            if (try? FileManager.default.contentsOfDirectory(atPath: folder.path).isEmpty) == true { try? FileManager.default.removeItem(at: folder) }
+            throw error
+        }
+    }
+    func completed() {
+        // 標準共有のcompletion後だけ、自分が作った通常ファイルを削除する。
+        guard let values = try? url.resourceValues(forKeys: [.isRegularFileKey, .isSymbolicLinkKey]),
+              values.isRegularFile == true, values.isSymbolicLink != true,
+              folder.resolvingSymlinksInPath() == folder else { return }
+        try? FileManager.default.removeItem(at: url)
+        if (try? FileManager.default.contentsOfDirectory(atPath: folder.path).isEmpty) == true { try? FileManager.default.removeItem(at: folder) }
+    }
+}
+
+struct PlateShareController: UIViewControllerRepresentable {
+    let file: PlateShareFile
+    let completion: (Bool, Error?) -> Void
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        let controller = UIActivityViewController(activityItems: [file.url], applicationActivities: nil)
+        controller.excludedActivityTypes = [.saveToCameraRoll]
+        controller.completionWithItemsHandler = { _, completed, _, error in
+            Task { @MainActor in
+                file.completed()
+                completion(completed, error)
+            }
+        }
+        return controller
+    }
+    func updateUIViewController(_ controller: UIActivityViewController, context: Context) {}
+}
+
+@MainActor final class PlateExportOperation: ObservableObject {
+    @Published private(set) var busy = false
+    @Published var share: PlateShareFile?
+    @Published var message: String?
+    private var task: Task<Void, Never>?
+    func start(snapshot: PlateExportSnapshot, format: PlateExportFormat, resolution: PlateExportResolution, photos: Bool) {
+        guard !busy, share == nil else { return }
+        busy = true
+        task = Task { @MainActor in
+            defer { busy = false; task = nil }
+            do {
+                // 進行表示を更新した後にCanvasを一度だけ描画、エンコードは背景で行う。
+                await Task.yield()
+                try Task.checkCancellation()
+                let image = try PlateExportRenderer.render(snapshot, resolution: resolution)
+                let data = try await Task.detached(priority: .userInitiated) { try PlateExportRenderer.encode(image, format: format) }.value
+                try Task.checkCancellation()
+                if photos {
+                    try await PlatePhotoLibraryWriter.save(data, format: format)
+                    message = "写真に保存しました。"
+                } else { share = try PlateShareFile(data: data, format: format) }
+            } catch is CancellationError { }
+            catch { message = "書き出しできませんでした。\n" + error.localizedDescription }
+        }
+    }
+    func cancel() { task?.cancel() }
+}
+
+struct PlateExportSheet: View {
+    let snapshot: PlateExportSnapshot
+    @Environment(\.dismiss) private var dismiss
+    @StateObject private var operation = PlateExportOperation()
+    @State private var format: PlateExportFormat = .jpeg
+    @State private var resolution: PlateExportResolution = .standard
+    @State private var allowMissingImages = false
+    @AppStorage(NailAppearance.key) private var appearanceRaw = ""
+    @AppStorage(GlassTheme.Keys.backgroundPreset) private var backgroundRaw = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
+    private var palette: GlassTheme.DesignCardPalette {
+        let preset = GlassTheme.BackgroundPreset(rawValue: backgroundRaw) ?? .smokySageChampagne
+        return NailAppearance.designPalette(preset.refinedSurfacePalette, choice: NailAppearance.Document.decode(appearanceRaw).resolved(.design))
+    }
+    private var dark: Bool {
+        let preset = GlassTheme.BackgroundPreset(rawValue: backgroundRaw) ?? .smokySageChampagne
+        let choice = NailAppearance.Document.decode(appearanceRaw).resolved(.design)
+        return choice.flatMap { $0.changesColor ? $0.dark : nil } ?? (preset == .noirGold || preset == .noirSilver)
+    }
+    var body: some View {
+        NavigationStack {
+            GlassBackgroundView(refined: true, appearanceArea: .design) {
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) {
+                        Text(snapshot.sourceDescription).font(.headline).accessibilityIdentifier("plate.export.source")
+                        Text("作品データは変更せず、完成画像だけを書き出します。")
+                            .font(.subheadline).fixedSize(horizontal: false, vertical: true)
+                        Picker("形式", selection: $format) {
+                            ForEach(PlateExportFormat.allCases) { Text($0.title).tag($0) }
+                        }.pickerStyle(.segmented).accessibilityIdentifier("plate.export.format")
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("解像度").font(.headline)
+                            ForEach(PlateExportResolution.allCases) { option in
+                                Button { resolution = option } label: {
+                                    HStack(spacing: 10) {
+                                        Image(systemName: resolution == option ? "checkmark.circle.fill" : "circle").frame(width: 22)
+                                        Text(option.title).fixedSize(horizontal: false, vertical: true)
+                                        Spacer(minLength: 0)
+                                    }.frame(maxWidth: .infinity, minHeight: 44, alignment: .leading).contentShape(Rectangle())
+                                }.buttonStyle(.plain)
+                                    .accessibilityAddTraits(resolution == option ? .isSelected : [])
+                                    .accessibilityIdentifier("plate.export.resolution.\(option.rawValue)")
+                            }
+                            Text("画像の精細さは元の写真に依存します。").font(.caption).foregroundStyle(palette.tagText)
+                        }
+                        if !snapshot.warnings.isEmpty {
+                            Text(snapshot.warnings.joined(separator: "\n")).foregroundStyle(.secondary)
+                            Toggle("画像のない代替表示で書き出す", isOn: $allowMissingImages)
+                                .accessibilityIdentifier("plate.export.allowMissing")
+                        }
+                        Button { run(photos: true) } label: {
+                            Label("写真に保存", systemImage: "square.and.arrow.down").frame(maxWidth: .infinity, minHeight: 44)
+                        }.buttonStyle(.plain)
+                            .background(LinearGradient(colors: [palette.glowFillTop, palette.glowFillBottom], startPoint: .topLeading, endPoint: .bottomTrailing), in: RoundedRectangle(cornerRadius: 12))
+                            .overlay(RoundedRectangle(cornerRadius: 12).strokeBorder(palette.tagStroke, lineWidth: 1))
+                            .accessibilityIdentifier("plate.export.photos")
+                        Button { run(photos: false) } label: {
+                            Label("共有", systemImage: "square.and.arrow.up").frame(maxWidth: .infinity, minHeight: 44)
+                        }.buttonStyle(.bordered).accessibilityIdentifier("plate.export.share")
+                        if operation.busy { ProgressView("画像を準備しています…").accessibilityIdentifier("plate.export.progress") }
+                    }.padding(20)
+                }
+            }
+            .navigationTitle("書き出し").navigationBarTitleDisplayMode(.inline)
+            .toolbarColorScheme(dark ? .dark : .light, for: .navigationBar)
+            .toolbar { ToolbarItem(placement: .cancellationAction) {
+                Button("閉じる") { dismiss() }.frame(minHeight: 44).disabled(operation.busy || operation.share != nil)
+                    .accessibilityIdentifier("plate.export.close")
+            } }
+            .disabled(operation.busy || operation.share != nil)
+        }
+        .modifier(NailAppearanceEnvironment(area: .design))
+        .foregroundStyle(palette.titleText)
+        .tint(palette.titleIcon)
+        .environment(\.colorScheme, dark ? .dark : .light)
+        .interactiveDismissDisabled(operation.busy || operation.share != nil)
+        .onDisappear { operation.cancel() }
+        .sheet(item: $operation.share) { file in
+            PlateShareController(file: file) { _, error in
+                operation.share = nil
+                if let error { operation.message = "共有できませんでした。\n" + error.localizedDescription }
+            }
+        }
+        .alert("画像の書き出し", isPresented: Binding(get: { operation.message != nil }, set: { if !$0 { operation.message = nil } })) {
+            Button("OK") { operation.message = nil }
+        } message: { Text(operation.message ?? "") }
+    }
+    private func run(photos: Bool) {
+        guard snapshot.warnings.isEmpty || allowMissingImages else {
+            operation.message = "画像の欠損を確認し、代替表示で書き出す場合は確認スイッチをオンにしてください。"; return
+        }
+        operation.start(snapshot: snapshot, format: format, resolution: resolution, photos: photos)
+    }
+}
+
+// renderer6の配置。画像・名前・コメントの境界を共有し、旧構図には適用しない。
+nonisolated struct PlateLayoutSixGeometry {
+    struct Slot { let photo: CGRect; let name: CGRect }
+    let slots: [Slot]
+    let date: CGRect
+    let comment: CGRect
+    let overflow: CGRect
+    let empty: CGRect
+    init(template: PlateTemplate) {
+        switch template {
+        case .elegant, .sweet:
+            slots = (0..<3).map { index in
+                let x = CGFloat(28 + index * 104)
+                return Slot(photo: CGRect(x: x + 32, y: 326, width: 32, height: 32), name: CGRect(x: x, y: 362, width: 96, height: 36))
+            }
+            date = CGRect(x: 28, y: 15, width: 304, height: 15)
+            comment = CGRect(x: 28, y: 405, width: 304, height: 32)
+            overflow = CGRect(x: 304, y: 338, width: 28, height: 12)
+            empty = CGRect(x: 28, y: 342, width: 304, height: 32)
+        case .noir:
+            slots = (0..<3).map { index in
+                let y = CGFloat(94 + index * 86)
+                return Slot(photo: CGRect(x: 281, y: y, width: 34, height: 34), name: CGRect(x: 254, y: y + 38, width: 88, height: 36))
+            }
+            date = CGRect(x: 254, y: 52, width: 88, height: 28)
+            comment = CGRect(x: 20, y: 376, width: 320, height: 61)
+            overflow = CGRect(x: 254, y: 346, width: 88, height: 12)
+            empty = CGRect(x: 254, y: 150, width: 88, height: 40)
+        case .recipe:
+            slots = (0..<3).map { index in
+                let y = CGFloat(254 + index * 45)
+                return Slot(photo: CGRect(x: 47, y: y + 6, width: 30, height: 30), name: CGRect(x: 85, y: y + 5, width: 246, height: 32))
+            }
+            date = CGRect(x: 22, y: 12, width: 316, height: 15)
+            comment = CGRect(x: 22, y: 405, width: 316, height: 32)
+            overflow = CGRect(x: 22, y: 389, width: 316, height: 12)
+            empty = CGRect(x: 22, y: 287, width: 316, height: 42)
+        }
+    }
+}
+
+// 新構図は完成作品を一枚に合成する。旧版の影の描画経路は保持する。
+private struct PlateLayoutSixComposite: ViewModifier {
+    let enabled: Bool
+    @ViewBuilder func body(content: Content) -> some View {
+        if enabled { content.compositingGroup() } else { content }
+    }
+}
+
+struct PlateLayoutUpdateButton: View {
+    @Binding var draft: PlateDraft
+    @State private var confirming = false
+    var body: some View {
+        Button("新レイアウトに更新") { confirming = true }
+            .frame(minHeight: 44).accessibilityIdentifier("plate.layout.upgrade")
+            .alert("新レイアウトへ更新しますか？", isPresented: $confirming) {
+                Button("更新してプレビュー") { draft.usesNewLayout = true; draft.itemImagesEnabled = true }
+                Button("キャンセル", role: .cancel) {}
+            } message: {
+                Text("作品内のタイトルを非表示にし、写真とアイテム欄を広げます。写真未対応の旧作品では現在のアイテム写真も追加します。旧タイトルと文字設定は保持し、作品を保存するまで旧版は変わりません。")
+            }
     }
 }

@@ -73,6 +73,11 @@ nonisolated struct PlateTextStyle: Codable, Equatable, Sendable {
         return hex.dropFirst().allSatisfy { "0123456789abcdefABCDEF".contains($0) }
     }
     var isLegacy: Bool { supported && fontID == "standard" && weightID == "auto" && hexRGB == nil }
+    static func validSize(_ value: PlateStyleValue?, range: ClosedRange<Double>) -> Bool {
+        guard let value else { return true }
+        guard case .number(let size) = value else { return false }
+        return size.isFinite && range.contains(size)
+    }
 }
 
 // 保存DTOはSwiftUI・CoreData・端末の絶対パスに依存しない。
@@ -92,6 +97,26 @@ nonisolated struct PlateSavedProduct: Codable, Equatable, Sendable {
 nonisolated struct PlateFileReference: Codable, Equatable, Sendable {
     var path: String
     var sha256: String
+}
+
+// 新しいサイズ値は、明示nullも未知値として保持する。キー欠落だけを既定値にする。
+@propertyWrapper
+nonisolated struct PlatePreservedSize: Codable, Equatable, Sendable {
+    var wrappedValue: PlateStyleValue?
+    init(wrappedValue: PlateStyleValue?) { self.wrappedValue = wrappedValue }
+    init(from decoder: Decoder) throws { wrappedValue = try PlateStyleValue(from: decoder) }
+    func encode(to encoder: Encoder) throws { try (wrappedValue ?? .null).encode(to: encoder) }
+}
+extension KeyedDecodingContainer {
+    func decode(_ type: PlatePreservedSize.Type, forKey key: Key) throws -> PlatePreservedSize {
+        guard contains(key) else { return PlatePreservedSize(wrappedValue: nil) }
+        return try PlatePreservedSize(from: superDecoder(forKey: key))
+    }
+}
+extension KeyedEncodingContainer {
+    mutating func encode(_ value: PlatePreservedSize, forKey key: Key) throws {
+        if let raw = value.wrappedValue { try encode(raw, forKey: key) }
+    }
 }
 
 nonisolated struct PlateDocument: Codable, Equatable, Sendable {
@@ -120,18 +145,25 @@ nonisolated struct PlateDocument: Codable, Equatable, Sendable {
     var titleTextStyle: PlateTextStyle? = nil
     var commentTextStyle: PlateTextStyle? = nil
     var itemImageReferences: [String: PlateFileReference]? = nil
-    var textStylesSupported: Bool { (titleTextStyle?.supported ?? true) && (commentTextStyle?.supported ?? true) }
+    var itemNameTextStyle: PlateTextStyle? = nil
+    @PlatePreservedSize var itemNameFontSize: PlateStyleValue? = nil
+    @PlatePreservedSize var commentFontSize: PlateStyleValue? = nil
+    var textStylesSupported: Bool {
+        (titleTextStyle?.supported ?? true) && (commentTextStyle?.supported ?? true) && (itemNameTextStyle?.supported ?? true)
+        && PlateTextStyle.validSize(itemNameFontSize, range: 7...14) && PlateTextStyle.validSize(commentFontSize, range: 8...16)
+    }
 
     func validate() throws {
-        guard schemaVersion == 1, [1, 2, 3, 4, 5].contains(rendererVersion) else { throw PlateStorageError.unsupported }
+        guard schemaVersion == 1, [1, 2, 3, 4, 5, 6].contains(rendererVersion) else { throw PlateStorageError.unsupported }
+        guard rendererVersion == 6 || (itemNameTextStyle == nil && itemNameFontSize == nil && commentFontSize == nil) else { throw PlateStorageError.unsupported }
         guard rendererVersion >= 2 || ((titleTextStyle?.isLegacy ?? true) && (commentTextStyle?.isLegacy ?? true)) else { throw PlateStorageError.unsupported }
-        if rendererVersion == 4 || (rendererVersion == 5 && photoRotationDegrees != nil) {
+        if rendererVersion == 4 || (rendererVersion >= 5 && photoRotationDegrees != nil) {
             guard let degrees = photoRotationDegrees, degrees.isFinite, (-180...180).contains(degrees),
                   photoRotationQuarterTurns == nil else { throw PlateStorageError.unsupported }
         } else {
             guard photoRotationDegrees == nil else { throw PlateStorageError.unsupported }
             if let turns = photoRotationQuarterTurns {
-                guard (0...3).contains(turns), turns == 0 || rendererVersion == 3 || rendererVersion == 5 else { throw PlateStorageError.unsupported }
+                guard (0...3).contains(turns), turns == 0 || rendererVersion == 3 || rendererVersion >= 5 else { throw PlateStorageError.unsupported }
             }
         }
         guard canvasAspectRatio == "4:5", ["elegant", "noir", "sweet", "recipe"].contains(templateID),
@@ -151,7 +183,7 @@ nonisolated struct PlateDocument: Codable, Equatable, Sendable {
             guard parts.count == 2, parts[0] == "assets", reference.path.hasSuffix(".jpg"),
                   UUID(uuidString: String(parts[1].dropLast(4))) != nil else { throw PlateStorageError.invalid }
         }
-        if rendererVersion == 5 {
+        if rendererVersion >= 5 {
             guard let references = itemImageReferences, references.count <= 500,
                   Set(references.keys).isSubset(of: Set(selectedProducts.map { $0.id.uuidString })) else { throw PlateStorageError.invalid }
             for reference in references.values {

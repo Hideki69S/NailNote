@@ -3,17 +3,19 @@
 <!-- latest-status:start -->
 ## 最新状況サマリー
 
-- 最終更新：2026-11-04 18:08 JST。識別子 `PlateCompletionGitCheckpoint-20261104`。第3次・第4次改善と作品内アイテム写真の完成状態をGitHubへ保存する作業。過去履歴保持。
-- ユーザー実機確認済み：iPhone17eで新規プレート、4テンプレート、既存プレートへの写真追加、写真fallback、保存・再編集、掲載順変更、複製、4タブ。今回Codexによる実機操作・インストールなし。
-- 完成内容：アプリ内デザインから写真差し替え、任意角度回転、右側アイテム編集、広告／メニュー／表示用語統一、軽量JPEG共有snapshot。schema1／renderer5、旧1〜4の表示と保存互換性を維持。詳細は各実装履歴参照。
-- 今回の確認：全14ファイルの変更を確認。承認済み11Swift＋連携2文書を保存対象とする。project.pbxprojの既存IDE設定（LastUpgradeCheckとSTRING_CATALOG_GENERATE_SYMBOLS）は対象外でローカル保持。生成物・実機データ・秘密情報・不要な診断引数の混入なし。
-- ビルド：今回の固定Debug（Simulator）／署名なしRelease（iOS）とも成功。アプリコード追加変更なし。以前の分離テスト結果を維持し、今回UIテストの再実行はしていない。
-- Git：開始main a2b203ac3a200718f9a8dfa23356e8e736b83622、GitHub mainも同一。推奨メッセージで1回のcommit・通常pushを実施予定。確定ID／push結果は完了後追記し、その2文書は未コミットとして残す。追加commit／pushはしない。
-- 容量：df -k /System/Volumes/Data、18:03:47→18:07:37ともAvailable304400000KiB＝311.7056GB、表示上増減0。固定キャッシュ再利用、削除なし。
-- Google Drive：今回の保存結果記録後に既存単発同期を実行し、ローカル一致・クラウド本文を別々に確認する。直前の17:00同期は確認済み。
-- 次：今回のGitHub保存完了後停止。GC・破損画像修復UI・関連付きItem削除導線は別件。VoiceOver、実機メモリピーク／FPS、全書体×構図網羅は未検証。Phase4・追加機能には進まない。
+- 最終更新：2026-11-05 00:03 JST。識別子 `PlateLayoutSix-20261105`。タイトル非表示・4構図の再配分・アイテム名／コメント文字設定を実装、分離検証完了、実機確認待ち。
+- 新規はschema1／renderer6。旧renderer1〜5は開くだけでは変更せず、旧構図を保持。アイテム欄の「新レイアウトに更新」→標準2択アラート→プレビュー→保存成功時だけ新6を確定。タイトル・旧タイトルstyleは管理／互換用に保持し、新6では描画しない。
+- 画像：Elegant／Sweet 25→32pt、Noir 27→34pt、Recipe 24→30pt。各写真と名前の枠を分離し、長い名前は枠内1〜2行・末尾省略。先頭3件と超過数、全選択データを保持。主写真領域も各構図で拡大。
+- 文字：UIはアイテム名／コメント。12書体・実ウェイト・13色＋自由色を再利用し、独立サイズを追加（名前7〜14pt、コメント8〜16pt、0.5pt刻み／自動）。名前そのものは変更しない。旧タイトル設定を転用しない。
+- 保存：itemNameTextStyle／itemNameFontSize／commentFontSizeを追加。未知の書体・サイズ・明示nullも保持し、表示fallbackと上書き停止。保存確定処理・写真store・CoreDataは不変。旧5アプリは新6を拒否して誤上書きを防ぐ。
+- 検証：最終Debug／署名なしRelease成功、diff --check成功。新6は276チェック・240描画、旧1〜5×4構図20画像RGBA完全一致。既存画像104（従来102＋2保護確認）、文字169、旧書き出し408成功。UIは最新成功4ケース（初回成功3件＋旧作品確認の修正後再検証1件）。新6のJPEG／PNG写真追加もSimulator成功、読取権限未要求。
+- 表示比較：320／390／430pt・AX3・5テーマなど16画像と、同条件の旧5／新6の4構図比較。実機・VoiceOver・最大文字サイズでの全実操作・全設定組合せは未検証。
+- Git：main 3ff37dc70625586fc827756aa38269c0d95c0d69維持。今回製品変更は3Plate Swiftのみ。前段の書き出し未コミット変更・IDE設定・文書履歴を保持。合計未コミット6ファイル、commit／push／reset／cleanなし。
+- 容量：df Data空き306.7904GB（11/4 23:03:42）→304.3328GB（23:59:08）、2.4576GB減。今回資料約0.906GBが確認済みの主要生成物。残差はAPFS共有空きや共通領域の開始値なしで比較不能、全量を今回生成と断定しない。固定キャッシュ／過去資料を保持、無断清掃なし。
+- Google Drive：2026-11-05 00:05 JST、既存単発同期は更新2件・終了0。ローカル一致とクラウド両本文のrenderer6／276チェック記録を取得確認済み。本最終記録も再同期する。ChatGPT側でチェック可能。
+- 次：iPhone17eで4構図・長い名前・文字設定・旧作品の更新取消／破棄／保存・JPEG／PNGを確認。未承認の追加機能／全体品質改善へ自動移行せず停止。
 
-詳細：末尾「完成状態のGitHub保存・事前確認」。今回資料 `/private/tmp/NailNoteValidation/PlateGitCheckpoint/`。
+詳細：末尾「プレートrenderer6／レイアウト・文字設定再構成完了」。資料 `/private/tmp/NailNoteValidation/PlateLayoutSix/`。
 <!-- latest-status:end -->
 
 
@@ -3236,3 +3238,93 @@ main／HEAD 9a732c2。開始時の未コミット9ファイルを保持し、新
 - 作業開始18:03:47とビルド後18:07:37のdf Data Availableはいずれも304400000KiB＝311.7056GB（10進）。固定Debug712720KiB≒0.730GB、Release234712KiB≒0.240GBを次回利用のため保持。今回監査ログ等200KiB時点、既存検証資料はそのまま。親子やAPFS共有ブロックを物理容量として加算しない。削除なし。
 - commit予定メッセージ：Complete Plate UI improvements and shared item photo snapshots。確定IDとpush結果は後続記録へ追記。ユーザー指示に従い結果追記2文書はローカル未コミットで残し、追加commit／pushしない。
 - 保存形式・画像処理・既存データへの新規変更なし。実機操作なし。恒久GC、画像の明示修復UI、関連付きItem削除導線、VoiceOver、実機メモリ／FPS等は既存の残課題として区別。Phase4や新しいUI変更には着手しない。
+
+
+## 2026-11-04 18:10 JST 第3次・第4次改善／共有アイテム写真 GitHub保存完了
+
+識別子 `PlateCompletionPush-20261104-3ff37dc`。実機確認を完了した完成状態の保存作業は完了。
+
+- コミット：`3ff37dc70625586fc827756aa38269c0d95c0d69`、メッセージ `Complete Plate UI improvements and shared item photo snapshots`。承認済み11Swift＋連携2文書、計13ファイルを保存。対象一覧は直前「事前確認」節および `/private/tmp/NailNoteValidation/PlateGitCheckpoint/staged-files.txt`。
+- 既存SSHでorigin/mainへ通常push成功（a2b203a..3ff37dc、main→main）。git ls-remoteでGitHub refs/heads/mainが上記完全IDと一致。ローカルHEADとorigin/mainも同一、ahead/behind 0/0。
+- ユーザーのiPhone17e実機確認：新規プレート、4テンプレート、旧作品への写真追加、写真fallback、保存・再編集、順番変更、複製、4タブが成功。今回はCodexの実機操作・インストールなし。全端末・全テーマ網羅と解釈しない。
+- 今回Debug／署名なしReleaseとも成功。固定キャッシュ再利用、cleanなし。ステージ後のdiff --check成功、ソースはレビュー時hashと一致。ステージ内容は13ファイルだけ、project.pbxprojは含まない。秘密情報・生成物・診断専用引数の混入なし。
+- push直後は除外IDE設定のproject.pbxprojだけが未コミット。この結果追記により最終状態はproject.pbxproj、PROJECT_STATUS.md、docs/CHATGPT_HANDOFF.mdの3ファイルが未コミット。IDE設定は作業開始hashと同一、破棄・上書きなし。新しいソース変更・追加commit／pushは行わない。
+- Mac空き容量：2026-11-04 18:03:47開始→18:09:14保存後、df -k /System/Volumes/Data、/dev/disk3s5、Available304400000KiB＝311.7056GBで表示上増減0。最終終了値も確認する。今回は小さな監査／ビルドログだけをPlateGitCheckpointへ保持、以前からの比較資料・固定Debug約0.730GB／Release約0.240GBも証拠・再利用用に保持。APFS共有や割当量を回収可能量と混同しない。削除なし。
+- 連携2文書を既存単発sync.zshで更新し、元文書とローカルDriveコピーの一致、クラウド本文の本識別子を確認する。同期結果は次の確認記録と完了報告へ。2文書以外は同期しない。
+- 残課題：共有画像GC、破損画像の明示修復UI、関連付きItem削除導線は別件。実機メモリピーク／FPS、VoiceOver、全書体×構図等は未検証。既存の写真・CoreData・設定・保存形式に今回の保存作業による変更なし。AI休止維持。追加デザイン変更・Phase4には進まず停止。
+
+
+### 2026-11-04 18:10 JST GitHub保存・ChatGPT連携最終確認
+
+識別子 `PlateCompletionSyncFinal-20261104-3ff37dc`。
+
+- sync.zsh終了0、更新2件。元文書とローカルDriveコピーは一致。接続済みDriveで両クラウド本文のPlateCompletionPush-20261104-3ff37dcと完全commit IDを取得確認した。この確認記録も同じ方式で再同期する。検証画像・実機データ・他ファイルは同期しない。
+- 終了18:10:24のdf Data Available304400000KiB＝311.7056GB、開始18:03:47と表示上変化なし。今回PlateGitCheckpointのdu384KiB（約0.393MB）は監査／ビルドログとして保持。削除なし。
+- 最終未コミットは除外IDE設定project.pbxprojと、push後結果を記した本2文書の3ファイル。IDE設定は開始hashのまま、ステージ差分なし。mainとGitHub mainは3ff37dc70625586fc827756aa38269c0d95c0d69で一致確認済み。追加commit／pushせず停止する。
+
+
+## 2026-11-04 18:58 JST プレート画像保存・共有／実装・分離検証完了
+
+識別子 `PlateImageExport-20261104`。詳細設計・サイズ時間表・初期失敗記録・実機確認手順はdocs/CHATGPT_HANDOFF.mdの同節へ集約する。過去履歴は保持。
+
+- 完了：JPEG品質0.95／PNG、標準1080×1350／高1440×1800、写真アプリへの追加専用PhotoKit保存、標準共有シート。既存Canvasを高解像度再描画し、編集枠・広告・サイドバー・タブを混ぜない。
+- 入口：編集画面右上は「現在の編集中の表示（未保存変更を含む）」、一覧作品メニューは「最後に保存した完成状態（確定revision）」。書き出しは読取専用、暗黙保存なし。欠損画像は警告・明示確認を経てfallback出力。
+- 変更：PlateEditorView.swiftへsnapshot／renderer／PhotoKit／共有file所有権／sheetを追加、PlateHomeView.swiftへ確定revisionの書き出し導線。project.pbxprojはXcode GUIによるDebug／Release追加専用権限説明2行のみを追加。既存IDE設定3変更は保持。連携2文書を更新。
+- 不変：PlateRepositoryの開始hash、schema1／renderer1〜5、保存形式、旧構図、CoreData、元写真・軽量snapshot、タブ制御、AI休止。全head・revision・assetとDraftの書き出し前後不変を分離確認。実機データ未操作。
+- ビルド：最終Debug Simulator／署名なしRelease成功、git diff --check成功。固定先再利用、cleanなし。
+- 自動テスト：出力408、既存snapshot102、文字169チェック成功。最終UI5/5成功。形式・寸法・PNG画素一致・JPEG誤差、4構図・旧版・crop・回転・12書体・空／多数・欠損／権限判定・連打／キャンセル／容量不足注入・ファイル不変を検証。PhotoKitのJPEG／PNG実追加成功callback、addOnly許可・readWrite未要求を確認。UIは共有キャンセル・Draft保持・権限拒否・確定revision・写真回帰と4タブ。
+- 比較：320／390／430pt相当・AX3・5テーマの11画像。描画のない大きな解像度Pickerを44pt選択行へ置換し、濃色コントラストも整えた。通常幅の実操作はUIテスト、幅変更／AX3は表示比較。実機やVoiceOverの成功とは扱わない。
+- 出力実測：JPEG標準約0.237〜0.272MB／高約0.355〜0.410MB、PNG標準約1.411〜1.574MB／高約2.312〜2.583MB。Simulator平均描画約1.5〜1.8ms、背景encode JPEG約3.3〜4.8ms／PNG約48.8〜84.8ms。ハーネスRSS観測最大約454.75MB、単独追加量・連続ピーク・実機値ではない。
+- Git：main 3ff37dc維持、未コミットは2Plate Swift・pbxproj・連携2文書の5ファイル。開始時の変更を保持、commit／push／reset／cleanなし。
+- 容量：18:26:18→18:58:29、df Data Available304000000→302400000KiB＝311.2960→309.6576GB、1.6384GB減。今回検証は結果束・取り出し画像・独立アプリ等で最終約1.423GB。固定Debug約0.770GB／Release約0.244GBは再利用用に保持。APFS共有・親子を二重計上せず無断清掃なし。
+- 共有一時ファイル：正常completion時に所有ファイルのみ整理。中断した初回テストの完了不明な1592842Bは保護して残し、share-temp-audit.jsonへ記録。自動一括清掃なし。
+- 次：iPhone17eで形式・解像度・写真保存許可／拒否・共有／キャンセル・旧作品／未保存状態を確認。実機へ未インストール・未操作。実送信、実機メモリ／FPS、VoiceOver、巨大写真／全設定の組合せ網羅は未検証。今回以外の機能・品質改善へ自動で進まず実機確認待ちで停止。
+- 資料：/private/tmp/NailNoteValidation/PlateExport/。既存と今回の証拠を保持、画像はダミーItemと既存許諾サンプルのみ。2文書だけ既存単発Drive同期、クラウド反映も確認する。
+
+
+### 2026-11-04 18:59 JST 画像書き出し・ChatGPT連携最終確認
+
+識別子 `PlateImageExportSyncFinal-20261104`。
+
+- sync.zsh終了0・更新2文書。ローカルDriveコピー一致とクラウド両本文のPlateImageExport-20261104／408チェック記録を取得確認。詳細はHandoffへ集約、PROJECT_STATUSは要点と参照先を記載。本最終確認も同じ単発方式で再同期し、両クラウド本文の本識別子まで確認する。画像・アプリ・検証資料は送らない。
+- 終了18:58:29もdf Data Available302400000KiB＝309.6576GB、開始より1.6384GB減。結果束の確定後、今回資料のduは1389628KiB≒1.423GB。失敗・成功証拠、重複の比較画像、検証アプリを保持。固定キャッシュと以前の資料も保持。無断削除なし。
+- 最終ソースでDebug／署名なしRelease成功、出力408・既存102・文字169・UI5/5成功。Repositoryと既存IDE差分の原状保持を確認。未コミット5ファイル、ステージ差分なし。commit・pushなし。実機未検証のまま次フェーズへ進まず停止。
+
+
+## 2026-11-05 00:03 JST プレートrenderer6／レイアウト・文字設定再構成完了
+
+識別子 `PlateLayoutSix-20261105`。2026-11-04開始、11-05報告。今回の指示書に基づき実装・分離検証を完了し、実機確認待ち。
+
+- 変更ファイル：NailNote/Features/Plates/PlateEditorView.swift、PlateHomeView.swift、PlateRepository.swift、PROJECT_STATUS.md、docs/CHATGPT_HANDOFF.md。プロジェクト設定・フォント／写真ストア・CoreData・Root／4タブ・AI休止処理は今回変更なし。前段のJPEG／PNG保存共有の未コミット実装を保持。
+- 新6は作品内タイトルを描画せず、タイトル・titleTextStyleは保存・一覧識別・旧版描画用に残す。Diaryタイトルやアイテム名の実データは変更しない。
+- schema1を維持してrenderer6を追加。旧1〜5の自動移行・自動保存なし。明示更新＋保存時だけ新構図に変更。保存失敗なら旧head／revision／assetとDraft保持。3新フィールドは省略時に安全な既定値、未知値は保持して保存を停止。
+- アイテム名／コメントの12書体・実ウェイト・色と独立サイズを編集。コメント入力モーダルの反映／キャンセルを維持。写真やItemデータは変更しない。旧タイトル用設定を新アイテム名へコピーしない。
+- ビルド：build-Debug-complete.log／build-Release-complete.logの最終成功、git diff --check成功。新6の276チェック、旧構図20完全一致、画像104、文字169、旧書き出し408、UI最新4ケース成功。新6のPhotoKit JPEG／PNG追加成功、addOnly許可・readWrite未要求。実機未検証。
+- Git：main 3ff37dc保持。今回3Swift＋2文書を変更し、前段からのproject.pbxproj差分は開始hashと一致。最終未コミットは6ファイル。commit／push／reset／cleanなし。
+- 容量：df -k /System/Volumes/Data、11/4 23:03:42 Available299600000KiB＝306.7904GB→23:59:08 297200000KiB＝304.3328GB、2.4576GB減。専用資料du884364KiB≒0.906GB、固定Debug764652KiB≒0.783GB／Release238312KiB≒0.244GBを保持。共有ブロック・親子を重複計上せず、duを削除回復保証値としない。無断清掃なし。
+- 2GB閾値を超えたため専用生成物・分離アプリ領域・APFSを読み取り調査。今回資料が確認できた主要要因。分離アプリdata約0.133GB・固定キャッシュは開始時duなしで増加比較不能。APFSコンテナdisk3の現在空き304867962880Bを別方式として記録し、開始値がないため差分推定しない。DataのUsed増加1.2288GBとAvailable減少2.4576GBは一致せず、APFS共有空き／同時システム変動を含む残差の帰属は未確定。NailNoteだけが全減少の原因とは報告しない。
+- 資料はPlateLayoutSix/、比較入口Comparisons.md。詳細設計・テストの初期失敗と修正・未検証はHandoff同節へ。必要な比較画像・失敗／成功証拠・分離アプリ・ログを保持し、今回2文書以外はDriveへ同期しない。
+- 実機では4構図、0／1／3／多数・長名、名前／コメントの独立設定、旧作品更新の取消・破棄・保存、再編集／複製・書き出しを確認。実機操作・インストールなし。実機確認待ちで停止する。
+
+詳細な構図表・保存項目・途中検証・実機確認手順はdocs/CHATGPT_HANDOFF.mdの同節を参照。
+
+
+### 2026-11-05 00:05 JST レイアウト6・ChatGPT連携最終確認
+
+識別子 `PlateLayoutSixSyncFinal-20261105`。
+
+- 既存sync.zsh終了0・2文書更新、ローカルDriveコピー一致。クラウド両本文からPlateLayoutSix-20261105と276チェック記録を取得確認。本最終記録も同方式で再同期し、本識別子まで確認する。アプリ・写真・比較資料は送らない。
+- 終了00:04:17のdf DataもAvailable297200000KiB＝304.3328GB。開始から2.4576GB減、今回専用資料du884388KiB≒0.906GB。確認できた主要要因と、開始値なしで比較不能な残差を区別し、APFS共有容量を二重計上しない。無断清掃なし。
+- 新6 276／旧20画像完全一致、画像104、文字169、旧書き出し408、UI最新成功4ケース、PhotoKit両形式追加の確認済み結果を維持。16表示画像も存在・元データ不変を確認。実機・VoiceOver・全組合せの網羅は未検証。
+- 最終未コミットは3Plate Swift・既存project.pbxproj・連携2文書の6ファイル。ステージ／commit／pushなし。実機確認待ちで停止し、追加Phaseや全体品質改善には進まない。
+
+
+## 2026-11-05 00:38 JST GitHub保存準備：プレート書き出し・renderer6
+
+識別子 `PlateLayoutGitCheckpoint-20261105`。ユーザーの「pushまでしておいて」に基づき、承認済みの画像書き出し・新レイアウト・文字設定と関連文書をmainへ通常commit／pushする。
+
+- 保存対象：PlateEditorView.swift、PlateHomeView.swift、PlateRepository.swift、写真追加専用のInfo.plist説明キー（Debug／Release）、連携2文書。作業開始HEADは3ff37dc70625586fc827756aa38269c0d95c0d69、fetch後origin/mainと一致。未追跡ファイルなし。
+- 既存のLastUpgradeCheckとSTRING_CATALOG_GENERATE_SYMBOLSのIDE設定変更はコミット対象外としてローカル保持。project.pbxprojの作業ファイルは編集せず、写真権限の2行だけ部分ステージ。
+- 再検証：固定キャッシュでDebug Simulator／署名なしRelease iOSともBUILD SUCCEEDED。git diff --check成功。診断用起動引数・認証情報・実機データ・比較画像・ビルド成果物を含めない。直前の分離テスト結果は前節参照、今回はアプリコードを追加変更せず実機操作も行わない。実機確認待ちは継続。
+- 開始df Data空き297200000KiB＝304.3328GB。資料・ログは/private/tmp/NailNoteValidation/PlateLayoutGitCheckpoint/に保持。削除・cleanなし。
+- この時点ではcommit／push結果は未確定。成功後にSHA・リモート一致・残存差分を追記し、2文書を既存方式でDrive同期する。結果追記は追加commitせず残す。
