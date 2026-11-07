@@ -263,7 +263,9 @@ struct PlateDraft: Equatable {
     var background: PlateBackground = .signature
     var frame: PlateFrame = .signature
     var itemImagesEnabled = true
-    var usesNewLayout = true
+    // 既存6を再保存しても7へ上げず、明示更新時だけ描画版を変更する。
+    var layoutVersion = 7
+    var usesNewLayout: Bool { layoutVersion >= 6 }
     var itemImageReferences: [String: PlateFileReference] = [:]
     var photoRotationQuarterTurns = 0
     var photoRotationDegrees: Double? = nil
@@ -920,14 +922,22 @@ struct PlateCanvasView: View {
 
     private var layoutSixComposition: some View {
         let layout = PlateLayoutSixGeometry(template: draft.template)
+        let footer = PlateLayoutSevenFooter(template: draft.template)
         return ZStack(alignment: .topLeading) {
             if draft.template == .noir {
                 Text("NOIR").font(.system(size: 12, weight: .light, design: .serif)).tracking(1.6)
                     .foregroundStyle(draft.template.metal).frame(width: 88).offset(x: 254, y: 27)
             }
-            caption(draft.date, size: draft.template == .noir ? 8 : 9)
-                .frame(width: layout.date.width, height: layout.date.height, alignment: .top)
-                .clipped().offset(x: layout.date.minX, y: layout.date.minY)
+            if draft.layoutVersion == 7 {
+                Text(draft.date).font(.system(size: 9)).foregroundStyle(draft.template.ink.opacity(0.85))
+                    .lineLimit(1).truncationMode(.tail)
+                    .frame(width: footer.date.width, height: footer.date.height, alignment: .trailing)
+                    .clipped().offset(x: footer.date.minX, y: footer.date.minY)
+            } else {
+                caption(draft.date, size: draft.template == .noir ? 8 : 9)
+                    .frame(width: layout.date.width, height: layout.date.height, alignment: .top)
+                    .clipped().offset(x: layout.date.minX, y: layout.date.minY)
+            }
             if draft.template == .sweet {
                 PlateRibbon().fill(draft.template.metal.opacity(0.8)).frame(width: 60, height: 30).offset(x: 150, y: 23)
                 Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(draft.template.metal).offset(x: 19, y: 145)
@@ -957,7 +967,7 @@ struct PlateCanvasView: View {
             }
             layoutSixText(draft.comment, style: draft.commentTextStyle, value: draft.commentFontSize,
                           defaultSize: draft.template == .elegant || draft.template == .sweet ? 12 : 11,
-                          role: .comment, rect: layout.comment, lines: 3)
+                          role: .comment, rect: draft.layoutVersion == 7 ? footer.comment : layout.comment, lines: 3)
         }.frame(width: 360, height: 450, alignment: .topLeading).allowsHitTesting(false)
     }
 
@@ -985,7 +995,12 @@ struct PlateCanvasView: View {
     private func itemPhoto(_ product: PlateProduct, size: CGFloat) -> some View {
         ZStack {
             draft.template.paper
-            if let image = itemImages[product.id] { Image(uiImage: image).resizable().scaledToFit() }
+            if let image = itemImages[product.id] {
+                if draft.layoutVersion == 7 {
+                    Image(uiImage: image).resizable().scaledToFill()
+                        .frame(width: size, height: size, alignment: .center)
+                } else { Image(uiImage: image).resizable().scaledToFit() }
+            }
             else { Image(systemName: PlateItemPresentation.symbol(for: product.category)).font(.system(size: size * 0.48)).foregroundStyle(draft.template.metal) }
         }.frame(width: size, height: size).clipShape(RoundedRectangle(cornerRadius: 4))
             .overlay(RoundedRectangle(cornerRadius: 4).stroke(draft.template.metal.opacity(0.4), lineWidth: 0.5))
@@ -1364,7 +1379,7 @@ extension PlateDraft {
                   products: document.selectedProducts.map { PlateProduct(id: $0.id, name: $0.name, category: $0.category) },
                   unavailableSourceProducts: document.unavailableSourceProducts)
         itemImagesEnabled = document.rendererVersion >= 5
-        usesNewLayout = document.rendererVersion == 6
+        layoutVersion = document.rendererVersion >= 6 ? document.rendererVersion : 0
         itemImageReferences = document.itemImageReferences ?? [:]
         template = PlateTemplate(rawValue: document.templateID) ?? .elegant
         background = PlateBackground(rawValue: document.backgroundStyle) ?? .signature
@@ -1402,7 +1417,7 @@ extension PlateDraft {
         }
         if itemImagesEnabled { document.rendererVersion = 5; document.itemImageReferences = itemImageReferences }
         if usesNewLayout {
-            document.rendererVersion = 6
+            document.rendererVersion = layoutVersion
             document.itemImageReferences = itemImageReferences
             document.itemNameTextStyle = itemNameTextStyle
             document.itemNameFontSize = itemNameFontSize
@@ -1733,6 +1748,25 @@ nonisolated struct PlateLayoutSixGeometry {
     }
 }
 
+// 7だけの日付とコメント。画像・名前の矩形は6から変更しない。
+nonisolated struct PlateLayoutSevenFooter {
+    let date: CGRect
+    let comment: CGRect
+    init(template: PlateTemplate) {
+        switch template {
+        case .elegant, .sweet:
+            comment = CGRect(x: 28, y: 405, width: 208, height: 32)
+            date = CGRect(x: 244, y: 421, width: 88, height: 16)
+        case .noir:
+            comment = CGRect(x: 20, y: 376, width: 226, height: 61)
+            date = CGRect(x: 254, y: 421, width: 88, height: 16)
+        case .recipe:
+            comment = CGRect(x: 22, y: 405, width: 218, height: 32)
+            date = CGRect(x: 248, y: 421, width: 88, height: 16)
+        }
+    }
+}
+
 // 新構図は完成作品を一枚に合成する。旧版の影の描画経路は保持する。
 private struct PlateLayoutSixComposite: ViewModifier {
     let enabled: Bool
@@ -1748,10 +1782,10 @@ struct PlateLayoutUpdateButton: View {
         Button("新レイアウトに更新") { confirming = true }
             .frame(minHeight: 44).accessibilityIdentifier("plate.layout.upgrade")
             .alert("新レイアウトへ更新しますか？", isPresented: $confirming) {
-                Button("更新してプレビュー") { draft.usesNewLayout = true; draft.itemImagesEnabled = true }
+                Button("renderer7でプレビュー") { draft.layoutVersion = 7; draft.itemImagesEnabled = true }
                 Button("キャンセル", role: .cancel) {}
             } message: {
-                Text("作品内のタイトルを非表示にし、写真とアイテム欄を広げます。写真未対応の旧作品では現在のアイテム写真も追加します。旧タイトルと文字設定は保持し、作品を保存するまで旧版は変わりません。")
+                Text("renderer7へ更新します。アイテム画像を中央でトリミングし、日付を右下に移します。画像の上下や左右が一部切れる場合があります。コメント幅も狭くなります。旧構図ではタイトルを非表示にし、写真・アイテム欄を広げます。写真未対応の旧作品では現在のアイテム写真も追加します。元の文字と写真は保持し、保存するまで旧版は変わりません。")
             }
     }
 }

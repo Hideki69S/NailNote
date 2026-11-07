@@ -3,19 +3,16 @@
 <!-- latest-status:start -->
 ## 最新状況サマリー
 
-- 最終更新：2026-11-05 00:03 JST。識別子 `PlateLayoutSix-20261105`。タイトル非表示・4構図の再配分・アイテム名／コメント文字設定を実装、分離検証完了、実機確認待ち。
-- 新規はschema1／renderer6。旧renderer1〜5は開くだけでは変更せず、旧構図を保持。アイテム欄の「新レイアウトに更新」→標準2択アラート→プレビュー→保存成功時だけ新6を確定。タイトル・旧タイトルstyleは管理／互換用に保持し、新6では描画しない。
-- 画像：Elegant／Sweet 25→32pt、Noir 27→34pt、Recipe 24→30pt。各写真と名前の枠を分離し、長い名前は枠内1〜2行・末尾省略。先頭3件と超過数、全選択データを保持。主写真領域も各構図で拡大。
-- 文字：UIはアイテム名／コメント。12書体・実ウェイト・13色＋自由色を再利用し、独立サイズを追加（名前7〜14pt、コメント8〜16pt、0.5pt刻み／自動）。名前そのものは変更しない。旧タイトル設定を転用しない。
-- 保存：itemNameTextStyle／itemNameFontSize／commentFontSizeを追加。未知の書体・サイズ・明示nullも保持し、表示fallbackと上書き停止。保存確定処理・写真store・CoreDataは不変。旧5アプリは新6を拒否して誤上書きを防ぐ。
-- 検証：最終Debug／署名なしRelease成功、diff --check成功。新6は276チェック・240描画、旧1〜5×4構図20画像RGBA完全一致。既存画像104（従来102＋2保護確認）、文字169、旧書き出し408成功。UIは最新成功4ケース（初回成功3件＋旧作品確認の修正後再検証1件）。新6のJPEG／PNG写真追加もSimulator成功、読取権限未要求。
-- 表示比較：320／390／430pt・AX3・5テーマなど16画像と、同条件の旧5／新6の4構図比較。実機・VoiceOver・最大文字サイズでの全実操作・全設定組合せは未検証。
-- Git：main 3ff37dc70625586fc827756aa38269c0d95c0d69維持。今回製品変更は3Plate Swiftのみ。前段の書き出し未コミット変更・IDE設定・文書履歴を保持。合計未コミット6ファイル、commit／push／reset／cleanなし。
-- 容量：df Data空き306.7904GB（11/4 23:03:42）→304.3328GB（23:59:08）、2.4576GB減。今回資料約0.906GBが確認済みの主要生成物。残差はAPFS共有空きや共通領域の開始値なしで比較不能、全量を今回生成と断定しない。固定キャッシュ／過去資料を保持、無断清掃なし。
-- Google Drive：2026-11-05 00:05 JST、既存単発同期は更新2件・終了0。ローカル一致とクラウド両本文のrenderer6／276チェック記録を取得確認済み。本最終記録も再同期する。ChatGPT側でチェック可能。
-- 次：iPhone17eで4構図・長い名前・文字設定・旧作品の更新取消／破棄／保存・JPEG／PNGを確認。未承認の追加機能／全体品質改善へ自動移行せず停止。
+- 最終更新：2026-11-07。識別子 `Renderer7BSaveCheckpoint-20261107`。renderer7とプレートタブB案の実機確認完了、ユーザー承認によりGitHub保存を実施する。
+- ユーザー本人のiPhone17e確認：renderer7は10/10合格、B案アイコンは4/4合格。Codexの実機操作結果ではない。
+- 製品変更：4Plate関連Swift（RootView、PlateEditorView、PlateHomeView、PlateRepository）。新7は中央Fill＋右下日付、旧1〜6は維持、明示更新方式。B案はplate描画だけを変更、他3アイコン・タブ寸法／操作は維持。
+- 今回新規検証：Debug Simulator／署名なしRelease iOSとも成功、diff --check成功。過去の275チェック／旧72画像完全一致／UI1件、B案90チェック／UI2件／5テーマの結果を確認し、現在ソースが検証済みと一致することを確認。自動テストの新規再実行はしていない。
+- Git開始：main c4c1260、fetch後origin/mainと一致。対象はSwift4＋連携2文書、既存IDE設定はローカル保持・除外。commit／push結果は末尾に追記する。
+- TODO：PlatePhotoNameAlignment（写真と名前の整列）とPlateCommentVisibility（コメント表示量、優先度高）は未実装。今回は着手しない。
+- 容量：開始df Data空き303.1040GB。固定ビルド先を再利用し削除なし、終了値は結果記録へ。
+- ChatGPT連携：保存結果確定後、既存sync.zshで2文書だけ同期しクラウド確認する。次の開発は別途指示待ち。
 
-詳細：末尾「プレートrenderer6／レイアウト・文字設定再構成完了」。資料 `/private/tmp/NailNoteValidation/PlateLayoutSix/`。
+詳細：末尾「renderer7＋B案 GitHub保存」。過去の調査・実装・検証履歴は保持。
 <!-- latest-status:end -->
 
 
@@ -3328,3 +3325,255 @@ main／HEAD 9a732c2。開始時の未コミット9ファイルを保持し、新
 - 再検証：固定キャッシュでDebug Simulator／署名なしRelease iOSともBUILD SUCCEEDED。git diff --check成功。診断用起動引数・認証情報・実機データ・比較画像・ビルド成果物を含めない。直前の分離テスト結果は前節参照、今回はアプリコードを追加変更せず実機操作も行わない。実機確認待ちは継続。
 - 開始df Data空き297200000KiB＝304.3328GB。資料・ログは/private/tmp/NailNoteValidation/PlateLayoutGitCheckpoint/に保持。削除・cleanなし。
 - この時点ではcommit／push結果は未確定。成功後にSHA・リモート一致・残存差分を追記し、2文書を既存方式でDrive同期する。結果追記は追加commitせず残す。
+
+
+## 2026-11-05 00:40 JST GitHub保存完了
+
+識別子 `PlateLayoutPushComplete-20261105`。
+
+- commit：`c4c1260c0fa64b6435a1bc470e706f11fe8955ba`。メッセージ：`Add plate image export and improve layouts and text styling`。origin/mainへ通常push成功。git ls-remoteとローカルHEADが完全一致、追跡mainとの差は0／0。追加commit／pushなし。
+- 対象6ファイル：PlateEditorView.swift、PlateHomeView.swift、PlateRepository.swift、project.pbxprojの写真追加権限説明2行、連携2文書。画像書き出し・新renderer6レイアウト・文字設定を保存。秘密情報・実機データ・画像・ビルド成果物・検証資料は含めない。
+- 既存IDE設定LastUpgradeCheck／STRING_CATALOG_GENERATE_SYMBOLSは除外してローカル保持。push直後の未コミットはproject.pbxprojのみ。結果記録後は連携2文書も未コミットとなる。
+- 今回再検証：Debug Simulator／署名なしRelease iOSともBUILD SUCCEEDED、ステージ差分check成功。固定ビルド先を再利用。アプリコードの追加変更・実機操作なし。前段のテストは既存記録参照、実機確認待ちは継続。
+- 容量管理：同じdf Data方式で開始304.3328GB→終了304.3328000GB、+0.0000000GB。今回専用資料88KiB程度。固定Debug／Release合計約1.026GBは再利用のため保持、開始duなしのため今回増分は比較不能。無断清掃なし。
+- ChatGPT連携：この結果を2文書へ追記し、既存単発同期後にローカルコピー一致とクラウドの本識別子を確認する。同期結果は確認後に追記する。
+- 次：実機確認待ち。追加開発や次Phaseへ進まず停止。
+
+
+### 2026-11-05 00:40 JST push結果の連携確認
+
+識別子 `PlateLayoutPushSyncVerified-20261105`。既存sync.zshは更新2件・終了0、ローカルDriveコピー2件一致。クラウド両本文でPlateLayoutPushComplete-20261105とcommit c4c1260c0fa64b6435a1bc470e706f11fe8955baを取得確認済み。本確認記録も再同期する。ChatGPT側でチェック可能。未コミットは既存IDE設定と結果追記の2文書、追加commit／pushなし。ユーザーの実機確認待ちで停止。
+
+
+## 2026-11-07 プレート画像表示・右下日付の事前調査
+
+識別子 `PlateImageDateResearch-20261107`。調査完了・実装承認待ち。製品コード・保存データは変更していない。nailnote-devスキル／AGENTSの連携ルールに従い、調査結果だけ2文書へ追記する。
+
+### 確認済みの現状
+
+対象は360×450論理ptのrenderer6。PlateEditorView.swiftのPlateLayoutSixGeometry／layoutSixComposition／itemPhotoを追跡。
+
+| 構図 | アイテム写真枠 | 現在の日付枠(x,y,w,h) | コメント枠 |
+|---|---|---|---|
+| Elegant | 32×32、3列、y326 | 28,15,304,15 | 28,405,304,32 |
+| Sweet | 32×32、3列、y326 | 28,15,304,15 | 28,405,304,32 |
+| Noir | 34×34、右列y94/180/266 | 254,52,88,28 | 20,376,320,61 |
+| Recipe | 30×30、3行y260/305/350 | 22,12,316,15 | 22,405,316,32 |
+
+- itemPhotoはテンプレートpaperの正方形ZStack内にresizable().scaledToFit()、角丸4pt、0.5ptの外枠。内側paddingはない。写真枠が縦長なことや、画像の縦横を別々に伸縮することが原因ではない。
+- 幅:高さ=1:2の画像なら32pt枠内で16×32ptとなり左右各8pt、2:3なら約21.33×32ptで左右各5.33ptが残る。これはfitの幾何的な結果で、縦長の比率を正しく保っている。正方形画像ならfit由来の左右余白はない。
+- PlateHomeView.swiftのPlateItemImageCodecはImageIOで向きを補正、長辺最大256px、元の比率を維持してJPEG化。透明部分は白背景へ合成。画像中に元からある白地は検出・除去しない。商品写真→サンプル写真の順で取得し、欠損はカテゴリfallback。保存済み画像は共有スナップショットから読まれる。
+- 既存after6-elegant/sweet/noir/recipe.pngの4画像を閲覧し、正方形枠・現在の日付位置を確認。ただしこれらのアイテム画像は色見本の分離テスト素材で、実商品の縦長問題や画像内部の余白を確認する証拠ではない。実機データ・元写真・実機アプリは未操作。今回のユーザー症状について、実写真の縦横比と被写体周りの余白の寄与率は未確定。
+- 日付は上記枠内で中央寄り、Noirのみ8pt、他9pt、template.inkの85%濃度。単純に右下へ移すと、現在のコメント枠（y437まで）と重なる。
+
+### 推奨案（未実装）
+
+1. renderer7だけ、現在と同じ正方形枠・位置・サイズ・間隔のまま、中央基準aspectFill＋同じ角丸clipにする。歪ませず左右のレターボックス余白を解消する。名前枠は変更しない。元画像／共有JPEGの加工・上書き・再保存は行わない。カテゴリfallbackは維持する。
+2. 中央fillでは縦長1:2の上下各25%が切れる。横長では左右が切れる。ボトル全体・ラベルが欠けるリスクを承認前に明示する。画像自体の白地が完全に消える保証はない。白地自動検出・被写体認識や追加トリミング編集機能は今回提案に含めない。商品全体の保持を最優先する場合はfit維持が代案であり、余白ゼロとの両立はできない。
+3. 右下日付は9pt・1行・右寄せ、従来のtemplate inkで可読性を確保する。日付文字列／保存形式は変えない。長い自由入力は表示枠内で末尾省略し、元文字列は保持する案。実表示で読みやすさを検証する。
+4. 日付専用枠とコメントを水平に分離する。寸法案：Elegant/Sweetはコメント(28,405,208,32)、日付(244,421,88,16)。Noirはコメント(20,376,226,61)、日付(254,421,88,16)。Recipeはコメント(22,405,218,32)、日付(248,421,88,16)。列間8pt以上、外枠の下端441ptより内側、名前／写真／+Nは不変。日付は下端437ptで揃う。
+5. コメントの高さ・既存サイズ設定は維持するが横幅が狭くなり、折り返し・表示可能文字数は変わる。全文は保持。現状の可読性を保証した確定座標ではなく、4構図・長文・最大16pt・全12書体で承認後に検証する配置案。日付を単純に上書きしない。
+
+### 互換性と変更予定
+
+- renderer6の共通関数をそのまま置換すると、既存作品を開く／JPEGやPNGを書き出すだけで見た目が変わる。既存サムネイルは保存時の旧画像なので、一覧と再編集／出力の不一致も起こる。そのためrenderer7分離を推奨。
+- renderer1〜6は従来描画・従来データを維持。新規は7、既存作品は明示的な更新確認→Draftでプレビュー→保存成功後にだけ7を確定。取消／破棄は元versionのまま。開くだけで自動更新・自動保存・一括移行しない。
+- 現状usesNewLayoutがBoolで、復元はrendererVersion==6、document生成は6固定。7追加時は6と7を区別できる状態へ必要最小限に拡張し、6の再保存が勝手に7へ上がらないことを確認する。既存の旧版更新ボタン・説明文も移行先を明示する必要がある。
+- schemaVersion=1と既存JSONキー、共有アイテム画像参照は維持可能。新しい写真asset・crop保存キーは不要。PlateRepository.swiftのDTO検証だけ1〜7許容／文字設定の版条件を更新し、actorのatomic保存・旧head/revision保護・複製・削除方式は変更不要の見込み。旧アプリは7を拒否し、情報を落として上書きしない。
+- 変更予定：PlateEditorView.swift（版の保持、描画分岐、日付と画像、更新確認）、PlateHomeView.swift（必要な旧作品更新導線）、PlateRepository.swift（DTOの版検証）。CoreData、ProductPhotoStore、元画像、AI休止、タブバーは変更しない。
+- 保存thumbnailと書き出しは既存の共通PlateCanvasViewを使うため7の表示も共有する。既存作品の複製は版を保持する。画像不足／破損fallbackとエラー時Draft保持も維持する。
+
+### 承認後の検証計画・今回の未実施事項
+
+- Debug／署名なしRelease、旧1〜6の画素比較（既存6も固定）、旧JSON復元、6の保存／複製が6を保持、新7と明示更新の保存／再編集／再起動／複製、更新取消・未保存破棄・保存失敗時の旧head/asset不変。
+- 四構図×縦長/横長/正方形/画像内白地/透明由来白地/欠損、0/1/3/多数アイテム、長い名前／コメント／日付、名前最大14pt・コメント最大16ptと12書体、プレビュー・保存thumb・JPEG/PNG2解像度一致を分離環境で検証する。
+- 実機では実商品のラベル／全体の欠けが許容できるか、右下日付の視認性・コメント干渉、更新取消と旧表示保持をユーザー確認する。
+- 今回は静的コード調査と既存4比較画像の閲覧のみ。ビルド・新規描画・保存試験・実機検証は未実施。推奨配置の見た目を検証済みとは扱わない。製品ソース変更・Git commit/push/reset/cleanなし、実データ変更なし。
+- Git：main c4c1260。開始時の未コミットはIDE設定と連携2文書、すべて保持。今回変更は連携2文書だけ。df Data空き開始297200000KiB＝304.3328GB、終了も同方式で確認。新規ビルド・比較画像生成・削除なし。
+- ChatGPT連携：既存単発スクリプトで連携2文書だけ同期し、実行結果とクラウド確認は完了報告する。
+- 承認待ち：正方形中央fillによる一部トリミング、右下日付＋コメント幅縮小、renderer7の明示更新方式。承認まで実装を停止する。
+
+
+### 2026-11-07 調査終了・連携記録
+
+識別子 `PlateImageDateResearchFinal-20261107`。既存sync.zshは更新2件・終了0。終了時df Dataは297436340KiB＝304.57481216GB、開始304.3328GBから約0.242GB増。大量生成物・削除なし。製品Swiftに差分なし、IDE設定の既存差分は保持。クラウド取得では詳細引き継ぎの調査識別子を確認済み、PROJECT_STATUSの反映は最終同期後に再確認する。実装は承認待ち。
+
+
+## 2026-11-07 renderer7実装・分離検証完了
+
+識別子 `PlateRendererSeven-20261107`。承認範囲の2点のみ完了。実機確認待ち。今後のTODO・追加Phaseに進まない。
+
+### 変更ファイル・表示
+
+- PlateEditorView.swift：DraftにlayoutVersion（新規7）を持ち、usesNewLayoutは6以上を表す読み取りプロパティへ変更。復元時に6／7を区別し、document生成も保持した版を使用。旧版は従来のフラグから生成する方式を維持し、旧構図の描画を変更しない。
+- 同ファイル：itemPhotoの7だけresizable＋scaledToFill＋正方形frame(center)＋既存角丸clip。6以下は元のscaledToFit経路。元のJPEG・元Item画像を変更・再生成せず表示時だけcrop。カテゴリfallback・画像取得優先順位・共有参照は不変。縦長は上下、横長は左右が切れる。画像内の白地は残る場合があり、自動余白除去なし。
+- 同ファイル：PlateLayoutSevenFooterを追加、6のGeometryは変更しない。7の日付はtemplate.ink.opacity(0.85)、9pt・右寄せ・1行・末尾省略・clipped。日付とコメントの原文字列は保持。
+- PlateHomeView.swift：layoutVersion<7で既存更新入口を表示。7には表示しない。
+- 更新確認の文言でrenderer7・中央トリミング・コメント幅縮小を説明し、「renderer7でプレビュー」でDraftだけ7へ。旧1〜5からは従来の6構図更新内容も説明。保存成功まで元head/revisionは維持。
+- PlateRepository.swift：DTOの対応版を1〜7、新文字設定を6以上に拡張。schema1、JSONキー、atomic保存・revision管理・共有写真保護のactor本体は開始時とバイト単位で同一。旧6のDTOを独立コピーしたテストで7を拒否し旧アプリの誤上書き防止を確認。
+- CoreData、写真store、画像codec、AI休止、タブバー、他画面、プロジェクト設定は今回変更していない。開始時のIDE変更もhash一致で保護確認。
+
+| 構図 | 画像枠（不変） | 7コメント枠 x,y,w,h | 7日付枠 x,y,w,h |
+|---|---|---|---|
+| Elegant | 32×32 | 28,405,208,32 | 244,421,88,16 |
+| Sweet | 32×32 | 28,405,208,32 | 244,421,88,16 |
+| Noir | 34×34 | 20,376,226,61 | 254,421,88,16 |
+| Recipe | 30×30 | 22,405,218,32 | 248,421,88,16 |
+
+4構図とも事前提案の座標をそのまま採用。画像枠・名前枠・アイテム間隔、コメント高さ・既存サイズ設定は維持。コメントは幅縮小で表示行・文字数が減る場合がある。長い日付も表示枠で省略し、全文はJSONに残る。共通PlateCanvasViewを保存thumbと書き出しで利用。
+
+### 自動検証
+
+資料：`/private/tmp/NailNoteValidation/PlateRendererSeven/`。既存固定DerivedDataを再利用し、clean・実機インストールなし。専用Bundle ID `dev.nailnote.rendererseven.validation` を既存分離Simulator（iOS27.0）へ導入、通常NailNoteや実機のデータには触れない。
+
+1. build-Debug-final.log／build-Release-final.logともBUILD SUCCEEDED、git diff --check成功。
+2. results.json：275チェック成功、282描画。開始時Canvasを独立型名で保持し、旧1〜6×4構図×縦長／横長／正方形の72条件でRGBA完全一致。旧判定の許容誤差は0。
+3. 新7は4構図、縦長／横長／正方形／画像内白地／透明白合成、欠損fallback、0／1／3／18件、長名、長文日付／コメント、12書体と名前14pt・コメント16ptを描画。写真と名前の座標不変、日付とコメント／写真／名前の矩形非干渉、日付の差分が右下枠内だけに出ることを検査。画像差分は既存正方形の外側に1LSBを超える変化0、縦長画像の左内側まで中央被写体色がFillされることを画素確認。
+4. 6／7の保存・再保存・Repository再生成後の復元・複製、独立文字サイズと画像参照保持、7への明示更新、更新保存失敗時の編集中Draft／旧head／revision／写真／全既存ファイル保持。6を保存／複製しても6維持。未知サイズの値を保持し保存停止すること、旧6アプリDTOが7を拒否することを確認。
+5. 4構図×JPEG／PNG×標準1080×1350／高1440×1800を実際にencode/decode、寸法とCanvas画素を検査。PNGは完全一致、JPEG平均RGB誤差5未満。保存済み6／7の書き出し前後で保存領域の全ファイルhash不変。新規画像・元画像ファイルの上書きなし。
+6. UI.xcresult／ui-summary.json：1/1成功。既存6の編集→更新取消→更新プレビュー→戻る「編集を続ける」→破棄して戻る→6で開き直し→更新保存→7で再編集（更新入口なし）→高解像度PNG共有→共有キャンセル→編集へ復帰→戻る。実際のXCTestタップ操作で確認。UI用ホストは分離した簡易一覧であり、4タブ全体の再回帰とは扱わない。
+7. 4構図のbefore6／after7と12書体の最大サイズ画像を保存し、4構図と代表的な長文／大きい書体、元画像白地を実画像で閲覧。日付・名前・コメントが重ならないことを確認。Comparisons.mdから同条件前後画像を参照できる。実機画像ではない。
+
+途中、枠外検査がYを逆転して差分の位置を誤判定した。PNG差分の実測bbox（x60〜299,y326〜357）から正方形枠内にあることを確認し、テスト座標を実画素に合わせて修正。製品のclipを緩めたり判定を削除していない。旧72画素比較は完全一致のまま。初回診断資料・修正前の検証Swift・clip画像も保持。
+
+### 未検証・実機確認
+
+- iPhone17eへの導入／操作は未実施。実商品のボトル上下・ラベルの欠けが許容できるか、元画像内白地、4構図の日付の視認性とコメント干渉をユーザー確認。
+- 旧プレートの見た目維持、更新取消／未保存破棄／更新保存、保存・再編集・複製、JPEG／PNGの写真保存と共有先アプリでの実表示を確認する。
+- 今回PhotoKit追加権限の再試験、実機Photos保存、全共有先、4タブ全操作、VoiceOver、実機性能／メモリ、全サイズ・全色・全写真の完全網羅は未検証。既存書き出し・権限処理は変更していない。新UI操作テストは1ケースのみで、網羅済みとしない。
+- 低解像度のスナップショットをFillで拡大した際の精細さ、中央cropでの商品識別性は実写真で判断が必要。被写体認識や追加crop設定は対象外。
+
+### Git・容量・連携
+
+- 開始main／HEAD／ローカルorigin/mainはc4c1260c0fa64b6435a1bc470e706f11fe8955ba。今回ネットワークfetch／pushなし。開始時のステージ・未追跡はなし、IDE設定と2文書の未コミットを保持。今回製品差分は3Plate Swift、残る全変更は計6ファイル（既存IDE＋3Swift＋2文書）。commit／push／reset／cleanなし。
+- df -k /System/Volumes/Data：開始／終了Available296800000KiB＝303.9232GB、差0。専用資料約0.237GB（du231452KiB時点）、固定Debug約0.650GB／Release約0.238GBは再利用用に保持。合わせて約1.125GBだが親子を二重計上していない。固定先の開始duなしのため今回の増加量は比較不能。共有APFS値との混算なし。削除・キャッシュ清掃なし。
+- audit.jsonでRepository actorとpbxprojの開始hash不変を記録。既存比較資料・検証データを保持。
+- 既存sync.zshで連携2文書のみ単発同期し、クラウド本文の識別子を取得確認する。実装完了後はユーザー実機確認待ちで停止し、GitHub保存や他TODOには進まない。
+
+
+### 2026-11-07 renderer7連携確認
+
+識別子 `PlateRendererSevenSyncFinal-20261107`。既存単発同期は更新2件・終了0、クラウド両本文にPlateRendererSeven-20261107を取得確認済み。本最終記録も再同期する。ChatGPT側でチェック可能。最終資料du231548KiB（約0.237GB）、df Data空き303.9232GB、開始差0。新7の275チェック／旧72画像完全一致／UI1件成功・最終両ビルド成功。製品変更は3Plate Swiftのみ、ステージなし、Git操作なし、実機未操作。実機確認待ちで停止。
+
+
+## 2026-11-07 プレートタブアイコン A/B候補比較
+
+識別子 `PlateTabIconComparison-20261107`。候補制作と比較まで完了、正式採用承認待ち。本番アイコン・RootView・rendererは変更していない。
+
+### 調査結果
+
+RootView.swiftのLuxuryTabArtworkはCore GraphicsパスをUIGraphicsImageRendererで28×28pt、displayScale倍に描く方式。SwiftUIのタブボタンへUIImageをoriginal表示し、画像アセットは使わない。Diaryは傾いたボトル、Itemは二段収納、現行Plateは写真＋1本情報線の縦カード、Settingsは中心穴付き歯車。4タブはデザイン／アイテム／プレート／設定の順。
+
+- 主輪郭0.95pt、内部線0.85〜1.15pt、白い反射0.6〜0.7pt。lineJoin/capはround。影offset(0.3,0.6)、blur選択0.8／非選択0.4、黒alpha0.14／0.08。
+- 面はglowFillTop／badgeStart（capはouterStrokeStart）／glowFillBottomの斜めグラデーション。選択時は塗りのalphaと輪郭濃度が上がる。素材・色は背景presetのrefinedSurfacePaletteへタブバー個別設定のresolved(.tabBar)を重ねる。固定ゴールドへの置換はしない。
+- 独自バーは画面幅から32ptを引き、最大352pt、最低176pt、高さ54pt。4等分した各ボタン内に28pt画像、間隔1pt、caption2ラベル。画像の見かけの大きさと配置を候補でも維持。選択パネル、ultraThinMaterial、TabGlassSurfaceの金属縁／反射／shadowを比較内でも再利用。
+- 実際のタブバーのSafe Area・予約領域・hit test・選択のBinding／遷移は製品変更なし。比較用は一定selectionを与えた別ホストで、本番タブを差し替えていない。
+
+### 候補と制作方式
+
+- A：フォトフレーム。21×21ptの正方形外枠＋内枠、中央に1つの丸いネイル形状、白い縦反射。額装らしさと単純さを優先。
+- B：作品カード。20×23ptの縦長外枠、上部に2つの抽象ネイルを置く写真領域、下部に長短2線の情報欄。写真と情報をまとめる機能を表す。実文字・画像素材は描き込まない。
+- 候補のface関数・グラデーション・線幅・影は既存から再利用。Diary／Item／Settingsは現行パスのまま。候補だけを持つPreviewArtwork.swiftと、比較UIのValidation.swiftは/private/tmp配下に置き、製品やXcodeへ未登録。外部素材・画像生成モデルを使わず、既存コードによる描画方式を維持。
+
+### 比較評価（5段階、Codexの主観的なデザイン評価）
+
+|評価項目|A フォトフレーム|B 作品カード|理由|
+|---|---|---|---|
+|既存との統一感|5|5|同じパス描画・素材・色、他3タブは完全同一|
+|高級感|5|5|二重の縁・金属反射を維持。Bの情報線も控えめ|
+|小サイズ視認性|5|4|Aは単純な正方形、Bは内部要素が少し多い|
+|プレート機能との関連|4|5|Aは写真額装寄り、Bは写真と情報の組合せを示す|
+|選択／非選択時|4|4|現行と同じ控えめな輝度差と選択パネル。単体では差が小さい|
+
+推奨はB。既存Plateの縦カードという認知を保ち、ネイル写真と情報をまとめる機能を示す。単純さを最優先するならA。ネイルの抽象形状が実機の小表示で意図どおり伝わるかはユーザー判断が必要。採用確定・本番変更はしていない。
+
+### 比較資料と検証
+
+保存先 `/private/tmp/NailNoteValidation/PlateTabIconComparison/`。
+
+- ComparisonGuide.md：比較・評価・全画像への入口。
+- comparison-ivoryGold.png／comparison-mistBlueTaupe.png／comparison-stoneRose.png／comparison-noirGold.png／comparison-noirSilver.png：同じ390×960pt・3倍画像（1170×2880px）。上部はA/Bの拡大した非選択／選択、その下に現行／A／Bを各2状態で表示。既存のシルク背景・配色・352×54ptバー・28ptアイコンを再利用。
+- icon-<theme>-frame/card-on/off.png：84×84px、実際の28ptを3倍で描いた単体。large-icon-...は336×336pxの形状確認用拡大。全30単体と拡大30枚を保存。
+- results.json：220チェック成功。5テーマ×4アイコン×2状態×3案の寸法、他3アイコンのPNG完全一致、候補の選択／非選択画像に差があることを確認。
+- bounds.json：30PNGの可視画素境界を検査し、画像端の切断なし。5比較画像の生成を確認し、アイボリー・ブルー・ローズ・ノワールゴールドを実画像で閲覧、欠けやラベル位置ずれがないことを確認。
+- 製品Swift全体とproject.pbxprojは開始hashと一致。renderer7を含む既存変更を保持。CoreData／画像・保存形式／実機アプリには触れていない。比較用プログラムだけコンパイル・Simulator導入し、本番のDebug／Release再ビルドは不要として実施していない。
+- 未検証：実機の見え方・意味の伝わり方、本番タブ操作の再検証、VoiceOver、文字拡大、全外観個別設定／自由色の網羅。既存操作への差分がないことと、実タップの回帰成功は区別する。
+
+### 今後のテンプレート調整TODO（記録のみ、未実装）
+
+1. `PlatePhotoNameAlignment`：アイテム写真が中央配置なのに名前が左寄せで、バランスが悪い。写真と文字を揃える方法を比較する。テンプレートごとに見直し案を提示し、別途承認後に実装する。
+2. `PlateCommentVisibility`：一部テンプレートでコメントがほとんど表示されない。優先度：高。表示領域・折り返し・文字サイズ・実フォントの行高を調べ、可読性と情報量を改善する。今回はレイアウト・rendererを変更しない。
+
+開始時の管理文書を検索し、この具体的な2件の未完了TODOが未登録だったため追加。renderer7の既存テスト成功を、このユーザー報告が解決済みという意味にはしない。
+
+### 作業管理
+
+Gitはmain c4c1260。未コミット6ファイル（既存IDE設定、3Plate Swift、2文書）をすべて保持。今回は2文書だけ変更、ステージ・commit・push・reset・cleanなし。
+
+df Data開始303.9232GB→終了303.9154217GB（-0.0077783GB）。今回資料du153916KiB時点で約0.158GB。比較コード・PNG・専用検証アプリを再現用に保持。固定ビルド先・既存キャッシュも維持、無断削除なし。空き容量減少全量を比較資料の増加と断定しない。既存2文書だけを既存sync.zshで単発同期し、クラウド識別子の取得を確認する。
+
+次はユーザーのA/B正式採用判断待ち。今回制作を根拠に本番へ差し替えたり、テンプレートTODOへ自動着手しない。
+
+
+### 2026-11-07 アイコン比較・連携最終確認
+
+識別子 `PlateTabIconSyncFinal-20261107`。2文書更新・既存sync.zsh終了0、クラウド両本文にPlateTabIconComparison-20261107を取得確認済み。本最終記録も再同期。ChatGPT側でチェック可能。比較220チェック／30PNG切断なし、製品Swiftとpbxprojは開始時のまま。最終df Data303.5136GB、開始比0.4096GB減。専用資料du153936KiB（約0.158GB）、既存固定Debug約0.650GB／Release約0.238GBも次回再利用用に保持。今回資料と既存キャッシュ合計約1.047GBだが、既存分を今回増加とは扱わない。削除なし。正式採用とTODO実装は未実施・承認待ち。
+
+
+## 2026-11-07 プレートタブB案正式採用
+
+識別子 `PlateTabIconBAdoption-20261107`。ユーザー承認済みB案を実装、自動検証完了。Bアイコンの実機確認待ちで停止する。
+
+### 確認済み事項と実装
+
+- ユーザー申告：renderer7はiPhone17eで実機10/10合格済み。前段の実機確認待ち記録から更新する。これはユーザー確認であり、Codexが実機操作した結果ではない。
+- 開始branch main、HEAD／ローカルorigin/mainはc4c1260c0fa64b6435a1bc470e706f11fe8955ba、追跡差0。ネットワークfetchなし。ステージ／未追跡なし、IDE設定・renderer7の3Plate Swift・連携2文書の未コミット6ファイルを保持。
+- 前回のComparisonGuide.md／PreviewArtwork.swift／Validation.swiftと5テーマ画像を確認。CardArtworkのplate caseをRootView.swiftのLuxuryTabArtworkへ移植。20×23ptの外カード、上部の内枠と2ネイル形状、下部長短2本線、既存face関数・反射・影を使用。新デザインや検証用分岐は本番に追加していない。
+- 今回の製品変更はRootView.swiftのみ。plate caseを除くRootView全文は開始時と一致、B描画命令も空白／改行を除いて前回案と一致。28×28pt・displayScale・キャッシュ・輪郭／線端・配色解決はそのまま。
+- Diary／Item／Settings、タブ高さ・幅・label・選択パネル・ガラス背景・Safe Area・hit test・切替の差分なし。固定色への変更なし。renderer1〜7、CoreData、保存、画像出力、AI休止に変更なし。
+- 製品Swift全ファイルを開始時hashと比較し、RootView以外は完全一致。project.pbxprojも開始時hash一致。既存IDE変更・renderer7差分を保護。
+
+### 検証
+
+資料は `/private/tmp/NailNoteValidation/PlateTabIconBAdoption/`。既存固定ビルド先を再利用、実機へは未インストール・未操作。
+
+1. build-Debug.log：Debug Simulator BUILD SUCCEEDED。build-Release.log：署名なしRelease iOS BUILD SUCCEEDED。git diff --check成功。
+2. results.json：90チェック成功。5テーマ（Ivory Gold／Mist Blue Taupe／Stone Rose／Noir Gold／Noir Silver）の選択・非選択10ケースで、本番RootViewの描画から取得したPNGが前回保存済みB案と完全一致。他3タブも前回現行描画とPNG完全一致。画像サイズは28pt／3倍84px、bounds.jsonで10PNGの端切断なし。
+3. UIQueryVerified.xcresult／ui-summary.json：最新2/2成功。実際のRootViewを使い、CoreDataメモリストア・専用Bundle ID（dev.nailnote.iconbadoption.validation）の分離アプリで実タップ。
+4. UIケース1：4タブを確認し、アイテム→プレート→設定→デザイン→プレート→同タブ再選択→アイテム→デザインを操作。毎回選択／非選択値が一致、各タップ領域が44pt以上でヒット可能、プレートの新規作成入口／空一覧が表示、AIタブなし。
+5. UIケース2：5テーマでプレート選択／デザイン選択時のプレート非選択を操作し、計10スクリーンショットを取得。selected-<theme>.png／normal-<theme>.png、Screenshots.mdで参照できる。アイボリー選択・ノワールシルバー選択・ブルー非選択を実画像で閲覧し、サイズ・位置・縁・コントラストを確認。残りの単体表示はPNG完全一致と画像生成を確認。
+6. 初回UIはButton型限定クエリにより2件失敗。実画面ではタブが存在し、実際の要素種別はOtherだった。テスト側だけAny要素で識別子を検索するよう修正し、実タップ・選択値・サイズの検査を維持して2件再成功。製品のアクセシビリティや挙動は変更していない。初回UI.xcresult／ui.log／診断画像・修正前テストを保持する。
+7. 初回xcodebuildは全2テスト終了後、結果確定で停止していたため、ログとPID（76599）を確認し今回の当該プロセスだけ通常TERM。再検証プロセスや資料には触れず、最新成功結果束は正常確定。
+
+### 未検証と実機チェック
+
+今回のBアイコンはiPhone17e未確認。ユーザーは通常起動で、①作品カードのネイル2形状と2線の見え方、②選択／非選択、③普段使うテーマとタブバー個別設定、④4タブ切替とプレート一覧遷移を確認する。実機へ勝手にインストールしない。
+
+保存作品のある実データ一覧での操作、全テーマ個別上書き／自由色の網羅、VoiceOver読み上げ、文字拡大、全保存機能の再試験は今回未実施。分離UIでは記録0件・プレート0件。既存renderer7の実機10/10合格と、Bアイコンの未確認を区別する。写真／名前整列とコメント表示量TODOは記録済みのまま未着手。
+
+### Git・容量・連携
+
+- 変更一覧：今回RootView.swiftとPROJECT_STATUS.md／docs/CHATGPT_HANDOFF.md。既存PlateEditorView.swift／PlateHomeView.swift／PlateRepository.swift／project.pbxprojの差分を保持。全7ファイル未コミット、ステージなし、commit／push／reset／cleanなし。比較UI／テスト用読み取り口／起動引数はtmpの検証用コピーだけで本番に混入なし。
+- df -k /System/Volumes/Data：開始Available296400000KiB＝303.5136GB→終了296358288KiB＝303.4708869GB、-0.0427131GB。専用資料du379248KiB時点で約0.388GBを保持。固定Debug約0.651GB／Release約0.238GBは再利用のため保持、合計約1.277GB（今回と既存を区別）。キャッシュ開始duなしのため今回増分は比較不能。写真・検証資料・キャッシュの削除なし。
+- 開発記録2文書だけを既存sync.zshで単発同期し、クラウド本文の識別子を確認する。アプリや画像をDriveへ送らない。
+- 完了後はBアイコンの実機確認待ちで停止。ユーザーの別途指示までcommit／pushと他TODOは実施しない。
+
+
+### 2026-11-07 Bアイコン・連携最終確認
+
+識別子 `PlateTabIconBAdoptionSyncFinal-20261107`。既存sync.zsh終了0・2文書更新、クラウド両本文でPlateTabIconBAdoption-20261107を取得確認済み。本確認記録も再同期。ChatGPT側でチェック可能。終了時最終df Data296000000KiB＝303.1040GB、開始比0.4096GB減（直前の途中測定とは区別）。専用資料du379252KiB≒0.388GBを保持、削除なし。両ビルド成功／画像90チェック／最新UI2/2成功、renderer7・IDE差分保持、今回製品変更RootViewのplate描画だけ。Bアイコン実機確認待ち、Git操作なし。
+
+
+## 2026-11-07 renderer7＋B案 GitHub保存・コミット前確認
+
+識別子 `Renderer7BSaveCheckpoint-20261107`。今回の目的は承認済み完成状態のGitHub保存のみ。アプリコード・デザインの追加変更なし。
+
+- ユーザー本人によるiPhone17eの実機確認：renderer7（写真中央トリミング／右下日付など）10項目すべて合格、B案カードアイコン4項目すべて合格。Codexが実機を操作して確認した結果ではない。以前の実機確認待ち記録は当時の経緯として残し、現在は両機能ともユーザー確認済み。
+- 開始main／HEAD=c4c1260c0fa64b6435a1bc470e706f11fe8955ba。既存SSHのorigin=git@github.com:Hideki69S/NailNote.git。fetch後のorigin/mainも同SHA、ahead／behind=0／0。開始ステージ・未追跡なし、未コミット7ファイル。開始状態・全差分・各hashを/private/tmp/NailNoteValidation/Renderer7BSaveCheckpoint/へ記録。
+- 対象6ファイル：NailNote/App/RootView.swift、NailNote/Features/Plates/PlateEditorView.swift、PlateHomeView.swift、PlateRepository.swift、PROJECT_STATUS.md、docs/CHATGPT_HANDOFF.md。renderer7の保存／復元／旧表示分岐・明示更新とB案plate caseの差分を確認。文書は最新サマリー更新と過去履歴への追記のみで、既存履歴を保持。
+- 対象外：project.pbxprojのLastUpgradeCheckとDebug／Release STRING_CATALOG_GENERATE_SYMBOLSという既存IDE差分。開始hashと差分ファイルを保存しローカル保持する。比較画像・一時アプリ・ログ・DerivedData・個人設定・実機データはステージしない。git add .／-Aなし、明示した6パスだけを登録する。
+- 今回新たに実行した検証：git diff --check成功、固定先Debug Simulator／署名なしRelease iOSともBUILD SUCCEEDED。ログは本チェックポイント内に保持。clean・フルキャッシュ削除なし。
+- 今回は再実行せず過去結果を確認：renderer7のresults.jsonは275チェック成功／282描画／旧1〜6の72画像RGBA完全一致、UIは1件成功。B案results.jsonは90チェック成功、最新UI2件成功、5テーマ10画像で前回B案とPNG一致。現在3PlateソースのhashとB検証用RootViewコピーを照合し、検証後の変更がないことを確認した。
+- 未完了TODOはPlatePhotoNameAlignment、PlateCommentVisibility（優先度高）。今回実装しない。CoreData・元画像・保存データ・AI休止方針に変更なし、実機操作なし。
+- 推奨メッセージFinalize plate renderer 7 and adopt plate tab card iconで1commitを作成し、最新リモートを再確認して通常pushする。この記録時点では結果未確定。成功SHA／リモート一致／残存差分はpush後に追記し、その結果追記だけの追加commit／pushは実施しない。
+- 開始df Data空き296000000KiB＝303.1040GB。今回新規は状態記録・ビルドログだけで、比較／実機資料・固定キャッシュは保持。終了値は結果記録で報告する。

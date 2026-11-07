@@ -621,7 +621,7 @@ struct PlateProductEditingSidebar: View {
                     .accessibilityLabel("アイテムを追加")
             }
             Text("掲載順 · \(draft.products.count)点").font(.caption2)
-            if !draft.usesNewLayout { PlateLayoutUpdateButton(draft: $draft).font(.caption) }
+            if draft.layoutVersion < 7 { PlateLayoutUpdateButton(draft: $draft).font(.caption) }
             ScrollView {
                 LazyVStack(spacing: 6) {
                     if draft.products.isEmpty { Text("アイテムなし").font(.caption).padding(.vertical, 8) }
