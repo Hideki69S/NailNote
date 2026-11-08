@@ -7,7 +7,9 @@ struct EditEntryView: View {
     @State private var originalFields: [String]?
     @State private var saving = false
     @State private var saveCompleted = false
-    @State private var saveFailed = false
+    @State private var saveID = UUID()
+    @State private var saveMessage: String?
+    @State private var photoSaveVersion: PhotoSaveTransaction.Version?
     private var editFields: [String] {
         [title, String(date.timeIntervalSince1970), note, designCategory?.rawValue ?? "", colorTone?.rawValue ?? "", String(rating), selectedProductIDs.map(\.uuidString).joined(separator: ","), selectedUIImage.map { String(describing: ObjectIdentifier($0)) } ?? "", String(removeExistingPhoto), String(photoItem != nil)]
     }
@@ -60,6 +62,8 @@ struct EditEntryView: View {
             .scrollContentBackground(.hidden)
             .background(Color.clear)
         }
+        .disabled(saving)
+        .modifier(NailPhotoSaveFeedback(message: $saveMessage, completed: saveCompleted, retry: save, close: { dismiss() }))
         .navigationTitle("記録を編集")
         .toolbar {
             ToolbarItem(placement: .confirmationAction) {
@@ -68,10 +72,10 @@ struct EditEntryView: View {
             }
         }
         .onAppear {
-            if originalFields == nil { loadFromEntry(); originalFields = editFields }
+            if originalFields == nil { loadFromEntry(); originalFields = editFields; photoSaveVersion = PhotoSaveTransaction.version(entry) }
         }
-        .modifier(NailTabExitProtection(dirty: originalFields.map { $0 != editFields } ?? false, blocked: saving || saveFailed))
-        .modifier(NailEditorExit(dirty: originalFields.map { $0 != editFields } ?? false, blocked: saving || saveFailed, onReturn: { dismiss() }))
+        .modifier(NailTabExitProtection(dirty: !saveCompleted && (originalFields.map { $0 != editFields } ?? false), blocked: saving))
+        .modifier(NailEditorExit(dirty: !saveCompleted && (originalFields.map { $0 != editFields } ?? false), blocked: saving, onReturn: { dismiss() }))
         .confirmationDialog("写真を変更しますか？", isPresented: $showingPhotoChangeConfirm, titleVisibility: .visible) {
             Button("写真を変更") {
                 showingPhotoPicker = true
@@ -343,78 +347,26 @@ struct EditEntryView: View {
 
     private func save() {
         guard !saving, !saveCompleted else { return }
+        guard let version = photoSaveVersion else { saveMessage = PhotoSaveTransaction.Failure.conflict.localizedDescription; return }
+        let photo: PhotoSaveTransaction.Change = removeExistingPhoto ? .remove : (selectedUIImage.map { .replace($0) } ?? .keep)
+        let input = PhotoSaveTransaction.EntryInput(target: .edit(entry.objectID, version), title: title.trimmingCharacters(in: .whitespacesAndNewlines),
+            date: date, note: note, category: designCategory?.rawValue, color: colorTone?.rawValue,
+            rating: rating, products: selectedProductIDs, photo: photo)
         saving = true
-        defer { saving = false }
-        entry.title = title.trimmingCharacters(in: .whitespacesAndNewlines)
-        entry.date = date
-        entry.note = note
-        entry.designCategory = designCategory?.rawValue
-        entry.colorCategory = colorTone?.rawValue
-        entry.rating = rating
-        entry.updatedAt = Date()
-
-        // 用品（既存を削除して作り直す）
-        if let existing = entry.usedItems?.array as? [NailEntryUsedItem] {
-            for item in existing {
-                viewContext.delete(item)
-            }
-        }
-        for (idx, pid) in selectedProductIDs.enumerated() {
-            guard let product = product(for: pid) else { continue }
-            let used = NailEntryUsedItem(context: viewContext)
-            used.id = UUID()
-            used.orderIndex = Int16(idx)
-            used.entry = entry
-            used.product = product
-        }
-
-        // 写真
-        let didChangePhoto = applyPhotoChange()
-        if didChangePhoto {
-            resetAIScore()
-        }
-
-        do {
-            try viewContext.save()
-            saveCompleted = true; saveFailed = false
-            dismiss()
-        } catch {
-            saveFailed = true
-            print("編集保存エラー: \(error)")
+        Task { @MainActor in
+            await Task.yield()
+            defer { saving = false }
+            do {
+                let result = try PhotoSaveTransaction.saveEntry(input, in: viewContext)
+                saveCompleted = true
+                if let warning = result.cleanupWarning { saveMessage = warning } else { dismiss() }
+            } catch { saveMessage = error.localizedDescription }
         }
     }
 
-    private func applyPhotoChange() -> Bool {
-        // 1) 削除が要求されている場合
-        if removeExistingPhoto {
-            if let old = entry.photoId {
-                EntryPhotoStore.delete(photoId: old)
-            }
-            entry.photoId = nil
-            return true
-        }
 
-        // 2) 新しい画像が選ばれている場合（差し替え）
-        if let img = selectedUIImage {
-            // 古い写真があれば削除
-            if let old = entry.photoId {
-                EntryPhotoStore.delete(photoId: old)
-            }
 
-            let newId = UUID()
-            EntryPhotoStore.save(image: img, photoId: newId)
-            entry.photoId = newId
-            return true
-        }
-        // 3) 何もしてない場合はそのまま
-        return false
-    }
 
-    private func resetAIScore() {
-        guard let aiScore = entry.aiScore else { return }
-        viewContext.delete(aiScore)
-        entry.aiScore = nil
-    }
 
 }
 

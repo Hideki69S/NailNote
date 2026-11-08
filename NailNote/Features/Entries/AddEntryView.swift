@@ -7,7 +7,8 @@ struct AddEntryView: View {
     @State private var originalFields: [String]?
     @State private var saving = false
     @State private var saveCompleted = false
-    @State private var saveFailed = false
+    @State private var saveID = UUID()
+    @State private var saveMessage: String?
     private var editFields: [String] {
         [title, String(date.timeIntervalSince1970), note, designCategory?.rawValue ?? "", colorTone?.rawValue ?? "", String(rating), selectedProductIDs.map(\.uuidString).joined(separator: ","), selectedUIImage.map { String(describing: ObjectIdentifier($0)) } ?? "", String(photoItem != nil)]
     }
@@ -135,6 +136,7 @@ struct AddEntryView: View {
             }
             .navigationTitle("記録を追加")
             .navigationBarTitleDisplayMode(.inline)
+            .disabled(saving)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("保存") { save() }
@@ -168,10 +170,11 @@ struct AddEntryView: View {
                      : "選択した写真を取り除きます。")
             }
             .photosPicker(isPresented: $showingPhotoPicker, selection: $photoItem, matching: .images)
-            .modifier(NailEditorExit(dirty: originalFields.map { $0 != editFields } ?? false, blocked: saving || saveFailed, onReturn: { dismiss() }))
+            .modifier(NailEditorExit(dirty: !saveCompleted && (originalFields.map { $0 != editFields } ?? false), blocked: saving, onReturn: { dismiss() }))
         }
+        .modifier(NailPhotoSaveFeedback(message: $saveMessage, completed: saveCompleted, retry: save, close: { dismiss() }))
         .onAppear { if originalFields == nil { originalFields = editFields } }
-        .modifier(NailTabExitProtection(dirty: originalFields.map { $0 != editFields } ?? false, blocked: saving || saveFailed))
+        .modifier(NailTabExitProtection(dirty: !saveCompleted && (originalFields.map { $0 != editFields } ?? false), blocked: saving))
     }
 
     private var trimmedTitle: String {
@@ -329,49 +332,19 @@ struct AddEntryView: View {
 
     private func save() {
         guard !saving, !saveCompleted else { return }
-        guard isBasicInfoValid else {
-            showValidationAlert = true
-            return
-        }
+        guard isBasicInfoValid else { showValidationAlert = true; return }
+        let input = PhotoSaveTransaction.EntryInput(target: .create(saveID), title: trimmedTitle, date: date,
+            note: note, category: designCategory?.rawValue, color: colorTone?.rawValue, rating: rating,
+            products: selectedProductIDs, photo: selectedUIImage.map { .replace($0) } ?? .keep)
         saving = true
-        defer { saving = false }
-
-        let entry = NailEntry(context: viewContext)
-        entry.id = UUID()
-        entry.date = date
-        entry.title = trimmedTitle
-        entry.note = note
-        entry.designCategory = designCategory?.rawValue
-        entry.colorCategory = colorTone?.rawValue
-        entry.rating = rating
-        entry.createdAt = Date()
-        entry.updatedAt = Date()
-
-        // 写真保存（選択されている場合のみ）
-        if let img = selectedUIImage {
-            let pid = UUID()
-            EntryPhotoStore.save(image: img, photoId: pid)
-            entry.photoId = pid
-        }
-
-        // 選択順で usedItems を作成
-        for (idx, pid) in selectedProductIDs.enumerated() {
-            guard let product = product(for: pid) else { continue }
-
-            let used = NailEntryUsedItem(context: viewContext)
-            used.id = UUID()
-            used.orderIndex = Int16(idx)
-            used.entry = entry
-            used.product = product
-        }
-
-        do {
-            try viewContext.save()
-            saveCompleted = true; saveFailed = false
-            dismiss()
-        } catch {
-            saveFailed = true
-            print("新規保存エラー: \(error)")
+        Task { @MainActor in
+            await Task.yield()
+            defer { saving = false }
+            do {
+                let result = try PhotoSaveTransaction.saveEntry(input, in: viewContext)
+                saveCompleted = true
+                if let warning = result.cleanupWarning { saveMessage = warning } else { dismiss() }
+            } catch { saveMessage = error.localizedDescription }
         }
     }
 }
@@ -496,5 +469,25 @@ private struct ProductThumb: View {
         }
         .frame(width: 48, height: 48)
         .clipShape(RoundedRectangle(cornerRadius: 10))
+    }
+}
+
+// 保存失敗は入力を保持して再試行可能にする。後片付けの警告は保存成功と区別する。
+struct NailPhotoSaveFeedback: ViewModifier {
+    @Binding var message: String?
+    let completed: Bool
+    let retry: () -> Void
+    let close: () -> Void
+    func body(content: Content) -> some View {
+        content.background {
+            Color.clear.alert(completed ? "保存は完了しました" : "保存できませんでした", isPresented: Binding(get: { message != nil }, set: { if !$0 { message = nil } })) {
+                if completed {
+                    Button("一覧へ戻る") { message = nil; close() }
+                } else {
+                    Button("再試行") { message = nil; retry() }
+                    Button("編集を続ける", role: .cancel) { message = nil }
+                }
+            } message: { Text(message ?? "") }
+        }
     }
 }

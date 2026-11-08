@@ -1,5 +1,7 @@
 import Foundation
 import UIKit
+import CoreData
+import CryptoKit
 
 enum EntryPhotoStore {
     private static let folderName = "entry_photos"
@@ -66,6 +68,281 @@ enum EntryPhotoStore {
         let renderer = UIGraphicsImageRenderer(size: target)
         return renderer.image { _ in
             image.draw(in: CGRect(origin: .zero, size: target))
+        }
+    }
+}
+
+// 保存前に準備した新規ファイルだけを所有する。既存ファイルの上書きや一括清掃はしない。
+@MainActor final class PreparedPhotoFiles {
+    enum Space { case entry, product }
+    struct File { let url: URL; let id: UUID; let space: Space; let hash: String }
+    private(set) var files: [File] = []
+    let hooks: PhotoSaveTransaction.Hooks
+    init(hooks: PhotoSaveTransaction.Hooks) { self.hooks = hooks }
+    static func hash(_ data: Data) -> String { SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined() }
+    static func regularDirectory(_ url: URL) throws {
+        let fm = FileManager.default
+        if !fm.fileExists(atPath: url.path) { try fm.createDirectory(at: url, withIntermediateDirectories: true) }
+        guard try fm.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType == .typeDirectory else {
+            throw PhotoSaveTransaction.Failure.photo("保存フォルダ")
+        }
+    }
+    func write(_ data: Data, to url: URL, id: UUID, space: Space, label: String) throws {
+        do {
+            try Self.regularDirectory(url.deletingLastPathComponent())
+            try hooks.beforeWrite?(url)
+            // 新UUIDの未公開ファイルだけを書く。途中失敗で既存ファイルを置き換えない。
+            try data.write(to: url, options: .withoutOverwriting)
+            let hash = Self.hash(data)
+            files.append(File(url: url, id: id, space: space, hash: hash))
+            let saved = try Data(contentsOf: url)
+            guard Self.hash(saved) == hash, UIImage(data: saved) != nil,
+                  try FileManager.default.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType == .typeRegular else {
+                throw PhotoSaveTransaction.Failure.photo(label)
+            }
+        } catch { throw PhotoSaveTransaction.Failure.photo(label) }
+    }
+}
+
+extension EntryPhotoStore {
+    static func prepare(_ image: UIImage, files: PreparedPhotoFiles) throws -> UUID {
+        let id = files.hooks.makeUUID()
+        guard let full = image.jpegData(compressionQuality: 0.85),
+              let thumb = makeThumbnail(from: image, maxPixel: 240).jpegData(compressionQuality: 0.7) else {
+            throw PhotoSaveTransaction.Failure.photo("デザイン写真")
+        }
+        try files.write(full, to: fullURL(photoId: id), id: id, space: .entry, label: "デザイン写真のフル画像")
+        try files.write(thumb, to: thumbnailURL(photoId: id), id: id, space: .entry, label: "デザイン写真のサムネイル")
+        return id
+    }
+}
+
+// 画面入力は値として受け取り、共有contextを変更する前に専用contextで確定する。
+@MainActor enum PhotoSaveTransaction {
+    enum Change { case keep, remove, replace(UIImage) }
+    struct Version: Equatable { let hash: String }
+    enum Target { case create(UUID), edit(NSManagedObjectID, Version) }
+    struct EntryInput {
+        let target: Target
+        let title: String
+        let date: Date
+        let note: String
+        let category: String?
+        let color: String?
+        let rating: Double
+        let products: [UUID]
+        let photo: Change
+    }
+    struct ProductInput {
+        let target: Target
+        let name: String
+        let category: String
+        let purchasedAt: Date
+        let place: String
+        let url: String?
+        let price: Int32
+        let main: Change
+        let sample: Change
+    }
+    struct Result { let objectID: NSManagedObjectID; let cleanupWarning: String? }
+    // 引数で依存性を注入する。起動引数や永続設定による診断分岐は作らない。
+    struct Hooks {
+        var makeUUID: () -> UUID = { UUID() }
+        var beforeWrite: ((URL) throws -> Void)? = nil
+        var beforeSave: ((NSManagedObjectContext) throws -> Void)? = nil
+        var beforeCleanup: ((URL) throws -> Void)? = nil
+    }
+    nonisolated enum Failure: LocalizedError {
+        case photo(String), database, conflict, configuration, pendingFiles(String)
+        var errorDescription: String? {
+            switch self {
+            case .pendingFiles(let detail): return detail + " 未確定の新写真の整理も完了できなかったため、安全のため残しています。"
+            case .photo(let part): return "\(part)を保存できませんでした。保存領域や空き容量を確認して再試行してください。元の写真と入力内容は保持しています。"
+            case .database: return "データを保存できませんでした。元の写真と入力内容は保持しています。再試行するか、変更を破棄して戻れます。"
+            case .conflict: return "編集中のデータが変更・削除されたか、未保存の変更があります。上書きせず入力を保持しました。一度戻って最新の内容を開き直してください。"
+            case .configuration: return "安全な保存先を確認できませんでした。入力内容を保持しています。"
+            }
+        }
+    }
+    static func version(_ object: NSManagedObject) -> Version {
+        func atom(_ value: Any?) -> String {
+            guard let value, !(value is NSNull) else { return "null" }
+            if let id = value as? UUID { return "uuid:" + id.uuidString }
+            if let date = value as? Date { return "date:\(date.timeIntervalSinceReferenceDate.bitPattern)" }
+            if let data = value as? Data { return "data:" + PreparedPhotoFiles.hash(data) }
+            if let n = value as? NSNumber { return "\(String(cString: n.objCType)):\(n.stringValue)" }
+            return "string:" + String(describing: value)
+        }
+        func attributes(_ value: NSManagedObject) -> [String: String] {
+            Dictionary(uniqueKeysWithValues: value.entity.attributesByName.keys.map { ($0, atom(value.value(forKey: $0))) })
+        }
+        var values: [String: Any] = ["attributes": attributes(object)]
+        for key in object.entity.relationshipsByName.keys {
+            let value = object.value(forKey: key)
+            let linked: [NSManagedObject]
+            if let ordered = value as? NSOrderedSet { linked = ordered.array.compactMap { $0 as? NSManagedObject } }
+            else if let set = value as? Set<NSManagedObject> { linked = set.sorted { $0.objectID.uriRepresentation().absoluteString < $1.objectID.uriRepresentation().absoluteString } }
+            else { linked = (value as? NSManagedObject).map { [$0] } ?? [] }
+            values[key] = linked.map { item -> [String: Any] in
+                var row: [String: Any] = ["id": item.objectID.uriRepresentation().absoluteString, "attributes": attributes(item)]
+                for (name, relation) in item.entity.relationshipsByName where !relation.isToMany {
+                    row[name] = (item.value(forKey: name) as? NSManagedObject)?.objectID.uriRepresentation().absoluteString ?? "nil"
+                }
+                return row
+            }
+        }
+        let data = (try? JSONSerialization.data(withJSONObject: values, options: .sortedKeys)) ?? Data()
+        return Version(hash: PreparedPhotoFiles.hash(data))
+    }
+    private static func coordinator(_ view: NSManagedObjectContext) throws -> NSPersistentStoreCoordinator {
+        guard let coordinator = view.persistentStoreCoordinator, !coordinator.persistentStores.isEmpty else { throw Failure.configuration }
+        return coordinator
+    }
+    private static func validateShared(_ target: Target, view: NSManagedObjectContext) throws {
+        guard case .edit(let id, _) = target else { return }
+        guard !id.isTemporaryID, let object = try? view.existingObject(with: id), !object.isDeleted, !object.hasChanges else { throw Failure.conflict }
+        for key in object.entity.relationshipsByName.keys {
+            let value = object.value(forKey: key)
+            let linked = (value as? NSOrderedSet)?.array.compactMap { $0 as? NSManagedObject }
+                ?? (value as? Set<NSManagedObject>).map(Array.init)
+                ?? (value as? NSManagedObject).map { [$0] } ?? []
+            if linked.contains(where: { $0.hasChanges || $0.isDeleted }) { throw Failure.conflict }
+        }
+    }
+    private static func object(_ target: Target, entity: String, in context: NSManagedObjectContext) throws -> NSManagedObject {
+        switch target {
+        case .create(let id):
+            let request = NSFetchRequest<NSManagedObject>(entityName: entity)
+            request.predicate = NSPredicate(format: "id == %@", id as NSUUID)
+            guard try context.count(for: request) == 0 else { throw Failure.conflict }
+            let object = NSEntityDescription.insertNewObject(forEntityName: entity, into: context)
+            object.setValue(id, forKey: "id"); object.setValue(Date(), forKey: "createdAt")
+            return object
+        case .edit(let id, let expected):
+            guard let object = try? context.existingObject(with: id), !object.isDeleted,
+                  object.entity.name == entity, version(object) == expected else { throw Failure.conflict }
+            return object
+        }
+    }
+    private struct Old { let space: PreparedPhotoFiles.Space; let id: UUID; let url: URL; let hash: String? }
+    private static func oldFiles(_ space: PreparedPhotoFiles.Space, _ id: UUID?) -> [Old] {
+        guard let id else { return [] }
+        let urls = space == .entry ? [EntryPhotoStore.fullURL(photoId: id), EntryPhotoStore.thumbnailURL(photoId: id)] : [ProductPhotoStore.sourceURL(photoId: id)].compactMap { $0 }
+        return urls.compactMap { url in
+            guard FileManager.default.fileExists(atPath: url.path) else { return nil }
+            let regular = (try? FileManager.default.attributesOfItem(atPath: url.path)[.type] as? FileAttributeType) == .typeRegular
+            let hash = regular ? (try? Data(contentsOf: url)).map(PreparedPhotoFiles.hash) : nil
+            return Old(space: space, id: id, url: url, hash: hash)
+        }
+    }
+
+    private static func referenced(_ id: UUID, space: PreparedPhotoFiles.Space, coordinator: NSPersistentStoreCoordinator, view: NSManagedObjectContext) throws -> Bool {
+        let context = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        context.persistentStoreCoordinator = coordinator
+        let entity = space == .entry ? "NailEntry" : "NailProduct"
+        let keys = space == .entry ? ["photoId"] : ["photoId", "samplePhotoId"]
+        let request = NSFetchRequest<NSManagedObject>(entityName: entity)
+        request.predicate = NSCompoundPredicate(orPredicateWithSubpredicates: keys.map { NSPredicate(format: "%K == %@", $0, id as NSUUID) })
+        if try context.count(for: request) > 0 { return true }
+        return view.registeredObjects.contains { object in
+            object.entity.name == entity && !object.isDeleted && object.hasChanges && keys.contains { (object.value(forKey: $0) as? UUID) == id }
+        }
+    }
+    private static func cleanup(_ files: [Old], coordinator: NSPersistentStoreCoordinator, view: NSManagedObjectContext, hooks: Hooks) -> Bool {
+        var complete = true
+        for file in files {
+            do {
+                guard !(try referenced(file.id, space: file.space, coordinator: coordinator, view: view)) else { continue }
+                guard FileManager.default.fileExists(atPath: file.url.path) else { continue }
+                try PreparedPhotoFiles.regularDirectory(file.url.deletingLastPathComponent())
+                guard try FileManager.default.attributesOfItem(atPath: file.url.path)[.type] as? FileAttributeType == .typeRegular,
+                      PreparedPhotoFiles.hash(try Data(contentsOf: file.url)) == file.hash else { complete = false; continue }
+                try hooks.beforeCleanup?(file.url)
+                try FileManager.default.removeItem(at: file.url)
+            } catch { complete = false }
+        }
+        return complete
+    }
+    private static func perform(target: Target, entity: String, view: NSManagedObjectContext, hooks: Hooks,
+                                change: (NSManagedObject, PreparedPhotoFiles) throws -> [Old]) throws -> Result {
+        let coordinator = try coordinator(view)
+        try validateShared(target, view: view)
+        let context = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        context.persistentStoreCoordinator = coordinator
+        context.mergePolicy = NSMergePolicy(merge: .errorMergePolicyType)
+        let files = PreparedPhotoFiles(hooks: hooks)
+        do {
+            let targetObject = try object(target, entity: entity, in: context)
+            let old = try change(targetObject, files)
+            try hooks.beforeSave?(context)
+            // 準備中に共有側へ未保存の変更が加わった場合も上書きしない。
+            try validateShared(target, view: view)
+            try context.obtainPermanentIDs(for: Array(context.insertedObjects))
+            let inserted = Set(context.insertedObjects.map(\.objectID)), updated = Set(context.updatedObjects.map(\.objectID)), deleted = Set(context.deletedObjects.map(\.objectID))
+            try context.save()
+            NSManagedObjectContext.mergeChanges(fromRemoteContextSave: [NSInsertedObjectsKey: inserted, NSUpdatedObjectsKey: updated, NSDeletedObjectsKey: deleted], into: [view])
+            view.processPendingChanges()
+            let clean = cleanup(old, coordinator: coordinator, view: view, hooks: hooks)
+            return Result(objectID: targetObject.objectID, cleanupWarning: clean ? nil : "データの保存は完了しました。旧写真の整理を完了できなかったため、安全のため残しています。")
+        } catch {
+            // 破棄するのは保存専用contextと今回準備したファイルだけ。共有contextは巻き戻さない。
+            context.reset()
+            let own = files.files.map { Old(space: $0.space, id: $0.id, url: $0.url, hash: $0.hash) }
+            let clean = cleanup(own, coordinator: coordinator, view: view, hooks: hooks)
+            let ns = error as NSError
+            let failure = (error as? Failure) ?? ((ns.code == NSManagedObjectMergeError || ns.code == NSPersistentStoreSaveConflictsError) ? .conflict : .database)
+            if !clean { throw Failure.pendingFiles(failure.localizedDescription) }
+            throw failure
+        }
+    }
+    static func saveEntry(_ input: EntryInput, in view: NSManagedObjectContext, hooks: Hooks? = nil) throws -> Result {
+        try perform(target: input.target, entity: "NailEntry", view: view, hooks: hooks ?? Hooks()) { object, files in
+            guard let entry = object as? NailEntry, Set(input.products).count == input.products.count,
+                  input.products.count <= Int(Int16.max) else { throw Failure.configuration }
+            var old: [Old] = []
+            switch input.photo {
+            case .keep: break
+            case .remove: old = oldFiles(.entry, entry.photoId); entry.photoId = nil
+            case .replace(let image): old = oldFiles(.entry, entry.photoId); entry.photoId = try EntryPhotoStore.prepare(image, files: files)
+            }
+            entry.title = input.title; entry.date = input.date; entry.note = input.note
+            entry.designCategory = input.category; entry.colorCategory = input.color; entry.rating = input.rating; entry.updatedAt = Date()
+            let selected = try input.products.map { id -> NailProduct in
+                let request = NailProduct.fetchRequest(); request.predicate = NSPredicate(format: "id == %@", id as NSUUID)
+                let matches = try object.managedObjectContext!.fetch(request)
+                guard matches.count == 1 else { throw Failure.conflict }; return matches[0]
+            }
+            // 同じ関連順序なら作り直さず、既存リンクIDも保持する。
+            let links = (entry.usedItems?.array as? [NailEntryUsedItem] ?? []).sorted { $0.orderIndex < $1.orderIndex }
+            if links.map({ $0.product?.id }) != input.products.map(Optional.some) {
+                for link in links { object.managedObjectContext!.delete(link) }
+                for (index, product) in selected.enumerated() {
+                    let link = NailEntryUsedItem(context: object.managedObjectContext!)
+                    link.id = UUID(); link.orderIndex = Int16(index); link.entry = entry; link.product = product
+                }
+            }
+            // 既存の写真変更時スコア無効化だけを保存トランザクション内で維持する。
+            if case .keep = input.photo {} else if let score = entry.aiScore { object.managedObjectContext!.delete(score); entry.aiScore = nil }
+            return old
+        }
+    }
+    static func saveProduct(_ input: ProductInput, in view: NSManagedObjectContext, hooks: Hooks? = nil) throws -> Result {
+        try perform(target: input.target, entity: "NailProduct", view: view, hooks: hooks ?? Hooks()) { object, files in
+            guard let product = object as? NailProduct else { throw Failure.configuration }
+            var old: [Old] = []
+            switch input.main {
+            case .keep: break
+            case .remove: old += oldFiles(.product, product.photoId); product.photoId = nil
+            case .replace(let image): old += oldFiles(.product, product.photoId); product.photoId = try ProductPhotoStore.prepare(image, files: files, label: "商品写真")
+            }
+            switch input.sample {
+            case .keep: break
+            case .remove: old += oldFiles(.product, product.samplePhotoId); product.samplePhotoId = nil
+            case .replace(let image): old += oldFiles(.product, product.samplePhotoId); product.samplePhotoId = try ProductPhotoStore.prepare(image, files: files, label: "サンプル写真")
+            }
+            product.name = input.name; product.category = input.category; product.purchasedAt = input.purchasedAt
+            product.purchasePlace = input.place; product.productUrl = input.url; product.priceYenTaxIn = input.price; product.updatedAt = Date()
+            return old
         }
     }
 }

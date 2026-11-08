@@ -3,14 +3,12 @@
 <!-- latest-status:start -->
 ## 最新状況サマリー
 
-- 最終更新：2026-11-08。識別子 `Renderer8GitHubSave-20261108`。renderer8完成版について、ユーザーがiPhone17e実機で確認し「問題なし」と報告。GitHub main保存作業中。Codexによる実機操作ではない。
-- 完成内容：4テンプレートの配置、Recipe列優先1/2列・45ptパネル・最大2行自動文字調整、最大6写真のSession読込と更新キー、関連説明。旧renderer1〜7を保護。
-- 保存対象：PlateEditorView.swift、PlateHomeView.swift、PlateRepository.swiftの8許可1行、連携2文書。IDE設定project.pbxprojは除外し同じローカル差分を保持。比較PNG/分離アプリ/一時テスト/ログ/キャッシュ/実データは対象外。
-- 最終検証：今回Debug Simulator/署名なしRelease増分ビルド成功、diff --check成功。2026-11-08 16:33〜16:35、HEAD e3852ea＋完成実装で実施した20,284チェック/旧版84画像一致/12書体5,016条件/保存・復元・複製・失敗保護・JPEG/PNG両解像度/UI1件の結果を再利用（今回再実行と混同しない）。ソースはその検証後から同一。
-- Git開始：main、HEAD/取得済みorigin/main=e3852ea871a0ab29c1a76972c839dc2398845af2。staged/untrackedなし、既存dirty6ファイル。通常commit/pushのみ実行し、最終SHAと残存差分は末尾に追記する。
-- 互換性・制約：CoreData/JSON構造/元写真不変。既存8のサムネイルは次の明示保存まで旧配置の場合あり。全OS/VoiceOver/他画面全CRUDの網羅検証は未実施。実機はユーザー確認済み、詳細は直近実装履歴/Reportを参照。
-- 次工程：GitHub保存と文書同期が終われば停止。追加機能/デザイン/次Phaseへ進まない。
-- ChatGPT連携：保存結果の確定後、既存sync.zshで2文書のみ同期しクラウド本文を確認する。
+- 最終更新：2026-11-09。識別子 `PhotoSaveSafetyGitHubSave-20261109`。Diary・Item写真保存安全性の正式実装完了。ユーザー本人によるiPhone 17e実機確認8/8合格（Codexの実機操作ではない）。
+- GitHub保存：開始main HEAD/origin/main/GitHub mainは `10bf6c45a444a1a7e131ea439c1c58755136f6e6` で一致。承認済み製品5Swift＋連携2文書の計7ファイルを通常commit/pushする。確定SHA・push結果は末尾の完了記録へ追記する。
+- 検証：2026-11-08の最終ソース検証を再利用。539/539、基準30/30、Simulator UI3/3、Debug Simulator/署名なしRelease iOS成功。今回、製品5ファイルのSHA256がFinalBuildSources.sha256と完全一致、diff --check成功。新たなビルド/自動テスト実行ではない。
+- 保護：既存project.pbxprojのIDE設定差分はコミット対象外として維持。製品追加変更なし。CoreDataモデル/Plate renderer1〜8/AI休止/実データを変更しない。
+- 次回：関連付きItem削除の安全性調査。今回は着手せず、GitHub保存と2文書同期完了後に停止する。
+- ChatGPT連携：今回記録を2文書へ更新し、既存sync.zshとクラウド本文照合を実施する。最終結果は完了報告と末尾を参照。
 <!-- latest-status:end -->
 
 
@@ -5475,3 +5473,304 @@ df -k /System/Volumes/Data：開始297600000KiB=304.7424GB、終了297528184KiB=
 - 再利用した検証：2026-11-08 16:33:32最終自動結果、16:34:57 UI終了（HEAD e3852ea＋その後コミット前の完成ソース）。20,284チェック、旧1〜7の84画像一致、12書体/33ウェイト組合せ/5,016名前条件、Session6画像・保存/復元/並替/複製/明示更新・失敗保護・サムネイル・JPEG/PNG両解像度、UI1件。これらは今回新たに実行した数ではない。検証以後の製品ソース変更なし、今回開始hashも保持。
 - ユーザー実機確認と分離Simulator確認を区別し、全OS/全Unicode/VoiceOver/他画面全CRUDまで保証しない。既存Swift6向け警告は未解消。新しい機能や仕様変更なし。
 - 予定メッセージ：Finalize renderer8 plate layouts and item image loading。SHA/push/残存差分は完了後追記し、追記文書に未コミット差分が残っても追加commitを繰り返さない。
+
+### Renderer8GitHubSaveCompleted-20261108
+
+- 2026-11-08 22:19 JST、renderer8完成版をGitHub保存完了。ユーザー本人がiPhone17eで確認し問題なしと報告した状態。Codexの実機操作ではない。
+- commit：`10bf6c45a444a1a7e131ea439c1c58755136f6e6`。メッセージ：`Finalize renderer8 plate layouts and item image loading`。push先：origin/main（git@github.com:Hideki69S/NailNote.git）。通常push成功（e3852ea→10bf6c4）、GitHub refs/heads/mainの読み取り値/ローカルHEAD/origin/mainの完全一致を確認。
+- コミット5ファイル：NailNote/Features/Plates/PlateEditorView.swift、PlateHomeView.swift、PlateRepository.swift、PROJECT_STATUS.md、docs/CHATGPT_HANDOFF.md。画像/実機データ/検証アプリ/一時テスト/成果物/秘密情報なし。
+- 今回の最終ビルド：2026-11-08 22:17 JST、コミット前HEAD e3852ea＋完成実装でDebug Simulator/署名なしRelease iOS成功。今回開始から製品3ファイルhash不変で、そのblobを10bf6c4へ保存。diff --check成功。
+- 自動検証は16:33〜16:35の20,284チェック/旧1〜7の84画像一致/名前5,016条件/Session6写真/保存・復元・複製・失敗保護・JPEG/PNG/UI1件を再利用。今回新たな自動テスト実行とは報告しない。重大な未解決事項なし、全OS/VoiceOver/他画面全CRUDの網羅検証は対象外。
+- push直後の残存：NailNote.xcodeproj/project.pbxprojのみ。開始時hashと一致し、LastUpgradeCheckとSTRING_CATALOG_GENERATE_SYMBOLSの既存差分を保持。今回の確定SHA/push結果追記後は、このIDE設定＋連携2文書が未コミット。staged/untrackedなし。製品Swiftの未コミット差分なし。文書結果記録のため追加commit/pushは行わない。
+- 容量：同じdf -k /System/Volumes/Dataで開始303.1040GB→22:19確認303.3475GB（差+0.2435GB、10進）。今回の検証ログ/開始差分/監査JSONは/private/tmp/NailNoteValidation/Renderer8GitHubSave/に保管。固定Debug/Releaseを再利用、削除/cleanなし。空き増減を今回のファイル削除効果とは扱わない。
+- 次回再開地点：main `10bf6c45a444a1a7e131ea439c1c58755136f6e6`。この完成版を起点にユーザーの次指示を待つ。次フェーズ/追加機能/デザイン変更なし。
+- Google Drive：結果2文書を既存sync.zshで反映し、クラウド本文の完了識別子とSHAを確認する。同期最終結果は完了報告へ記載する。
+
+### Renderer8GitHubSaveSyncVerified-20261108
+
+Google Drive単発同期は終了0・更新2件。クラウド取得APIで両文書のRenderer8GitHubSaveCompleted-20261108と10bf6c45a444a1a7e131ea439c1c58755136f6e6を照合済み。ローカルコピーのみの成功と区別してクラウド反映を確認。ChatGPT側でチェック可能。残存dirtyはIDE設定＋結果追記2文書、stage/untrackedなし。追加commit/pushを行わず、GitHub保存完了で停止。
+
+## 2026-11-08 次工程の残課題再評価
+
+識別子 `NextWorkTriage-20261108`。今回は調査・提案のみ。ユーザーがrenderer8完成版をiPhone17eで確認し問題なしと報告、GitHub保存済み。Codexによる新たな実機確認は行っていない。
+
+### PlatePhotoNameAlignmentの再分類
+
+|項目|分類|確認した現状/根拠|
+|---|---|---|
+|Elegant/Sweetの写真と文字|解消済み|layoutEightItems/PlateLayoutEightItemsで写真左・カテゴリ右上・名前右下。1〜3件の広い幅と4〜6件3列×2行。renderer8実装・ユーザー実機承認済み|
+|Noirの左端|解消済み|写真/カテゴリ/名前のx一致、縦順、左寄せ。4〜6件2列。旧版へは逆適用しない|
+|Recipeの写真/カテゴリ/名前|解消済み|番号→写真→右上カテゴリ/右下名前。1〜3件1列、4件左2右2、5件左3右2、6件左3右3|
+|最大6件/写真|解消済み|8専用limit6、超過+N、Session画像6件/UUID対応、版と実効上限を含むTaskキー。全選択/順序は保持|
+|長い名前|解消済み（承認仕様内）|Recipe45pt/名前30.5pt、最大2行→下限縮小→末尾…。他3構図は承認どおり既存省略。全文表示を無条件保証する仕様ではない。原文は保持|
+|旧rendererとの互換性|解消済み（旧構図維持）|旧1〜7は別分岐/写真3件を維持、前回84画像一致。開く/複製で自動更新せず、明示更新のみ8。旧構図が新整列でないことを未解決不具合と数えない|
+
+上記6項目は、今回の範囲で一部解消/未解決/実機確認待ちに該当する残件なし。個別条件の網羅テスト未実施は別の検証課題として扱う。過去の「PlatePhotoNameAlignment未着手」は当時の履歴で、現renderer8には適用しない。PlateCommentVisibilityもB2/実フォント計測/先頭空行注意で承認仕様内の解消済みへ更新する。
+
+### 残課題一覧（確認済みコードと未再現を区別）
+
+優先度：P1=データ保護の調査を先行、P2=次に検討、P3=運用量/仕様判断後、P4=保留。難易度/リスクは見積り。
+
+|課題/範囲|現在の問題・条件|影響|優先/難易度/リスク|推奨対応|
+|---|---|---|---|---|
+|SaveFailurePhotoSafety：Diary/Item|EditEntry.applyPhotoChange、AddOrEditProduct.applyPhotoChangesはcontext.save成功前に旧ファイルを削除。PhotoStore書込はtry?等で失敗が呼出側へ伝わらない経路。保存失敗はprint＋saveFailed、戻る/タブ離脱をblockedにする。写真変更後の書込失敗/ストア保存失敗が条件。コード確認済み、実データ喪失は未再現|旧写真への参照不整合、入力が残っても復帰案内不足。新規時の失敗も要確認|P1/中〜高/中〜高|分離データで失敗注入し、旧写真は確定後のみ整理、画像失敗を検出、再保存/安全な戻り方/明確なエラー案内を設計。共有context全体rollbackの安易な追加を避ける|
+|LinkedItemDeletion：Item/Diary/共通削除|ProductList.deleteSelectedProductsは関連確認なしでcontext.delete→save、失敗はprintのみ。モデルはusedInEntries Nullify、NailEntryUsedItem.productにoptional=YESがない。関連付き削除時の必須関係検証エラー等が懸念（SwiftのOptional型とモデル必須性は別）。実際の失敗コードは今回未取得。Diary削除は写真削除も保存前|Diary使用アイテム関連/削除失敗後context/ユーザー通知、Item写真の整理漏れも要調査|P1/中〜高/高|関連0/1/複数で分離再現。削除を阻止して説明するか、確認の上で関連レコードだけ整理するか仕様決定。EntryそのものやPlateスナップショットを消さない。モデル変更は別承認|
+|PlateDamagedImageRecovery：Plate|missing/damaged時はfallback/警告、主写真破損は保存停止。主写真のデザイン再選択→差替えは既にある。一方damagedItemPhotoの明示復旧UIはなく、Itemを掲載から外すか復旧が必要。欠損/破損/ハッシュ不一致が条件|作品の上書き/複製が制約される。現状の停止はデータ保護として妥当|P2/高/高|修復対象/置換元/確認・取消を設計し、旧head/revision/参照保持。勝手に現在Itemで上書きしない。新保存仕様が必要なら実装前に別承認|
+|MixedThemeFilterContrast：Diary/Item共通UI|UI計画の既存懸念。フィルタ見出しは現在もforegroundStyle(.secondary)、背景は独立テーマ。OS明暗と背景が逆の条件で弱くなる可能性。現在ビルドでの画像再現は未実施|見出し等の視認性。フィルタ機能やカテゴリ選択ロジックの不具合ではない|P2/低/低|対象文字だけ既存パレット可読色へ合わせる最小案。混在/濃淡テーマで比較し、写真カードや全体配色は変えない|
+|CrossScreenVerification：全4タブ|VoiceOver、AX文字サイズ、低メモリ/実機ピーク/FPS、全画面CRUDの統合マトリクスは網羅未確認。失敗の報告ではなく検証不足|小画面/支援操作/写真多数の品質リスク|P2/中/低（検証のみ）|分離データ＋必要時に実機操作の承認を得て、失敗したケースだけ不具合化。根拠なくリデザインしない|
+|SharedImageGC：Plate|Repository.itemImageInventoryは全revision/stagingを走査し未参照候補を返す読取機能のみ。共有画像削除GCは未実装。作品/画像差替・削除を繰り返すと占有が残り得る|容量。現時点の実ユーザー孤立量/容量逼迫は未測定、正常参照データは保持が正しい|P3/高/高|まず読取棚卸しだけ。量/参照/破損版を調査後、明示承認する安全な整理設計。旧revision参照も使用中として扱い、自動削除を追加しない|
+|PlateAppearanceArea：Settings/Plate|NailAppearance.Areaはdesign/items/tabBar/addButton/settingsのみ。PlateHome/Editorはdesignを継承。専用設定は未実装|プレート画面だけ色を変えられない。作品テンプレート色の不具合ではない|P3/中/中|新Areaの継承/既存設定互換を設計後に承認。作品Canvasの色と編集UIは分離|
+|ItemCardSecondPhoto：Item|古いTODOは商品/サンプル2枚表示。現在カードは商品写真92ptを表示、登録編集とプレート選択にはサンプル対応がある。カード2枚同時表示は未実装|表示機能の追加。商品写真「復活」は済みなので再実装不要|P4/低〜中/中|旧希望を現デザインへ再採用するか確認が先。現カードを無断変更しない|
+|FormRefresh：Diary/Item|Add/Editは現在もForm。古い全面ScrollView+GlassCard化は未実装。ヘッダー/戻る/テーマなど部分改善は済み|主にデザイン追加。現時点の継続不具合報告なし|P4/高/中〜高|一括刷新を先行せず、個別の操作上の不具合が報告された範囲だけ検討|
+|BarcodeLookupService：Item|旧TODOに残るが製品Swiftにサービス/スキャナ導線なし|新機能、外部通信/データ取得仕様が未決定|P4/高/中〜高|必要性/サービス/入力訂正/通信失敗/権限を別途設計。今回推奨実装には含めない|
+
+AIのUI磨き込み/履歴/出力サンプルなど古いTODOは「休止方針により対象外」。RootViewのaiEvaluationEnabled=falseとSimHomeViewの分岐を確認。AIコードやデータは削除せず、再開は提案しない。
+
+### 次工程の推奨候補（選択待ち）
+
+1. **Diary/Itemの保存失敗時保護**：最優先。EntryPhotoStore/ProductPhotoStoreとAdd/Editの呼出順・戻り値/エラー導線だけを調査/最小修正候補にする。分離環境で画像書込失敗/CoreData失敗/再試行/取消/再起動、旧写真hash・入力・関連不変を検証。見た目の追加よりデータ保護を優先する。
+2. **関連付きItem削除と削除失敗の扱い**：先に削除方針を決定し、モデルを変えずに成立する最小案を提示。関連0/1/複数、写真あり/なし、保存失敗、Diary関連/Plate独立snapshot保持を検証。実ユーザー用品を削除して調べない。
+3. **Plate破損画像の復旧UX**：現状の保護を維持し、ユーザーが明示した画像だけ復旧/置換できる設計から始める。主写真の既存差替えを重複実装せず、主にアイテムsnapshot欠損を対象にする。共有SHA参照/他作品/旧版/失敗/取消を検証。保存仕様拡張は必要性を報告してから承認待ち。
+4. **フィルタ見出しの混在テーマ可読性**：まず現在コードで再現比較。再現すればDiary/Itemの対象Textだけ最小修正。OS明暗×画面テーマ、320/390/430pt/AX、機能/選択/ソート不変を確認。全画面のデザイン変更はしない。
+5. **全4タブの品質確認セット**：コード変更前提にせず、アクセシビリティ/メモリ/写真多数/保存失敗/画面遷移の確認を先行。renderer1〜8、画像出力、タップ保護、戻る/タブ復帰を分離データで横断。問題が出た項目だけ修正提案へ進む。
+
+共有画像GCとPlate専用外観は上記より後。容量・独立外観の要望が強くなった場合に優先度を見直す。新たな障害の実機報告がなければ、候補1の分離再現・設計から進めることを推奨するが、今回は選択を待つ。
+
+### 完了済み/仕様維持のため再実装しない項目
+
+- renderer8 B2コメント、最大6件、4〜6件の写真、写真/文字整列、Recipe長名、renderer7右下日付/Fill、Bカードアイコン。
+- ユーザー確認済みの保存後4タブ復帰、成功メッセージ廃止、使用アイテム再編集、カテゴリ複数選択/テーマ連動、購入場所追加は、過去の症状だけで再修正しない。
+- 画像保存/JPEG・PNG共有は実装済み。古いPhase4未実装記録を現状と混同しない。
+- 旧作品の旧構図、長名の末尾省略、100字コメント全文非保証、renderer8の既存サムネイルは次保存まで旧配置の場合あり、は保護/制約として残す。自動一括移行/サムネイル再生成は提案しない。
+- 古いAGENTS/STATUSのAI優先・3タブ/4タブ記録、全自動Git/キャッシュ削除等の履歴は現在の運用指示ではない。現4タブ/AI休止/承認範囲を維持し、履歴本文は消さない。
+
+### 検証・保護・次回
+
+今回行ったのは文書と製品コードの静的照合だけ。新たな不具合再現/ビルド/UIテスト/実機操作は未実施。前回の実装成功/ユーザー実機承認は参照した過去の根拠で、今回実行した検証ではない。候補1/2/4の失敗条件はコード上の懸念・既存調査からの推奨であり、現在の実機で発生確認済みとは扱わない。
+
+確認箇所：PlateEditorViewのlayoutEightItems/PlateLayoutEightItems/PlateRecipeNameLayout/PlateEditingSession、PlateHomeViewのdesignテーマ継承、PlateRepositoryのload/save/itemImageInventory、EntryListView.deleteEntries、EditEntryView.applyPhotoChange、ProductListView.deleteSelectedProducts/saveContext、AddOrEditProductView.applyPhotoChanges、PhotoStore書込、モデルNailEntryUsedItem.product/usedInEntries、GlassTheme.NailAppearance.Area、Settings外観画面、Entry/Itemのフィルタ見出し。
+
+開始HEAD/ローカルorigin/main=10bf6c45a444a1a7e131ea439c1c58755136f6e6、main。既存dirtyはproject.pbxproj＋連携2文書のみ、staged/untrackedなし。製品Swift/IDE設定は開始hash保護、commit/push/fetch/reset/clean/削除なし。新規生成物は /private/tmp/NailNoteValidation/NextWorkTriage/ の監査JSON等のみ、画像/ビルドは生成なし。容量：2026-11-08T22:27:50.511829→2026-11-08T22:31:01.198567、df -k /System/Volumes/Data、303.1040→303.3268GB（10進）。削除なし。
+
+ChatGPTには上記の優先順位と、候補1/2の分離再現・データ保護方針をレビューしてほしい。ユーザーの次工程選択まで実装を開始しない。
+
+### NextWorkTriageSyncVerified-20261108
+
+既存sync.zsh終了0・更新2件。Google Driveクラウド両本文でNextWorkTriage-20261108を確認済み。ChatGPT側でチェック可能。全製品Swiftとproject.pbxprojは開始hash一致、HEAD/ローカルorigin/main=10bf6c45a444a1a7e131ea439c1c58755136f6e6、既存dirty3ファイル（IDE＋2文書）保持、staged/untrackedなし。終了df Data空き303.1040GB、今回監査資料24KiB時点、削除/ビルド/画像生成/commit/pushなし。次工程はユーザー選択待ちで停止。
+
+## 2026-11-08 Diary・Item写真保存安全性調査
+
+# Diary・Item 写真保存安全性調査
+
+識別子 PhotoSaveSafetyResearch-20261108。2026-11-08。main HEAD/ローカルorigin/main=10bf6c45a444a1a7e131ea439c1c58755136f6e6。調査・分離検証のみ、製品修正未実施。正式実装承認待ち。
+
+## 結論
+
+写真変更/削除を行ってからCoreData保存が失敗すると、永続ストアは旧参照のままでも旧写真は既に削除される。ファイル書込失敗だけの場合は、存在しない/不完全な新写真への参照を保存し成功終了する。新規保存失敗後の再試行では、最初の未保存オブジェクトを残して再挿入するため二重レコードを保存した。いずれも分離環境で確認。実ユーザーデータ喪失/実機再現を確認したという意味ではない。
+
+## 検証方法と限界
+
+製品のEntryPhotoStore/ProductPhotoStoreをそのままリンク。3画面のsave/写真変更関数を機械抽出し、検証用クラスに配置。private解除、UUID生成を指定UUIDキューへ置換、Stateを同名変数へ置換、dismissをフラグ記録へ置換。Addの入力検証は製品と同じ式、入力はsimple/pink等の妥当値、使用アイテム0件なので商品検索はnil。resetAIScoreは元関数のままだが、全fixtureにスコアはなく削除/通信は実行されない。抽出関数と変更点はExtractedFlows.swift/ExtractionNotes.mdに保存。
+
+一時SQLite/CoreDataと40×60のテスト画像を使用。実機/既存NailNoteコンテナは未操作。Simulator専用bundle=dev.nailnote.photosafety。写真はこの専用アプリのDocuments内entry_photos/ProductPhotos、SQLite/コード/ログ/結果は本フォルダに分離。
+
+書込失敗は新UUIDの出力ファイル位置にテスト用ディレクトリを作り、実Data.write(.atomic)を失敗させた。権限の迂回/製品メソッドのswizzleなし。CoreData失敗は独立NSManagedObjectContextサブクラスのsaveで、super.save直前にエラーをthrow。ストアは実SQLite、失敗後に別コンテナから再オープンして永続データを比較した。
+
+この試験は関数フローと状態値の検証であり、SwiftUI実画面を操作するE2Eではない。保存中/保存失敗時の状態は抽出フラグと製品NailTabNavigationによる遷移拒否で検証。画面ピクセル、実際の戻るタップ/キーボード/PhotosPicker、実プロセス強制終了は未検証。SQLite再オープンを再起動相当と区別して記録する。
+
+## 結果
+
+30ケース、中心78チェック＋保存失敗11件の再オープン/再試行/取消ブロック照合33件、計111チェック。これは不具合修正の成功数ではなく、現在の動作を確認した検証数。最終結果はresults-verified.json/Measurements.csv（初回results.jsonも保持）。
+
+|条件|Diary|Item|
+|---|---|---|
+|写真書込/DB保存成功|新規1件・変更/削除成功。文字のみでは旧full/thumbのhash不変|新規1件・2枚/片方の変更/削除成功。文字のみでは両写真hash不変|
+|新規写真書込失敗|full失敗でもthumbだけ保存、thumb失敗ならfullだけ保存。どちらも新photoIdをDB保存、saveCompleted=true/dismiss要求あり|mainだけ失敗/sampleだけ失敗の各条件で、両方のIDをDB保存し成功終了。片方の画像が欠損|
+|既存写真差替え＋書込失敗|旧full/thumbを先に削除。新fullかthumbが欠けた状態で参照保存/成功終了|旧該当写真を先に削除。2枚のうち1枚だけ失敗しても両新IDを保存/成功終了|
+|新規＋DB保存失敗|永続レコード0、写真は新規生成済み、未保存挿入1件がcontext内に残る。入力/画像は保持、dismissなし|同様。商品/サンプルの新ファイルは残り、未保存挿入1件|
+|既存差替え＋DB保存失敗|DBは旧タイトル/旧photoId、メモリは新入力/新photoId。旧写真は削除済み、新写真はDBから未参照|DBは旧2参照、メモリは新参照。両方/商品だけ/サンプルだけの条件で変更対象の旧画像が削除済み|
+|写真削除＋DB保存失敗|DBには旧photoId、旧full/thumbは削除済み|商品だけ/両方の削除失敗で、DBは旧参照のまま該当画像は削除済み|
+|文字のみ＋DB保存失敗|旧写真/旧参照を保持。新入力はメモリに保持|両写真/旧参照を保持。新入力はメモリに保持|
+|DB失敗後の再試行|編集は成功。ただし新規は再挿入し、2レコードが保存された|編集は成功。ただし新規は同様に2レコード保存|
+|失敗後の取消|saveFailedでblocked=true。製品NailTabNavigationの破棄移動が拒否された|同様|
+|DB失敗後の再オープン|DBは全11件で試行前と同一。変更/削除対象の旧ファイルは戻らない|同様。再試行前の永続スナップショットを記録|
+
+内訳：正常11、CoreData保存失敗11、Diary full失敗2/thumb失敗2、Item main失敗2/sample失敗2。編集のDB失敗9条件中、文字のみ2件は写真維持、変更/削除7件は対象旧写真消失。新規DB失敗2件はいずれも再試行後2件保存。
+
+ファイル存在だけで成功判定しない。旧ファイルのSHA256・種別・画像復号可否、新参照、別コンテナの永続参照、メモリの参照、入力、保存フラグ、dismiss要求、取消制御を記録した。ファイル失敗用のディレクトリはexists=trueでも画像ではない。Diaryのthumbだけ失敗はフル画像まで失ったという意味ではない。
+
+## 根本経路
+
+### Diary
+
+AddEntry.saveは毎回新規NailEntryを生成し、写真save後にphotoIdを設定してcontext.saveする。失敗した挿入を整理しないまま再試行するため2件が保存される。
+
+EditEntry.applyPhotoChangeは旧写真をdelete→新UUIDへsave→entry.photoId差替え。削除の場合もファイル削除→nil設定の順。いずれもDB確定前。EntryPhotoStore.saveはVoidでfullとthumbそれぞれtry?のため、片方だけ失敗しても呼出元に通知しない。EntryListViewのレコード削除にも写真先行削除があるが、レコード削除の再現試験は今回実施していない（次の削除工程で扱う）。
+
+### Item
+
+ProductPhotoStore.saveImageはBoolを返すが、AddOrEditProduct.applyPhotoChangesが戻り値を無視する。main/sampleは順番に独立処理し、両方成功したという確認がない。旧写真削除→新保存→ID設定→context.saveとなる。新規のsave再試行は毎回NailProductを生成する。
+
+### 共通の画面状態
+
+saving中の二重保存防止guardとblockedはある。DB失敗ではsaveFailed=true、入力/画像を保持しdismissしない。一方失敗詳細はprintが中心で、戻るを押すとNailEditorExitは「保存中、または保存に失敗しています」の案内と「編集を続ける」だけになり、破棄は出ない。再保存は可能。ファイル失敗はsaveFailedにならず成功終了するので、画面側は正常保存と区別できない。
+
+## 修正案比較（未実装）
+
+両案とも写真のフォルダ/UUID/JPEG/サムネ形式を維持し、CoreDataモデル変更を不要とする。新写真は新UUIDに全必要ファイルを準備→成功確認→参照と文字/関連をDB保存→成功後だけ旧写真整理。画像表示fallbackだけで保存エラーを隠さない。
+
+|案|構成|既存コードへの影響|利点|主なリスク/検証|
+|---|---|---|---|---|
+|A：共有context維持＋対象状態復元|書込をthrow/resultへ変更し新画像準備、共有contextへ反映、失敗時は編集対象と関連だけ元へ戻す|既存save形状を比較的残せるが、写真/usedItems等の変更前スナップショットと個別復元処理が必要|見かけの変更量は小さい。既存FetchRequestの動作を維持しやすい|関係レコードの削除/再生成/既存付随データの復元漏れ。他画面の未保存変更が同じcontext.saveで巻き込まれる。共有context全体rollbackは不可|
+|B：保存専用context＋写真準備トランザクション|現在の永続ストアコーディネータに接続する独立contextで対象IDを取得し、入力DTOを保存。成功した変更だけviewContextへmerge|3画面のsave境界と共通の保存処理追加。入力UI/保存形式/写真読込は維持|失敗時は専用contextだけ破棄でき、共有context/他画面の未保存入力を巻き戻さない。新規再試行の挿入重複を防ぎやすい|merge/競合/一時ID/使用アイテム関連の整合性検証が必要。対象が共有contextで既に未保存変更を持つ場合は勝手に上書きせず競合案内|
+
+**推奨B**。安全条件を満たしたうえで既存データと他の編集への影響を最小化できる。Aは関連の個別復元まで含めると必ずしも小さな修正にならない。Bも今回実装したわけではなく、承認後に保存境界の設計を確定する。
+
+子contextから共有parentへsaveしてからparent全体をsaveする方式は、他の未保存変更を巻き込むため推奨Bには含めない。独立contextで同じストアへ保存し、成功後の通知/mergeで一覧を更新する。
+
+## 推奨Bの具体方針
+
+1. タイトル/日付/入力/写真変更要求/使用アイテムID等を値として取得。元オブジェクトを先に変更しない。新規操作は試行をまたぐ同じ保存セッションとして管理する。
+2. 新UUIDへ画像を書き込み、Diary full+thumb/Item変更対象のmain+sampleが全て正常に書けたか確認。書込失敗をthrow/resultで上へ渡す。元写真は保持。
+3. 独立contextで既存レコードをobjectID等から取得し、名前/参照/関連を反映。再試行では失敗した専用contextを破棄し、共有contextに前回挿入が残らない構造にする。競合は明示エラー。
+4. DB成功後にviewContextへmerge。変更対象以外の未保存データを保持。保存完了前に画面を閉じない。
+5. 旧写真は確定後に、正確な旧UUIDと参照状態を確認して整理。他レコード/mainとsampleが同じ画像を参照している可能性も検証し、使用中なら保持。整理失敗は「保存は成功・整理は保留」と分けて扱い、保存データを巻き戻さない。
+6. 準備/DB失敗なら旧写真/旧参照/入力を保持し、今回新規に所有したUUIDファイルだけを対象に後片付けを検討。失敗/参照不明なら保持して記録。他データの写真やフォルダ全体を消さない。
+7. プロセス中断では新しい未参照ファイルが残り得る。最小案はデータ保護を優先して保持し、自動GCしない。クラッシュ後の完全な自動清掃に永続マニフェスト等を追加するなら、別途必要性と保存仕様を説明して承認を得る。
+8. エラーは画像準備/DB保存/競合/後片付けを区別。再試行と安全な破棄を表示し、共有contextが変わっていないことを条件に失敗後も破棄可能にする。CoreData全体へのrollbackは行わない。
+
+## 想定変更ファイル（承認後）
+
+- Core/EntryPhotoStore.swift：失敗を返す新しい準備API、full/thumbの一括成功確認。互換呼出しがあれば段階対応。
+- Core/ProductPhotoStore.swift：Bool/throwの結果を保存フローへ確実に伝える準備API。既存読込・フォルダ/品質は維持。
+- Features/Entries/AddEntryView.swift、EditEntryView.swift、Features/Products/AddOrEditProductView.swift：保存トランザクションへの値受渡し、二重挿入防止、具体エラー/再試行/破棄。
+- 共通PhotoSaveTransaction/Coordinator（新規Swiftを追加する場合はXcodeの既存ルールに従い登録）。または適切な既存Swift内に集約。project.pbxproj直接編集はしない。
+- RootView/モデル/PlateRepository/renderer/AI処理の変更は基本不要。既存付随レコードを落とさないが、AI評価の再開や設計変更は対象外。
+
+## 必要な回帰テスト
+
+今回30条件を正式修正後に安全側の期待値へ反転し再実行。旧写真/旧参照hash不変、未確定新ファイルだけの処理、再試行で新規1件のみ、成功後一覧即反映、2枚の片方失敗で全体保存しないことを確認する。
+
+追加：同一contextに無関係な未保存入力、使用アイテム0/1/複数の関連順、既存付随データ保持、同じ画像UUIDの共有、競合、後片付け失敗、 full成功/thumb失敗と逆、入力/写真picker取消、UIの保存中連打/戻る/破棄/再保存/再起動、Diary/Item一覧/写真/Plateへの既存関連を確認。Debug/Release、分離UI試験、必要時はユーザー承認後の実機検証。
+
+## 未検証
+
+実ディスク容量不足/ファイル保護/端末ロック/権限別の失敗、JPEGエンコードnil、旧写真削除失敗、書込途中やSQLite commit途中の中断、OS強制終了、実機UI/入力・キーボード、関連あり/AIScoreありfixture、無関係な変更の同居、成功後の通常画面復帰/実アプリ再起動は未実施。NSManagedObjectContext.save前の明示throwであり、SQLite自身のI/O失敗を再現したものではない。エラー注入条件以上の一般化をしない。
+
+文字のみ/正常経路で旧写真が消える不具合は再現しなかった。実機のデータ喪失有無は今回調べていない。製品Debug/Releaseビルドは未実施、分離検証アプリのコンパイル/Simulator実行のみ。保存方式案の実装・動作保証は未承認。
+
+## 保護・容量・停止
+
+製品全Swift/IDE設定は開始hash一致、CoreDataモデル/写真/AI/Plate変更なし。git dirtyは既存IDE設定＋連携2文書、staged/untrackedなし。commit/push/reset/cleanなし。
+
+開始22:40:48→終了22:50:59、df -k /System/Volumes/Data、空き303.1040→302.6944GB（減0.4096GB）（10進）。今回資料119268KiB≒0.1221GB、専用Simulator写真Documents368KiB≒0.0004GB、既存固定Debug/Release約0.8887GB（今回フルビルドなし）を保持。計約1.0112GBを検証証拠/再利用目的で残す。削除したのは保存関数自身が対象としたテスト旧写真のみ。資料/キャッシュ削除なし。dfとduを回収量として同一視しない。
+
+正式実装の承認待ちで停止。次の関連付きItem削除調査や機能/UI追加には進まない。
+
+### PhotoSaveSafetySyncVerified-20261108
+
+既存sync.zsh終了0・更新2件。Google Drive取得APIで両クラウド本文にPhotoSaveSafetyResearch-20261108があることを照合済み。ChatGPT側でチェック可能。製品Swift/IDE/モデルは変更なし、既存dirty3ファイル保持、commit/pushなし。調査・30条件の分離再現・2案比較までで停止し、推奨Bの正式実装承認を待つ。関連付きItem削除や次機能には未着手。
+
+## 2026-11-08 Diary・Item写真保存安全性 正式実装
+
+# Diary・Item 写真保存安全性 正式実装
+
+識別子 PhotoSaveSafetyImplementation-20261108。HEAD/main/ローカルorigin/main=10bf6c45a444a1a7e131ea439c1c58755136f6e6。承認済みB案を実装。実ユーザーデータ/実機操作なし、commit/pushなし。
+
+## 実装した5ファイル
+
+- `NailNote/Core/EntryPhotoStore.swift`：Diaryのfull/thumbnailを新UUIDへ準備するthrow API。共通PreparedPhotoFiles/PhotoSaveTransactionを既存Swift内に追加し、新規ファイル登録やproject.pbxproj編集を不要にした。
+- `NailNote/Core/ProductPhotoStore.swift`：商品/サンプルの新UUID準備API。JPEG品質/保存フォルダ/既存読込APIは維持。
+- `NailNote/Features/Entries/AddEntryView.swift`：入力DTO＋安定した新規IDで専用保存APIへ。失敗/再試行/破棄・保存中ガード。共通のエラー/整理警告UIを定義。
+- `NailNote/Features/Entries/EditEntryView.swift`：開始時versionとobjectIDを保持。写真/文字/使用アイテムを専用contextで保存し、画面からの写真先行削除を廃止。
+- `NailNote/Features/Products/AddOrEditProductView.swift`：同じ保存境界を採用。main/sampleの変更を別々に表現し、どちらかの準備失敗で全体中止。
+
+コードはCoreDataモデル/renderer/テーマ/一覧削除を変更していない。5製品Swift以外、モデルとIDE設定は開始hash一致。連携2文書だけ別途更新する。
+
+## 保存手順
+
+1. 画面の入力値、選択順、写真のkeep/remove/replace、安定した新規UUIDまたは既存objectID＋開始時versionをDTOへ固定。共有viewContextのオブジェクトを先に変更しない。
+2. 既存と同じ永続ストアコーディネータへ直接接続するmainQueueの独立contextを生成。親contextなし、mergePolicyはerror。UI入力はMainActor上で扱う。
+3. 編集対象/既存関連に共有contextの未保存変更があれば競合として停止。専用contextから最新レコードを取得し、属性/関連ID・順序の型付きhashを開始時versionと比較。未設定と文字列nilも区別する。
+4. 新UUIDの必要画像を準備。未公開ファイルへwithoutOverwritingで書き、SHA256/正常復号/通常ファイルであることを確認。Diaryはfullとthumb必須、Itemは変更対象main/sampleの全て必須。既存ファイルを上書きしない。
+5. 準備済み参照と入力を専用contextへ反映してsave。使用アイテムは順序とIDを保持し、同じ順序なら既存リンクを再生成しない。選択元が削除/不明の場合は勝手に省略せず停止。写真変更時の既存スコア無効化は従来と同じ動作をトランザクション内で維持し、AI再開/通信は行わない。
+6. 成功時だけinserted/updated/deleted objectIDをviewContextへmergeしpendingChangesを処理。共有context全体へのsave/rollbackは実行しない。他の未保存入力/挿入を保持する。
+7. DBとviewContextの未保存参照を調べ、旧UUIDが他レコード/mainとsampleで使われていない場合だけ整理。通常ファイル/元hash一致を確認して個別削除。不明・変化・整理失敗は保持し、保存成功＋整理警告として通知する。
+8. 失敗時は専用contextだけresetし、今回準備した新UUIDファイルだけを同じ参照/hash確認で整理。新写真整理も完了できなければ明示メッセージを付加し保持。入力/旧写真/旧参照は維持。
+
+mainQueue専用contextなので画像準備/DB確定はMainActor上で直列。保存開始時にTask.yieldして状態を反映し、UIを無効化して二重操作/戻るをガードする。大量画像の応答時間は実機評価が必要。
+
+## 失敗・競合・UI
+
+- 画像準備失敗は「フル/サムネイル/商品/サンプル」のどこかを案内し、DB保存しない。
+- DB保存エラー/競合を区別。別保存の更新/削除はversion比較とCoreData楽観ロックで拒否。
+- 新規の失敗contextは破棄するので、再試行で未保存挿入が共有側へ残らない。画面の新規UUIDも試行間で維持する。確定済みUUIDの再送は競合として拒否。
+- エラー表示から「再試行」「編集を続ける」。失敗後は入力を保持し、既存の戻る→破棄確認が利用可能。失敗を理由に永久に戻る操作をblockedにしない。
+- 保存中はblocked、保存成功まではdismissしない。成功後の旧写真整理だけ失敗した場合は「保存は完了しました」と警告し、一覧へ戻れる。保存完了後は未保存破棄確認を出さない。
+
+## 最終検証
+
+- 前回の30条件を安全側に反転し、30/30成功。新規/差替/写真削除/文字のみ、Diary full失敗とthumb失敗、Item mainだけ失敗/sampleだけ失敗、DB失敗、再試行、取消状態、再オープンを検証。
+- 失敗時は永続レコード/旧SHA256/共有contextを維持。正常保存後の写真は正常復号可能。新規再試行は1件だけ。
+- 関連0/1/3件・順序・リンクID、別画面の未保存名/未保存挿入、automatic merge有効時も未保存値を保持しDBへ巻き込まないことを確認。
+- 共有側の対象未保存変更、編集中に外部更新/削除、保存直前のDiary/Item外部更新/削除、CoreData自身の必須属性バリデーションエラーを検証。
+- 他Entryの共有画像、同じItemのmain/sample共有UUID、旧画像整理失敗、hash変更で所有不明な旧ファイル、新写真整理失敗の通知/保持、失敗時に今回の新写真だけ整理、確定後だけ旧full/thumb整理を確認。
+- 同一新規ID再送の二重登録防止、従来full/thumbnailとJPEGバイト一致、Item編集後のDiary参照ID保持、Plate独立snapshot不変を確認。
+- SQLiteを読取専用で照合し、30ケースのタイトル/メモ/カテゴリ/日付/価格/購入場所/URL等と、確定後の旧写真の削除/保持を254項目で確認。
+- 最終結果は保存API285チェック＋SQLite/旧写真254照合＝539チェック成功。基準30条件は30成功/0失敗。画面操作は最終ソースのUI-finalsource.xcresult/ui-finalsource.logで3成功/0失敗。未検証は後述7群。results-complete.json/metadata-verification.json/VerificationSummary.jsonを参照。診断アプリの失敗注入はHooks引数による依存性注入で、製品の起動引数/永続設定/診断ボタンは追加していない。
+
+Debug Simulator（build-Debug-complete.log）と署名なしRelease iOS（build-Release-complete.log）は最終ソースで成功。git diff --check成功。既存PlateRepository等のSwift6向け警告は残るが、今回対象の写真保存コードには新たなビルドエラーなし。
+
+UIは別bundle dev.nailnote.photosafeimpl、独立SQLite/テスト画像/実製品画面。Diary編集保存→一覧反映、Item編集/新規→件数反映、競合エラー→入力保持→安全な破棄の3件。実機の合格ではない。
+
+## 途中の失敗を保持
+
+最初のUI実行では競合注入用ボタンが操作できず、3件中1件失敗（正常保存2件は成功）。検証UIの配置を変更しても古いバイナリが再利用されていた。installed実行ファイルとコンパイル済みhashの不一致を確認し、検証専用ビルド番号を更新・明示反映・hash一致確認後に3/3成功。UI.xcresult/UI-verified.xcresult/UI-final.xcresultと各ログを保持。初回失敗後の長時間simctl診断収集だけを停止し、以後は公式collect-test-diagnostics neverで不要な大量診断を避けた。資料は削除していない。
+
+## 未検証・制約（7群）
+
+1. iPhone17e実機の保存/エラー/戻る/タブ復帰。実機データの操作は未実施。
+2. 実際のディスク枯渇/ファイル保護/実SQLite I/O障害。テストは出力先衝突、専用保存フック、実バリデーション/楽観ロックによる失敗。
+3. 電源断/プロセス強制終了/書込途中の中断。未参照の新UUIDファイルが残り得る。自動GC/永続マニフェスト/一括清掃は追加しない。
+4. PhotosPicker/iCloud読込中の連続操作、キーボード/回転/VoiceOver、全実画面の画像選択失敗UI。UI試験は文字保存/競合復帰中心、写真データ経路は保存APIで検証。
+5. 実機の大きい写真でのメモリ/処理時間、全OS/全データ件数。MainActor上の処理時間は実機確認を要する。
+6. 既存スコア付き等の付随データ全組合せ/破損した既存関連。AIは休止継続し、旧写真変更時の既存無効化だけ維持。
+7. 一覧からのDiary/Itemレコード自体の削除の安全性。今回修正は編集内の写真削除であり、一覧削除処理は変更していない。次の関連付きItem削除工程は未着手。
+
+旧互換PhotoStore APIは既存読込/呼出互換のため残す。3画面の実保存経路は新トランザクションへ切替済み。記録一覧削除での旧delete呼出は今回の対象外で残る。
+
+## 実機確認手順（ユーザー担当）
+
+1. テスト用記録/Itemで新規登録、写真あり/なし、商品/サンプル片方/両方を確認。
+2. 写真差替え・写真削除・文字のみ編集→保存→一覧/詳細→アプリ再起動で内容と写真を確認。
+3. Diaryの使用アイテムの順序と、Item編集後も同じ関連を参照することを確認。Plate保存作品の内容が変わらないことを確認。
+4. 保存中の連打/戻る、未保存変更の破棄、保存後のタブ復帰を確認。失敗再現のために実機容量を埋めたり写真を消したりしない。
+5. 実機エラーが出た場合は入力を保持して再試行/破棄を確認し、エラーの種類を報告。実ユーザーデータを使う操作はユーザー自身の判断で行う。
+
+正式実装・分離検証・連携完了後は実機確認待ち。commit/push、関連付きItem削除や希望リストの開発へ進まない。
+
+## Git・容量・証拠
+
+main/HEAD/ローカルorigin/main=10bf6c45a444a1a7e131ea439c1c58755136f6e6。既存IDE設定と連携2文書の差分を保持し、今回の製品追加差分は上記5Swiftだけ。モデル/Plate全ファイル/AI/Root/一覧削除は開始hash一致。staged/untrackedなし、commit/push/reset/cleanなし。
+
+2026-11-08T23:02:20.947395→2026-11-08T23:44:10.467905、df -k /System/Volumes/Data、10進GBで302.6944→302.4494（差-0.2450GB）。今回資料約0.3450GB、専用写真Documents約0.0032GB、既存固定Debug/Release約0.8521GB、合計約1.2003GBを保持。2GB減の閾値未到達。比較資料・キャッシュの無断削除なし。保存試験自身が整理したのは専用fixtureの所有・参照を確認した画像だけ。割当量と空き変化/回収量は別。
+
+検証コード/出力/ログは本フォルダ、写真は専用Simulator bundleのDocumentsに分離。初回失敗UIログ、途中成功結果、最終結果を保持し、Google Driveへは連携2文書だけを同期する。
+
+### PhotoSaveSafetyImplementationSyncVerified-20261108
+
+最終追加照合で、元Item写真の整理後も保存済みPlateのアイテム写真バイト列が保持されることを確認。最終結果は基準30/30、保存API285＋SQLite/旧写真254＝539チェック成功、最終ソースUI3/3成功、Debug/署名なしRelease成功。製品コードは最終ビルド/UIから変更なし。既存sync.zsh終了0・更新2件、Google Drive両本文でPhotoSaveSafetyImplementation-20261108を確認済み。最終数値を反映して同じ2文書のみ再同期する。ChatGPT側でチェック可能。実機確認待ち、commit/pushなし、関連付きItem削除/希望リスト未着手。
+
+## 2026-11-09 写真保存安全性改善のGitHub正式保存（コミット前確認）
+
+識別子 `PhotoSaveSafetyGitHubSave-20261109`。ユーザーがiPhone17eで指定8項目を確認し、全項目問題なしと報告。Codexは実機を操作していない。
+
+対象はEntryPhotoStore.swift、ProductPhotoStore.swift、AddEntryView.swift、EditEntryView.swift、AddOrEditProductView.swiftと連携2文書の計7ファイル。独立context＋写真準備の承認済み変更だけを明示stageする。文書には前回GitHub保存後の残課題整理・写真安全性調査/正式実装履歴も保持する。project.pbxprojのLastUpgradeCheck/STRING_CATALOG_GENERATE_SYMBOLSは除外し、開始hash/差分を保持する。
+
+開始main/HEAD/origin/main/GitHub refs/heads/main=10bf6c45a444a1a7e131ea439c1c58755136f6e6。staged/untrackedなし、dirty8。全変更を確認し、対象はSwift/Markdownのみ。秘密情報パターン検査検出なし、写真/画像/ビルド成果物/検証アプリは対象外。
+
+前回2026-11-08の検証（開始HEAD10bf6c4＋未コミット最終製品5ファイル）を再利用：保存539/539、基準30/30、UI3/3、Debug Simulator/署名なしRelease成功。今回の5ファイルSHA256は最終ビルド記録と完全一致。今回新規実施は差分確認・hash照合・diff --check・リモート確認であり、再ビルド/再テストは未実施。
+
+予定メッセージ：Improve Diary and Item photo save safety。通常pushのみ。確定SHA/push結果は次節に追記し、その文書差分は追加commitせず残す。次回再開は関連付きItem削除の安全性調査だが、今回は開始しない。
+
+容量：開始df -k /System/Volumes/Data、空き303200000KiB＝310.4768GB（10進）。今回作成は既存検証フォルダのGitHubSave-20261109-start.json等の小規模監査資料のみ。以前の約1.2GBの検証/固定キャッシュは再利用・証拠保持のため残し、削除/cleanなし。

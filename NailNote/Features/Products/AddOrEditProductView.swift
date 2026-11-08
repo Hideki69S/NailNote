@@ -7,7 +7,9 @@ struct AddOrEditProductView: View {
     @State private var originalFields: [String]?
     @State private var saving = false
     @State private var saveCompleted = false
-    @State private var saveFailed = false
+    @State private var saveID = UUID()
+    @State private var saveMessage: String?
+    @State private var photoSaveVersion: PhotoSaveTransaction.Version?
     private var editFields: [String] {
         [name, category.rawValue, String(purchasedAt.timeIntervalSince1970), purchasePlace, priceText, productURLText, mainUIImage.map { String(describing: ObjectIdentifier($0)) } ?? "", sampleUIImage.map { String(describing: ObjectIdentifier($0)) } ?? "", String(removeMain), String(removeSample), String(mainPhotoItem != nil), String(samplePhotoItem != nil)]
     }
@@ -217,6 +219,8 @@ struct AddOrEditProductView: View {
                 .scrollContentBackground(.hidden)
                 .background(Color.clear)
             }
+            .disabled(saving)
+            .modifier(NailPhotoSaveFeedback(message: $saveMessage, completed: saveCompleted, retry: save, close: { dismiss() }))
             .photosPicker(isPresented: $showingMainPhotoPicker, selection: $mainPhotoItem, matching: .images)
             .photosPicker(isPresented: $showingSamplePhotoPicker, selection: $samplePhotoItem, matching: .images)
             .navigationTitle(mode.title)
@@ -228,11 +232,11 @@ struct AddOrEditProductView: View {
                 }
             }
             .onAppear {
-                if originalFields == nil { loadInitialState(); originalFields = editFields }
+                if originalFields == nil { loadInitialState(); originalFields = editFields; photoSaveVersion = mode.product.map { PhotoSaveTransaction.version($0) } }
             }
-            .modifier(NailEditorExit(dirty: originalFields.map { $0 != editFields } ?? false, blocked: saving || saveFailed, onReturn: { dismiss() }))
+            .modifier(NailEditorExit(dirty: !saveCompleted && (originalFields.map { $0 != editFields } ?? false), blocked: saving, onReturn: { dismiss() }))
         }
-        .modifier(NailTabExitProtection(dirty: originalFields.map { $0 != editFields } ?? false, blocked: saving || saveFailed))
+        .modifier(NailTabExitProtection(dirty: !saveCompleted && (originalFields.map { $0 != editFields } ?? false), blocked: saving))
     }
 
     // MARK: - Previews
@@ -353,76 +357,32 @@ struct AddOrEditProductView: View {
 
     private func save() {
         guard !saving, !saveCompleted else { return }
-        saving = true
-        defer { saving = false }
-        let p: NailProduct
-
+        let target: PhotoSaveTransaction.Target
         switch mode {
-        case .add:
-            p = NailProduct(context: context)
-            p.id = UUID()
-            p.createdAt = Date()
-        case .edit(let existing):
-            p = existing
+        case .add: target = .create(saveID)
+        case .edit(let product):
+            guard let version = photoSaveVersion else { saveMessage = PhotoSaveTransaction.Failure.conflict.localizedDescription; return }
+            target = .edit(product.objectID, version)
         }
-
-        p.name = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        p.category = category.rawValue
-        p.purchasedAt = purchasedAt
-        p.purchasePlace = purchasePlace.trimmingCharacters(in: .whitespacesAndNewlines)
-        let trimmedURL = productURLText.trimmingCharacters(in: .whitespacesAndNewlines)
-        p.productUrl = trimmedURL.isEmpty ? nil : trimmedURL
-
-        // 価格
-        let price = Int32(Int(priceText) ?? 0)
-        p.priceYenTaxIn = price
-
-        p.updatedAt = Date()
-
-        // 写真の変更適用（ファイル掃除含む）
-        applyPhotoChanges(to: p)
-
-        do {
-            try context.save()
-            saveCompleted = true; saveFailed = false
-            dismiss()
-        } catch {
-            saveFailed = true
-            print("用品保存エラー: \(error)")
+        let url = productURLText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let input = PhotoSaveTransaction.ProductInput(target: target, name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            category: category.rawValue, purchasedAt: purchasedAt, place: purchasePlace.trimmingCharacters(in: .whitespacesAndNewlines),
+            url: url.isEmpty ? nil : url, price: Int32(Int(priceText) ?? 0),
+            main: removeMain ? .remove : (mainUIImage.map { .replace($0) } ?? .keep),
+            sample: removeSample ? .remove : (sampleUIImage.map { .replace($0) } ?? .keep))
+        saving = true
+        Task { @MainActor in
+            await Task.yield()
+            defer { saving = false }
+            do {
+                let result = try PhotoSaveTransaction.saveProduct(input, in: context)
+                saveCompleted = true
+                if let warning = result.cleanupWarning { saveMessage = warning } else { dismiss() }
+            } catch { saveMessage = error.localizedDescription }
         }
     }
 
-    private func applyPhotoChanges(to p: NailProduct) {
-        // --- 商品写真（main / photoId） ---
-        if removeMain {
-            if let old = p.photoId {
-                ProductPhotoStore.delete(photoId: old, kind: "main")
-            }
-            p.photoId = nil
-        } else if let img = mainUIImage {
-            if let old = p.photoId {
-                ProductPhotoStore.delete(photoId: old, kind: "main")
-            }
-            let newId = UUID()
-            ProductPhotoStore.save(image: img, photoId: newId, kind: "main")
-            p.photoId = newId
-        }
 
-        // --- サンプルカラー（sample / samplePhotoId） ---
-        if removeSample {
-            if let old = p.samplePhotoId {
-                ProductPhotoStore.delete(photoId: old, kind: "sample")
-            }
-            p.samplePhotoId = nil
-        } else if let img = sampleUIImage {
-            if let old = p.samplePhotoId {
-                ProductPhotoStore.delete(photoId: old, kind: "sample")
-            }
-            let newId = UUID()
-            ProductPhotoStore.save(image: img, photoId: newId, kind: "sample")
-            p.samplePhotoId = newId
-        }
-    }
 
     private var shopOptions: [String] {
         let rawValues = existingProducts.compactMap { product -> String? in

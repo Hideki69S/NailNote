@@ -170,3 +170,14 @@ private extension UIImage {
         }
     }
 }
+
+extension ProductPhotoStore {
+    static func prepare(_ image: UIImage, files: PreparedPhotoFiles, label: String) throws -> UUID {
+        let id = files.hooks.makeUUID()
+        guard let data = image.jpegData(compressionQuality: shared.jpegQuality) else {
+            throw PhotoSaveTransaction.Failure.photo(label)
+        }
+        try files.write(data, to: shared.fileURL(for: id), id: id, space: .product, label: label)
+        return id
+    }
+}
