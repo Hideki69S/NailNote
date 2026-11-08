@@ -523,8 +523,9 @@ struct PlateProductSelectionView: View {
                     Text("参照できない使用アイテムが\(draft.unavailableSourceProducts)件あります。元データは変更していません。")
                         .font(.caption).foregroundStyle(.secondary)
                 }
-                if draft.recipeOverflow > 0 {
-                    Text("Recipeは先頭3件を表示します。選択\(draft.products.count)件のうち他\(draft.recipeOverflow)件は作品上に表示されません。掲載順・選択数を調整できます。")
+                if draft.products.count > (draft.layoutVersion == 8 ? PlateLayoutEightItems.limit : PlateDraft.recipeLimit) {
+                    let limit = draft.layoutVersion == 8 ? PlateLayoutEightItems.limit : PlateDraft.recipeLimit
+                    Text("Recipeは先頭\(limit)件を表示します。選択\(draft.products.count)件のうち他\(draft.products.count - limit)件は作品上に表示されません。掲載順・選択数を調整できます。")
                         .font(.caption).foregroundStyle(.secondary)
                 }
             }
@@ -621,7 +622,7 @@ struct PlateProductEditingSidebar: View {
                     .accessibilityLabel("アイテムを追加")
             }
             Text("掲載順 · \(draft.products.count)点").font(.caption2)
-            if draft.layoutVersion < 7 { PlateLayoutUpdateButton(draft: $draft).font(.caption) }
+            if draft.layoutVersion < 8 { PlateLayoutUpdateButton(draft: $draft).font(.caption) }
             ScrollView {
                 LazyVStack(spacing: 6) {
                     if draft.products.isEmpty { Text("アイテムなし").font(.caption).padding(.vertical, 8) }
@@ -644,7 +645,7 @@ struct PlateProductEditingSidebar: View {
                                     }
                                     Text(item.name).font(.caption).lineLimit(2).multilineTextAlignment(.leading)
                                 }
-                                if draft.template == .recipe && index >= PlateDraft.recipeLimit {
+                                if draft.template == .recipe && index >= (draft.layoutVersion == 8 ? PlateLayoutEightItems.limit : PlateDraft.recipeLimit) {
                                     Text("作品では非表示").font(.caption2)
                                 }
                             }.padding(7).frame(maxWidth: .infinity, minHeight: 56, alignment: .leading)

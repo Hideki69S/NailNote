@@ -154,7 +154,7 @@ nonisolated struct PlateDocument: Codable, Equatable, Sendable {
     }
 
     func validate() throws {
-        guard schemaVersion == 1, [1, 2, 3, 4, 5, 6, 7].contains(rendererVersion) else { throw PlateStorageError.unsupported }
+        guard schemaVersion == 1, [1, 2, 3, 4, 5, 6, 7, 8].contains(rendererVersion) else { throw PlateStorageError.unsupported }
         guard rendererVersion >= 6 || (itemNameTextStyle == nil && itemNameFontSize == nil && commentFontSize == nil) else { throw PlateStorageError.unsupported }
         guard rendererVersion >= 2 || ((titleTextStyle?.isLegacy ?? true) && (commentTextStyle?.isLegacy ?? true)) else { throw PlateStorageError.unsupported }
         if rendererVersion == 4 || (rendererVersion >= 5 && photoRotationDegrees != nil) {

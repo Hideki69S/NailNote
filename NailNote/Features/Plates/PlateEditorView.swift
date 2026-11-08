@@ -263,8 +263,8 @@ struct PlateDraft: Equatable {
     var background: PlateBackground = .signature
     var frame: PlateFrame = .signature
     var itemImagesEnabled = true
-    // 既存6を再保存しても7へ上げず、明示更新時だけ描画版を変更する。
-    var layoutVersion = 7
+    // 既存作品の描画版を維持し、明示更新時だけ新しい構図へ変更する。
+    var layoutVersion = 8
     var usesNewLayout: Bool { layoutVersion >= 6 }
     var itemImageReferences: [String: PlateFileReference] = [:]
     var photoRotationQuarterTurns = 0
@@ -627,6 +627,12 @@ struct PlateEditorView: View {
                     }.padding(12).frame(maxWidth: .infinity, minHeight: 44, alignment: .leading)
                         .background(editorPalette.glowFillTop, in: RoundedRectangle(cornerRadius: 12))
                 }.buttonStyle(.plain).accessibilityIdentifier("plate.text.edit.comment")
+                if PlateCommentLayout.leadingBlankLines(draft.comment) > 0 {
+                    Text("先頭に空行が\(PlateCommentLayout.leadingBlankLines(draft.comment))行あります。表示枠に本文が入りにくくなる場合があります。入力した文章はそのまま保持されます。")
+                        .font(.caption).foregroundStyle(editorPalette.tagText)
+                        .fixedSize(horizontal: false, vertical: true)
+                        .accessibilityIdentifier("plate.comment.leadingBlankNotice")
+                }
                 } else {
                     Text("掲載する全アイテム名に共通で適用します。名前そのものは変更しません。")
                         .font(.caption).foregroundStyle(editorPalette.tagText)
@@ -837,7 +843,8 @@ struct PlateCanvasView: View {
             PlatePhotoViewport(adjustment: Binding(get: { draft.photo }, set: { draft.photo = $0 }), image: image, loading: loadingPhoto, template: template, frame: draft.frame, editing: photoEditing, quarterTurns: draft.photoRotationQuarterTurns, degrees: draft.photoRotationDegrees)
                 .frame(width: photoRect.width, height: photoRect.height)
                 .offset(x: photoRect.minX, y: photoRect.minY)
-            if draft.usesNewLayout { layoutSixComposition } else { composition }
+            if draft.layoutVersion == 8 { layoutEightComposition }
+            else if draft.usesNewLayout { layoutSixComposition } else { composition }
         }
         .frame(width: 360, height: 450).clipShape(RoundedRectangle(cornerRadius: 12))
         .modifier(PlateLayoutSixComposite(enabled: draft.usesNewLayout))
@@ -846,7 +853,10 @@ struct PlateCanvasView: View {
         .dynamicTypeSize(.large).environment(\.colorScheme, .light)
     }
 
-    private var photoRect: CGRect { draft.usesNewLayout ? draft.template.layoutSixPhotoRect : draft.template.photoRect }
+    private var photoRect: CGRect {
+        if draft.layoutVersion == 8 { return PlateLayoutEightGeometry(template: draft.template).photo }
+        return draft.usesNewLayout ? draft.template.layoutSixPhotoRect : draft.template.photoRect
+    }
 
     @ViewBuilder private var composition: some View {
         switch draft.template {
@@ -918,6 +928,89 @@ struct PlateCanvasView: View {
             }
             comment(size: 11, maxHeight: draft.itemImagesEnabled ? 40 : nil).frame(width: 316, height: 40, alignment: .topLeading).offset(x: 22, y: 403)
         }
+    }
+
+    private var layoutEightComposition: some View {
+        let layout = PlateLayoutEightGeometry(template: draft.template)
+        let footer = PlateLayoutEightGeometry(template: draft.template)
+        return ZStack(alignment: .topLeading) {
+            if draft.template == .noir {
+                Text("NOIR").font(.system(size: 12, weight: .light, design: .serif)).tracking(1.6)
+                    .foregroundStyle(draft.template.metal).frame(width: 88).offset(x: 254, y: 27)
+            }
+            if draft.layoutVersion == 8 {
+                Text(draft.date).font(.system(size: 9)).foregroundStyle(draft.template.ink.opacity(0.85))
+                    .lineLimit(1).truncationMode(.tail)
+                    .frame(width: footer.date.width, height: footer.date.height, alignment: .trailing)
+                    .clipped().offset(x: footer.date.minX, y: footer.date.minY)
+            } else {
+                caption(draft.date, size: draft.template == .noir ? 8 : 9)
+                    .frame(width: layout.date.width, height: layout.date.height, alignment: .top)
+                    .clipped().offset(x: layout.date.minX, y: layout.date.minY)
+            }
+            if draft.template == .sweet {
+                PlateRibbon().fill(draft.template.metal.opacity(0.8)).frame(width: 60, height: 30).offset(x: 150, y: 23)
+                Image(systemName: "heart.fill").font(.system(size: 14)).foregroundStyle(draft.template.metal).offset(x: 19, y: 145)
+                Image(systemName: "heart").font(.system(size: 17)).foregroundStyle(draft.template.metal).offset(x: 321, y: photoRect.maxY - 28)
+            }
+            if draft.products.isEmpty {
+                caption("アイテムなし", size: 10).frame(width: layout.empty.width, height: layout.empty.height)
+                    .offset(x: layout.empty.minX, y: layout.empty.minY)
+            }
+            layoutEightItems
+            PlateCommentDivider(template: draft.template, geometry: layout)
+            PlateCommentText(text: draft.comment, style: draft.commentTextStyle, size: PlateCommentLayout.pointSize(draft), rect: layout.comment)
+                .foregroundStyle(PlateFontCatalog.color(draft.commentTextStyle, role: .comment, template: draft.template))
+                .frame(width: layout.comment.width, height: layout.comment.height, alignment: .topLeading).clipped()
+                .offset(x: layout.comment.minX, y: layout.comment.minY)
+        }.frame(width: 360, height: 450, alignment: .topLeading).allowsHitTesting(false)
+    }
+
+    private var layoutEightItems: some View {
+        let layout = PlateLayoutEightItems(template: draft.template, count: draft.products.count)
+        let defaultSize = layout.compact ? (draft.template == .noir ? 8.5 : (draft.template == .recipe ? 9.5 : 9)) : (draft.template == .recipe ? 10.0 : 9.0)
+        let size: CGFloat = {
+            if PlateTextStyle.validSize(draft.itemNameFontSize, range: 7...14), case .number(let value) = draft.itemNameFontSize { return CGFloat(value) }
+            return CGFloat(defaultSize)
+        }()
+        return ZStack(alignment: .topLeading) {
+            ForEach(Array(draft.products.prefix(PlateLayoutEightItems.limit).enumerated()), id: \.element.id) { index, product in
+                let slot = layout.slots[index]
+                if draft.template == .recipe {
+                    RoundedRectangle(cornerRadius: 7).fill(.white.opacity(0.20))
+                        .frame(width: slot.panel.width, height: slot.panel.height)
+                        .offset(x: slot.panel.minX, y: slot.panel.minY)
+                }
+                if draft.template == .recipe {
+                    Text(String(format: "%02d", index + 1)).font(.system(size: 9))
+                        .foregroundStyle(draft.template.metal)
+                        .frame(width: slot.number.width, height: slot.number.height)
+                        .offset(x: slot.number.minX, y: slot.number.minY)
+                }
+                itemPhoto(product, size: slot.photo.width).offset(x: slot.photo.minX, y: slot.photo.minY)
+                Group {
+                    if draft.template == .recipe {
+                        PlateRecipeNameText(text: product.name, style: draft.itemNameTextStyle, requested: size, rect: slot.name)
+                    } else {
+                        PlateCommentText(text: product.name, style: draft.itemNameTextStyle, size: size, rect: slot.name, role: .itemNames)
+                    }
+                }
+                    .foregroundStyle(PlateFontCatalog.color(draft.itemNameTextStyle, role: .itemNames, template: draft.template))
+                    .frame(width: slot.name.width, height: slot.name.height, alignment: .topLeading).clipped()
+                    .offset(x: slot.name.minX, y: slot.name.minY)
+                Text(PlateItemCategoryLabel.title(product.category))
+                    .font(.system(size: layout.compact && draft.template == .noir ? 7.5 : 8))
+                    .foregroundStyle(draft.template.metal).lineLimit(1)
+                    .frame(width: slot.category.width, height: slot.category.height, alignment: .leading).clipped()
+                    .offset(x: slot.category.minX, y: slot.category.minY)
+            }
+            if draft.products.count > PlateLayoutEightItems.limit {
+                Text("+\(draft.products.count - PlateLayoutEightItems.limit)").font(.system(size: 8))
+                    .foregroundStyle(draft.template.ink.opacity(0.85)).lineLimit(1)
+                    .frame(width: layout.overflow.width, height: layout.overflow.height, alignment: .trailing).clipped()
+                    .offset(x: layout.overflow.minX, y: layout.overflow.minY)
+            }
+        }.frame(width: 360, height: 450, alignment: .topLeading)
     }
 
     private var layoutSixComposition: some View {
@@ -996,7 +1089,7 @@ struct PlateCanvasView: View {
         ZStack {
             draft.template.paper
             if let image = itemImages[product.id] {
-                if draft.layoutVersion == 7 {
+                if draft.layoutVersion == 7 || draft.layoutVersion == 8 {
                     Image(uiImage: image).resizable().scaledToFill()
                         .frame(width: size, height: size, alignment: .center)
                 } else { Image(uiImage: image).resizable().scaledToFit() }
@@ -1213,14 +1306,17 @@ private struct PlatePhotoViewport: View {
     }
 
     var itemImageRequestKey: String {
-        String(draft.itemImagesEnabled) + draft.products.map { $0.id.uuidString }.joined(separator: ":")
+        "\(draft.layoutVersion):\(visibleItemImageLimit):\(draft.itemImagesEnabled):" + draft.products.map { $0.id.uuidString }.joined(separator: ":")
+    }
+    private var visibleItemImageLimit: Int {
+        draft.layoutVersion == 8 ? PlateLayoutEightItems.limit : PlateDraft.recipeLimit
     }
     var itemImageNotice: String? {
         damagedItemHashes.isEmpty ? nil : "一部の保存済みアイテム写真を読み込めません。カテゴリ表示で作品を表示し、旧画像参照を保持しています。"
     }
     private func refreshItemImages() {
         var images: [UUID: UIImage] = [:]
-        for product in draft.products.prefix(PlateDraft.recipeLimit) {
+        for product in draft.products.prefix(visibleItemImageLimit) {
             if let ref = preparedItemRefs[product.id.uuidString], let bytes = itemImageBytes[ref.sha256], let image = UIImage(data: bytes) {
                 images[product.id] = image
             }
@@ -1775,6 +1871,249 @@ private struct PlateLayoutSixComposite: ViewModifier {
     }
 }
 
+// 承認済みB2だけの配置。旧rendererの矩形は再利用せず、変更せずに保持する。
+nonisolated struct PlateLayoutEightGeometry {
+    let photo: CGRect
+    let slots: [PlateLayoutSixGeometry.Slot]
+    let comment: CGRect
+    let date: CGRect
+    let overflow: CGRect
+    let empty: CGRect
+    let rowY: CGFloat
+    init(template: PlateTemplate) {
+        let base = PlateLayoutSixGeometry(template: template)
+        date = PlateLayoutSevenFooter(template: template).date
+        switch template {
+        case .elegant, .sweet:
+            comment = CGRect(x: 28, y: 364, width: 304, height: 52)
+            slots = base.slots.map { .init(photo: $0.photo.offsetBy(dx: 0, dy: -44), name: $0.name.offsetBy(dx: 0, dy: -44)) }
+            let original = template.layoutSixPhotoRect
+            photo = CGRect(x: original.minX, y: original.minY, width: original.width, height: original.height - 37)
+            overflow = base.overflow.offsetBy(dx: 0, dy: -44)
+            empty = base.empty.offsetBy(dx: 0, dy: -44); rowY = 0
+        case .noir:
+            comment = CGRect(x: 20, y: 351, width: 320, height: 65)
+            photo = CGRect(x: 18, y: 25, width: 228, height: 315)
+            slots = base.slots; empty = base.empty; rowY = 0
+            overflow = CGRect(x: 20, y: 423, width: 110, height: 12)
+        case .recipe:
+            comment = CGRect(x: 22, y: 364, width: 316, height: 52)
+            photo = CGRect(x: 22, y: 32, width: 316, height: 181)
+            rowY = 221
+            slots = base.slots.map { .init(photo: $0.photo.offsetBy(dx: 0, dy: -33), name: $0.name.offsetBy(dx: 0, dy: -33)) }
+            empty = base.empty.offsetBy(dx: 0, dy: -33)
+            overflow = CGRect(x: 22, y: 423, width: 110, height: 12)
+        }
+    }
+}
+
+// renderer8専用。保存されている全アイテムと順序は変更せず、表示だけを最大6件にする。
+nonisolated struct PlateLayoutEightItems {
+    static let limit = 6
+    struct Slot {
+        let photo: CGRect
+        let name: CGRect
+        let category: CGRect
+        let number: CGRect
+        var panel: CGRect = .zero
+    }
+    let slots: [Slot]
+    let overflow: CGRect
+    let compact: Bool
+    init(template: PlateTemplate, count: Int) {
+        let base = PlateLayoutEightGeometry(template: template)
+        let visible = min(Self.limit, max(0, count))
+        let dense = visible > 3
+        compact = dense
+        overflow = CGRect(x: template == .elegant || template == .sweet ? 28 : base.overflow.minX,
+                          y: 423, width: 110, height: 12)
+        switch template {
+        case .elegant, .sweet:
+            if dense {
+                slots = (0..<visible).map { index in
+                    let x = CGFloat(28 + (index % 3) * 104), y = 282 + CGFloat(index / 3) * 36
+                    return Slot(photo: CGRect(x: x, y: y + 2, width: 28, height: 28),
+                                name: CGRect(x: x + 32, y: y + 12, width: 64, height: 23),
+                                category: CGRect(x: x + 32, y: y, width: 64, height: 10), number: .zero)
+                }
+            } else {
+                let columns = max(1, visible), width = (304 - CGFloat(columns - 1) * 8) / CGFloat(columns)
+                let photo: CGFloat = visible == 1 ? 40 : (visible == 2 ? 36 : 32)
+                slots = (0..<visible).map { index in
+                    let x = 28 + CGFloat(index) * (width + 8), textX = x + photo + 6
+                    return Slot(photo: CGRect(x: x, y: 290 + (56 - photo) / 2, width: photo, height: photo),
+                                name: CGRect(x: textX, y: 303, width: width - photo - 6, height: 43),
+                                category: CGRect(x: textX, y: 290, width: width - photo - 6, height: 11), number: .zero)
+                }
+            }
+        case .noir:
+            if dense {
+                let rows = (visible + 1) / 2, step = CGFloat(278) / CGFloat(rows)
+                let inset: CGFloat = rows == 2 ? (step - 69) / 2 : 0
+                slots = (0..<visible).map { index in
+                    let x = CGFloat(250 + (index % 2) * 47), y = 60 + inset + CGFloat(index / 2) * step
+                    return Slot(photo: CGRect(x: x, y: y, width: 30, height: 30),
+                                name: CGRect(x: x, y: y + 46, width: 43, height: 25),
+                                category: CGRect(x: x, y: y + 34, width: 43, height: 10), number: .zero)
+                }
+            } else {
+                slots = base.slots.prefix(visible).map { slot in
+                    let x = slot.name.minX, categoryY = slot.photo.maxY + 4
+                    return Slot(photo: CGRect(x: x, y: slot.photo.minY, width: slot.photo.width, height: slot.photo.height),
+                                name: CGRect(x: x, y: categoryY + 13, width: slot.name.width, height: 22),
+                                category: CGRect(x: x, y: categoryY, width: slot.name.width, height: 11), number: .zero)
+                }
+            }
+        case .recipe:
+            // 左列を上から埋めた後に右列へ配置する。保存配列は並べ替えない。
+            let rows = dense ? (visible + 1) / 2 : visible
+            let step: CGFloat = dense ? 138 / CGFloat(max(1, rows)) : 46
+            let photo: CGFloat = visible <= 4 ? 30 : 28
+            slots = (0..<visible).map { index in
+                let column = dense && index >= rows ? 1 : 0
+                let row = column == 0 ? index : index - rows
+                let x = 22 + CGFloat(column) * 162
+                let y = dense ? 221 + CGFloat(row) * step + (step - 45) / 2 : 221.5 + CGFloat(row) * step
+                let width: CGFloat = dense ? 154 : 316
+                let photoX = dense ? x + 16 : 47
+                let textX = dense ? photoX + photo + 6 : 85
+                return Slot(photo: CGRect(x: photoX, y: y + (45 - photo) / 2, width: photo, height: photo),
+                            name: CGRect(x: textX, y: y + 13, width: x + width - textX, height: 30.5),
+                            category: CGRect(x: textX, y: y + 2, width: x + width - textX, height: 10),
+                            number: CGRect(x: dense ? x + 2 : 29, y: y, width: 12, height: 45),
+                            panel: CGRect(x: x, y: y, width: width, height: 45))
+            }
+        }
+    }
+}
+
+// 表示専用の短縮名。rawValue、保存済みカテゴリ名、JSONには書き戻さない。
+enum PlateItemCategoryLabel {
+    static func title(_ category: String) -> String {
+        let value = category.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !value.isEmpty else { return "未設定" }
+        guard let category = NailProductCategory(rawValue: value)
+            ?? NailProductCategory.allCases.first(where: { $0.displayName == value }) else { return "不明" }
+        switch category {
+        case .remove: return "除去"
+        case .tool: return "道具"
+        case .stock: return "在庫"
+        default: return category.displayName
+        }
+    }
+}
+
+private struct PlateCommentDivider: View {
+    let template: PlateTemplate
+    let geometry: PlateLayoutEightGeometry
+    var body: some View {
+        ZStack(alignment: .topLeading) {
+            let width: CGFloat = template == .noir ? 42 : (template == .recipe ? 316 : 66)
+            let x: CGFloat = template == .recipe ? 22 : (template == .noir ? 20 : 147)
+            Rectangle().fill(template.metal.opacity(template == .noir ? 0.65 : 0.40))
+                .frame(width: width, height: template == .noir ? 1 : 0.6).offset(x: x, y: geometry.comment.minY - 5)
+            if template == .sweet {
+                Image(systemName: "heart.fill").font(.system(size: 5)).foregroundStyle(template.metal)
+                    .offset(x: 177.5, y: geometry.comment.minY - 7)
+            }
+        }.frame(width: 360, height: 450, alignment: .topLeading)
+    }
+}
+
+// 計測と表示で同じTextを使用する。末尾省略は表示値だけに適用し、原文は変更しない。
+struct PlateCommentBody: View {
+    let text: String
+    let style: PlateTextStyle?
+    let size: CGFloat
+    var role: PlateTextRole = .comment
+    var body: some View {
+        Text(text).font(PlateFontCatalog.font(style, role: role, size: size))
+            .multilineTextAlignment(.leading).fixedSize(horizontal: false, vertical: true)
+            .dynamicTypeSize(.large).environment(\.locale, Locale.current)
+    }
+}
+
+struct PlateCommentText: View {
+    let text: String
+    let style: PlateTextStyle?
+    let size: CGFloat
+    let rect: CGRect
+    var role: PlateTextRole = .comment
+    var body: some View {
+        let plan = PlateCommentLayout.plan(text: text, style: style, size: size, rect: rect, role: role)
+        PlateCommentBody(text: plan.display, style: style, size: size, role: role)
+    }
+}
+
+@MainActor enum PlateCommentLayout {
+    struct Plan {
+        let display: String
+        let prefixCharacters: Int
+        let height: CGFloat
+    }
+    private final class Cached: NSObject {
+        let plan: Plan
+        init(_ plan: Plan) { self.plan = plan }
+    }
+    private static let cache: NSCache<NSString, Cached> = {
+        let result = NSCache<NSString, Cached>()
+        result.countLimit = 128; result.totalCostLimit = 512 * 1024
+        return result
+    }()
+    static func pointSize(_ draft: PlateDraft) -> CGFloat {
+        if PlateTextStyle.validSize(draft.commentFontSize, range: 8...16), case .number(let size) = draft.commentFontSize { return CGFloat(size) }
+        return draft.template == .elegant || draft.template == .sweet ? 12 : 11
+    }
+    static func leadingBlankLines(_ text: String) -> Int {
+        // CRLFや空白だけの行も数える。検知だけを行い、入力文字列へは書き戻さない。
+        text.split(omittingEmptySubsequences: false, whereSeparator: \.isNewline)
+            .dropLast().prefix { $0.allSatisfy(\.isWhitespace) }.count
+    }
+    static func naturalHeight(text: String, style: PlateTextStyle?, size: CGFloat, width: CGFloat, role: PlateTextRole = .comment) -> CGFloat {
+        guard !text.isEmpty else { return 0 }
+        let renderer = ImageRenderer(content: PlateCommentBody(text: text, style: style, size: size, role: role)
+            .frame(width: width, alignment: .topLeading))
+        renderer.proposedSize = ProposedViewSize(width: width, height: nil)
+        var height = CGFloat.infinity
+        // レイアウトの寸法だけを取得し、計測用の巨大な画像は作成しない。
+        renderer.render { measured, _ in height = ceil(measured.height * 2) / 2 }
+        return height
+    }
+    static func plan(text: String, style: PlateTextStyle?, size: CGFloat, rect: CGRect, role: PlateTextRole = .comment) -> Plan {
+        let effectiveStyle = style?.supported == true ? style! : PlateTextStyle()
+        let key = "\(role.rawValue)|\(effectiveStyle.fontID)|\(effectiveStyle.weightID)|\(size)|\(rect.width)|\(rect.height)|\(Locale.current.identifier)|\(text)" as NSString
+        if let saved = cache.object(forKey: key) { return saved.plan }
+        func height(_ value: String) -> CGFloat { naturalHeight(text: value, style: style, size: size, width: rect.width, role: role) }
+        let fullHeight = height(text)
+        let plan: Plan
+        if fullHeight <= rect.height {
+            plan = Plan(display: text, prefixCharacters: text.count, height: fullHeight)
+        } else {
+            // 書記素単位で二分探索し、絵文字の結合列や文字の途中を分割しない。
+            let characters = Array(text)
+            var leadingPrefix = 0
+            for (index, character) in characters.enumerated() {
+                if character.isNewline { leadingPrefix = index + 1 }
+                else if !character.isWhitespace { break }
+            }
+            // 先頭空行を飛ばして本文や省略記号だけを上へ繰り上げない。
+            var lower = leadingPrefix, upper = characters.count, best = Plan(display: "", prefixCharacters: 0, height: 0)
+            while lower < upper {
+                let middle = lower + (upper - lower) / 2
+                let value = String(characters.prefix(middle)) + "…"
+                let measured = height(value)
+                if measured <= rect.height {
+                    best = Plan(display: value, prefixCharacters: middle, height: measured)
+                    lower = middle + 1
+                } else { upper = middle }
+            }
+            plan = best
+        }
+        cache.setObject(Cached(plan), forKey: key, cost: text.utf8.count + plan.display.utf8.count + 256)
+        return plan
+    }
+}
+
 struct PlateLayoutUpdateButton: View {
     @Binding var draft: PlateDraft
     @State private var confirming = false
@@ -1782,10 +2121,126 @@ struct PlateLayoutUpdateButton: View {
         Button("新レイアウトに更新") { confirming = true }
             .frame(minHeight: 44).accessibilityIdentifier("plate.layout.upgrade")
             .alert("新レイアウトへ更新しますか？", isPresented: $confirming) {
-                Button("renderer7でプレビュー") { draft.layoutVersion = 7; draft.itemImagesEnabled = true }
+                Button("renderer8でプレビュー") { draft.layoutVersion = 8; draft.itemImagesEnabled = true }
                 Button("キャンセル", role: .cancel) {}
             } message: {
-                Text("renderer7へ更新します。アイテム画像を中央でトリミングし、日付を右下に移します。画像の上下や左右が一部切れる場合があります。コメント幅も狭くなります。旧構図ではタイトルを非表示にし、写真・アイテム欄を広げます。写真未対応の旧作品では現在のアイテム写真も追加します。元の文字と写真は保持し、保存するまで旧版は変わりません。")
+                Text("renderer8のコメント専用レイアウトをプレビューします。写真枠の高さが変わるため、写真の見える範囲が変わる場合があります。アイテム画像は中央でトリミングし、日付は右下に配置します。旧構図のタイトルは非表示になり、写真未対応の旧作品には現在のアイテム写真を追加します。コメント全文・文字設定・写真調整・アイテム順序は保持し、保存が成功するまで旧版は変わりません。破棄すると元の表示に戻ります。")
             }
+    }
+}
+
+// renderer8のRecipeだけに使用する。保存値を変えず、実フォントで最大2行へ収める。
+struct PlateRecipeNameBody: View {
+    let text: String
+    let style: PlateTextStyle?
+    let size: CGFloat
+    var limit: Int? = nil
+    var body: some View {
+        Text(text).font(PlateFontCatalog.font(style, role: .itemNames, size: size))
+            .multilineTextAlignment(.leading).lineLimit(limit).truncationMode(.tail)
+            .fixedSize(horizontal: false, vertical: true)
+            .dynamicTypeSize(.large).environment(\.locale, Locale.current)
+    }
+}
+
+struct PlateRecipeNameText: View {
+    let text: String
+    let style: PlateTextStyle?
+    let requested: CGFloat
+    let rect: CGRect
+    var body: some View {
+        let plan = PlateRecipeNameLayout.plan(text: text, style: style, requested: requested, rect: rect)
+        PlateRecipeNameBody(text: plan.display, style: style, size: plan.size)
+    }
+}
+
+@MainActor enum PlateRecipeNameLayout {
+    struct Plan {
+        let display: String
+        let size: CGFloat
+        let lines: Int
+        let prefixCharacters: Int
+        let ellipsized: Bool
+        let height: CGFloat
+    }
+    private final class Cached: NSObject {
+        let plan: Plan
+        init(_ plan: Plan) { self.plan = plan }
+    }
+    private static let heights: NSCache<NSString, NSNumber> = {
+        let cache = NSCache<NSString, NSNumber>()
+        cache.countLimit = 4096; cache.totalCostLimit = 2 * 1024 * 1024
+        return cache
+    }()
+    private static let plans: NSCache<NSString, Cached> = {
+        let cache = NSCache<NSString, Cached>()
+        cache.countLimit = 256; cache.totalCostLimit = 512 * 1024
+        return cache
+    }()
+    static func minimum(_ requested: CGFloat) -> CGFloat {
+        // 7〜8ptは縮小しない。承認済み9→8、12→9、14→10を連続的につなぐ。
+        if requested <= 8 { return requested }
+        if requested <= 9 { return 8 }
+        if requested <= 12 { return 8 + (requested - 9) / 3 }
+        return 9 + (requested - 12) / 2
+    }
+    private static func styleKey(_ style: PlateTextStyle?) -> String {
+        let effective = style?.supported == true ? style! : PlateTextStyle()
+        return "\(effective.fontID)|\(effective.weightID)|\(Locale.current.identifier)"
+    }
+    static func height(_ text: String, _ style: PlateTextStyle?, _ size: CGFloat, _ width: CGFloat, _ limit: Int? = nil) -> CGFloat {
+        guard !text.isEmpty else { return 0 }
+        let key = "\(styleKey(style))|\(size)|\(width)|\(limit ?? -1)|\(text)" as NSString
+        if let cached = heights.object(forKey: key) { return CGFloat(cached.doubleValue) }
+        let renderer = ImageRenderer(content: PlateRecipeNameBody(text: text, style: style, size: size, limit: limit)
+            .frame(width: width, alignment: .topLeading))
+        renderer.proposedSize = ProposedViewSize(width: width, height: nil)
+        var measured = CGFloat.infinity
+        renderer.render { size, _ in measured = ceil(size.height * 2) / 2 }
+        heights.setObject(NSNumber(value: Double(measured)), forKey: key, cost: key.length * 2 + 64)
+        return measured
+    }
+    static func lines(_ text: String, _ style: PlateTextStyle?, _ size: CGFloat, _ width: CGFloat) -> Int {
+        guard !text.isEmpty else { return 0 }
+        let full = height(text, style, size, width)
+        if full <= height(text, style, size, width, 1) + 0.01 { return 1 }
+        if full <= height(text, style, size, width, 2) + 0.01 { return 2 }
+        return 3
+    }
+    static func fits(_ text: String, _ style: PlateTextStyle?, _ size: CGFloat, _ rect: CGRect, _ cap: Int) -> Bool {
+        height(text, style, size, rect.width) <= rect.height + 0.01 && lines(text, style, size, rect.width) <= cap
+    }
+    static func plan(text: String, style: PlateTextStyle?, requested: CGFloat, rect: CGRect) -> Plan {
+        let key = "\(styleKey(style))|\(requested)|\(rect.width)|\(rect.height)|\(text)" as NSString
+        if let cached = plans.object(forKey: key) { return cached.plan }
+        func result(_ display: String, _ size: CGFloat, _ prefix: Int, _ ellipsized: Bool) -> Plan {
+            let plan = Plan(display: display, size: size, lines: lines(display, style, size, rect.width),
+                            prefixCharacters: prefix, ellipsized: ellipsized, height: height(display, style, size, rect.width))
+            plans.setObject(Cached(plan), forKey: key, cost: key.length * 2 + display.utf8.count + 128)
+            return plan
+        }
+        if fits(text, style, requested, rect, 1) || fits(text, style, requested, rect, 2) {
+            return result(text, requested, text.count, false)
+        }
+        let floor = minimum(requested)
+        var size = requested
+        while size > floor {
+            size = max(floor, size - 0.5)
+            if fits(text, style, size, rect, 2) { return result(text, size, text.count, false) }
+        }
+        let characters = Array(text)
+        func value(_ count: Int) -> String { String(characters.prefix(count)) + "…" }
+        guard fits("…", style, floor, rect, 2) else { return result("", floor, 0, true) }
+        var lower = 0, upper = characters.count
+        while lower < upper {
+            let middle = lower + (upper - lower + 1) / 2
+            if fits(value(middle), style, floor, rect, 2) { lower = middle } else { upper = middle - 1 }
+        }
+        var best = lower
+        // 単語の折り返しや字詰めによる小さな非単調性も近傍で確認する。
+        for count in max(0, best - 2)...min(characters.count, best + 8) {
+            if count > best && fits(value(count), style, floor, rect, 2) { best = count }
+        }
+        return result(value(best), floor, best, true)
     }
 }

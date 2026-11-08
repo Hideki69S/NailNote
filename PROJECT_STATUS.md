@@ -3,16 +3,14 @@
 <!-- latest-status:start -->
 ## 最新状況サマリー
 
-- 最終更新：2026-11-07。識別子 `Renderer7BSaveCheckpoint-20261107`。renderer7とプレートタブB案の実機確認完了、ユーザー承認によりGitHub保存を実施する。
-- ユーザー本人のiPhone17e確認：renderer7は10/10合格、B案アイコンは4/4合格。Codexの実機操作結果ではない。
-- 製品変更：4Plate関連Swift（RootView、PlateEditorView、PlateHomeView、PlateRepository）。新7は中央Fill＋右下日付、旧1〜6は維持、明示更新方式。B案はplate描画だけを変更、他3アイコン・タブ寸法／操作は維持。
-- 今回新規検証：Debug Simulator／署名なしRelease iOSとも成功、diff --check成功。過去の275チェック／旧72画像完全一致／UI1件、B案90チェック／UI2件／5テーマの結果を確認し、現在ソースが検証済みと一致することを確認。自動テストの新規再実行はしていない。
-- Git開始：main c4c1260、fetch後origin/mainと一致。対象はSwift4＋連携2文書、既存IDE設定はローカル保持・除外。commit／push結果は末尾に追記する。
-- TODO：PlatePhotoNameAlignment（写真と名前の整列）とPlateCommentVisibility（コメント表示量、優先度高）は未実装。今回は着手しない。
-- 容量：開始df Data空き303.1040GB。固定ビルド先を再利用し削除なし、終了値は結果記録へ。
-- ChatGPT連携：保存結果確定後、既存sync.zshで2文書だけ同期しクラウド確認する。次の開発は別途指示待ち。
-
-詳細：末尾「renderer7＋B案 GitHub保存」。過去の調査・実装・検証履歴は保持。
+- 最終更新：2026-11-08。識別子 `Renderer8GitHubSave-20261108`。renderer8完成版について、ユーザーがiPhone17e実機で確認し「問題なし」と報告。GitHub main保存作業中。Codexによる実機操作ではない。
+- 完成内容：4テンプレートの配置、Recipe列優先1/2列・45ptパネル・最大2行自動文字調整、最大6写真のSession読込と更新キー、関連説明。旧renderer1〜7を保護。
+- 保存対象：PlateEditorView.swift、PlateHomeView.swift、PlateRepository.swiftの8許可1行、連携2文書。IDE設定project.pbxprojは除外し同じローカル差分を保持。比較PNG/分離アプリ/一時テスト/ログ/キャッシュ/実データは対象外。
+- 最終検証：今回Debug Simulator/署名なしRelease増分ビルド成功、diff --check成功。2026-11-08 16:33〜16:35、HEAD e3852ea＋完成実装で実施した20,284チェック/旧版84画像一致/12書体5,016条件/保存・復元・複製・失敗保護・JPEG/PNG両解像度/UI1件の結果を再利用（今回再実行と混同しない）。ソースはその検証後から同一。
+- Git開始：main、HEAD/取得済みorigin/main=e3852ea871a0ab29c1a76972c839dc2398845af2。staged/untrackedなし、既存dirty6ファイル。通常commit/pushのみ実行し、最終SHAと残存差分は末尾に追記する。
+- 互換性・制約：CoreData/JSON構造/元写真不変。既存8のサムネイルは次の明示保存まで旧配置の場合あり。全OS/VoiceOver/他画面全CRUDの網羅検証は未実施。実機はユーザー確認済み、詳細は直近実装履歴/Reportを参照。
+- 次工程：GitHub保存と文書同期が終われば停止。追加機能/デザイン/次Phaseへ進まない。
+- ChatGPT連携：保存結果の確定後、既存sync.zshで2文書のみ同期しクラウド本文を確認する。
 <!-- latest-status:end -->
 
 
@@ -3577,3 +3575,267 @@ df Data開始303.9232GB→終了303.9154217GB（-0.0077783GB）。今回資料du
 - 未完了TODOはPlatePhotoNameAlignment、PlateCommentVisibility（優先度高）。今回実装しない。CoreData・元画像・保存データ・AI休止方針に変更なし、実機操作なし。
 - 推奨メッセージFinalize plate renderer 7 and adopt plate tab card iconで1commitを作成し、最新リモートを再確認して通常pushする。この記録時点では結果未確定。成功SHA／リモート一致／残存差分はpush後に追記し、その結果追記だけの追加commit／pushは実施しない。
 - 開始df Data空き296000000KiB＝303.1040GB。今回新規は状態記録・ビルドログだけで、比較／実機資料・固定キャッシュは保持。終了値は結果記録で報告する。
+
+
+## 2026-11-07 renderer7＋B案 GitHub保存完了
+
+識別子 `Renderer7BPushComplete-20261107`。
+
+- 成否：commit／pushとも成功。コミットSHA `e3852ea871a0ab29c1a76972c839dc2398845af2`、メッセージ `Finalize plate renderer 7 and adopt plate tab card icon`。
+- commit後にorigin/mainをfetchし、開始時c4c1260から想定外に進んでいないことを確認。merge-baseによるfast-forward可能確認後、既存SSHでgit push origin mainを通常実行。GitHub refs/heads/main、origin/main、HEADが全て上記SHAで一致。pull／merge／rebase／forceなし。
+- コミットファイル：NailNote/App/RootView.swift、NailNote/Features/Plates/PlateEditorView.swift、PlateHomeView.swift、PlateRepository.swift、PROJECT_STATUS.md、docs/CHATGPT_HANDOFF.md。対象を明示してステージし、indexが作業ファイルの内容と一致すること、6ファイル以外が含まれないことを確認済み。
+- push直後の未コミットはNailNote.xcodeproj/project.pbxprojのみ。LastUpgradeCheck／STRING_CATALOG_GENERATE_SYMBOLSの既存IDE差分は開始時のhash・差分とも完全一致。今回結果を追記した後は連携2文書も未コミットになる。文書の結果追記は追加commit／pushせず残す。ステージなし・未追跡なし。
+- ユーザー実機確認：iPhone17eでrenderer7 10/10、B案4/4合格。どちらもユーザー本人の確認で、Codexが実機を操作した結果ではない。アプリの削除・再インストール・実データ操作はしていない。
+- 今回新たに実施したビルドはDebug Simulator／署名なしRelease iOSの両方成功、git diff --check／cached --check成功。過去検証のrenderer7 275チェック／72画像完全一致／UI1件、B90チェック／UI2件／5テーマは結果ファイルの確認と現行ソース一致検査のみで、新たに実行したテストではない。
+- 保護：ソースは作業開始時から変更なし。CoreData／元写真／保存設定／renderer／タブの追加変更なし。画像・検証アプリ・ログ・DerivedDataはコミット対象外。過去文書の履歴は保持。
+- 容量：同一のdf -k /System/Volumes/Dataで開始／終了Available296000000KiB＝303.1040GB、差0。今回専用記録du220KiB＝約0.225MB、固定Debug／Release約0.889GBは次回再利用用に保持。キャッシュの開始duなしのため今回増分は比較不能。無断削除なし。
+- 次回再開地点：mainの上記SHAを基準に、残存IDE設定と文書結果の未コミットを保護して状況確認する。未完了PlatePhotoNameAlignment／PlateCommentVisibility（高優先）は別途ユーザー承認・指示後に扱う。今回は着手しない。
+- ChatGPT連携：この結果を既存sync.zshで2文書だけ同期し、クラウド上の識別子とSHAを確認する。同期の最終結果は確認後に記録・報告する。
+
+
+### 2026-11-07 renderer7＋B案・保存結果の連携最終確認
+
+識別子 `Renderer7BPushSyncFinal-20261107`。既存sync.zsh終了0・更新2件、クラウド両本文でRenderer7BPushComplete-20261107とe3852ea871a0ab29c1a76972c839dc2398845af2を取得確認済み。本最終記録も再同期。ChatGPT側でチェック可能。mainとorigin/main差0、ステージ／未追跡なし、残存は開始時のIDE設定とpush結果追記の2文書。追加commit／pushなし。新規開発へ進まず停止。
+
+
+## 2026-11-08 PlateCommentVisibility事前調査
+
+識別子 `PlateCommentVisibilityResearch-20261108`。調査開始11月7日、提出11月8日。今回は調査・表示測定・提案のみ。製品コード変更なし、実装承認待ち。
+
+### 現状・原因
+
+開始branch main、HEAD／ローカルorigin/mainはe3852ea871a0ab29c1a76972c839dc2398845af2。ステージ／未追跡なし。既存project.pbxprojと連携2文書の未コミット3ファイルを保持。fetch／Git書き込みなし。製品Swift全体とpbxprojの開始hashを記録・終了時に全て一致確認した。
+
+|構図|コメント枠 x,y,w,h|自動サイズ／範囲|現renderer6からの幅減|日付枠|
+|---|---|---|---|---|
+|Elegant|28,405,208,32|12pt／8〜16pt|304→208、31.6%減|244,421,88,16|
+|Sweet|28,405,208,32|12pt／8〜16pt|304→208、31.6%減|244,421,88,16|
+|Noir|20,376,226,61|11pt／8〜16pt|320→226、29.4%減|254,421,88,16|
+|Recipe|22,405,218,32|11pt／8〜16pt|316→218、31.0%減|248,421,88,16|
+
+PlateEditorView.swiftのlayoutSixTextは、本文によらず「あAg💅」のNSAttributedString測定高（切上げ）とUIFont.lineHeightの大きい方で高さを割り、1〜3行に制限する。その上でtail省略、左揃え、固定枠clipped。多くの12pt書体は測定18ptのため32/18で1行、16ptでは測定24ptで1行となる。標準角ゴは12pt測定15ptで2行／16pt測定20ptで1行。小杉丸ゴは12／16ptという測定値で2行を許可する。見た目は書体により大きく異なる。フォント名・11/12/16ptのlineHeightとprobe測定値の全12書体表はReport.mdに保存。これらUIFont値だけを実際の和文行数と同一視しない。
+
+保存原文の欠損ではなく、狭い幅・小さい高さ・行数制限が原因。改行は行数を消費するため先頭空行2つでも再現する。3構図は全24条件で本文の画素が0、Noirは9/24条件で0。レイアウト拡張だけで空行の問題が必ず直るとは限らず、原文を勝手に除去しない。
+
+日付とコメントは水平に8pt以上離れ、アイテム写真・名前とも枠は非交差。アイテム数0／1／3／18でコメント部分の画素は完全同一、件数が直接コメントを圧迫する仕組みではない。写真／名前の整列問題とは分離して扱う。
+
+編集プレビューは360×450をscaleEffectで縮小する。390pt幅で横並び条件が成立する計算では幅207.6pt、12pt文字が画面上約6.9pt、16ptでも約9.2ptとなり、文字数とは別に読みにくくなる。これは静的計算であり実機実測ではない。作品自体はdynamicTypeSize(.large)固定のため、端末の文字拡大が作品の文字サイズを自動変更するわけではない。
+
+### 表示検証・比較画像
+
+資料：/private/tmp/NailNoteValidation/PlateCommentVisibilityResearch/。
+
+- Report.md：原因、領域、全12書体のメトリクス／60字表示表、A/B/C比較、互換性、全画像への入口。
+- Measurements.csv／verified-measurements.json：全672条件の文字量・行数・文字数の根拠区分。日本語480＝4構図×12書体×通常/16pt×0/10/30/60/100字。英数字・改行96、先頭空行96を追加。
+- 実描画を読み取るため製品Editorのコピーへ診断関数を追加したが、コピーはtmpだけ。製品ソースの変更・新rendererはない。実際のPlateCanvasViewを使用し、実書体12種を読み込み確認。独立Bundle IDのSimulatorアプリで実ユーザーデータなし。
+- 日本語各条件でさらに0/1/3/18アイテムのフルCanvasを描画（1920回）、コメント画素不変・原文不変・写真/名前/日付の非交差など1948確認。これは現状調査の確認であり、修正成功テストと誤記しない。
+- 原文prefixと省略記号を再描画し604条件で画素完全一致。日本語の未一致48条件はセルを拡大して原文を数え、異なる長さのセルhashが同一なことを照合して補完。日本語480条件は全数整理。英数字混在20条件の厳密文字数は未確定でunresolvedとして保持し、成功扱いしない。
+- インク帯の単純な行分割は一部書体で行間が狭く複数行を1帯と数えたため、raw inkBandsを実行数と扱わない。日本語のobservedLinesは比較画像の観察で補完。results.json、refined.json、cell-audit.json、検証コード・未一致画像も根拠として保持。
+
+同じ日本語60文字で、実際に表示される量（省略記号を除外）は以下。文字数は書体に依存し普遍的な固定上限ではない。
+
+|構図|通常サイズ・全12書体の範囲|最大16ptの範囲|
+|---|---|---|
+|Elegant/Sweet|1〜2行、16〜35字|1〜2行、12〜25字|
+|Noir|3行、60字全文|2〜3行、27〜44字|
+|Recipe|1〜2行、18〜41字|1〜2行、12〜25字|
+
+例：標準角ゴはElegant/Sweet通常2行35字／16pt1行12字、Noir通常3行60字／16pt3行44字、Recipe通常2行41字／16pt1行13字。ZEN丸ゴシックはElegant通常1行16字／16pt1行12字。通常のヒラギノ明朝はElegant1行16字に対しNoir3行60字。日本語100字を入力しても全表示にはならない。
+
+- atlas-<template>-auto.png／atlas-<template>-16pt.png：8枚、各列0/10/30/60/100字・各行12書体、元のコメント枠寸法で描画。mixed-<template>.png：4枚、英数字と改行／先頭空行、通常／16pt。
+- full-<template>-auto.png／full-<template>-16pt.png：8枚の4:5全体図。sample-*／sample100-*は文字を数えた原寸セル拡大用。
+- 閲覧確認：Elegant通常の全12書体表、Noir16pt全書体表、Recipe通常とElegant16ptの全体図、代表60/100字セル、先頭空行の画像を確認。比較画像はFinder／プレビューで拡大できる。実機スクリーンショットではない。
+
+### A/B/C改善案（未実装）
+
+|観点|A 領域の小拡張|B コメント専用エリア|C 動的フィット|
+|---|---|---|---|
+|方式|幅304〜320pt・高さ約36pt、Noirは現61pt以上維持、日付は下の独立行|幅304〜320pt・高さ48〜56pt、Noirは現61pt以上を維持、日付独立|明示的な自動モードで11pt程度を下限にサイズと行数調整|
+|読みやすさ|中〜高|高、最大16ptでも複数行を確保しやすい|中、文字が小さくなる|
+|表示量の概算|12ptで24〜50字、16ptでは1行18字程度に留まる書体もある|12ptで48〜75字、16ptで34〜38字を目標|11pt2行なら36〜40字程度、書体・改行で減る|
+|高級感／統一感|現在に近い|独立した余白で整理できるが写真配分が変わる|文字量でサイズが揺れる|
+|日付との干渉|専用行なら低い|専用行なら低い|固定枠なら低い|
+|難易度|中|中|中〜高、自動モード保存設計が増える|
+|デメリット|16ptでの改善が限定的|主写真高さの調整が必要|小文字での解決に限界。指定16ptを黙って縮めない|
+
+推奨はB。Elegant／Sweet／Recipeで写真高さ約25〜40pt、Noir約10〜20ptの調整が必要となる見込みだが、最大16ptを保ちながら本文領域を確保する案。Aは構図維持を最重視する代案。Cは明示的に選ぶ補助方式に留め、ユーザーの保存済みサイズを無断で変更しない。数値は提案の概算で、改善案の描画を実施して検証済みとはしない。100字全文表示の保証はしない。
+
+行数計算は実本文と実フォントを使う方向で見直す。「あAg💅」固定の粗い計算や、単にlineLimitを増やして下端をclipする対症療法を避ける。先頭空行は別の確認事項で、原文を勝手にtrimしない。空行を保持して注意するか、ユーザーが明示的に除く操作にするかは実装承認前に決める。PlatePhotoNameAlignmentへの実装は今回も今後のB案設計でも別承認とする。
+
+### 互換性・影響・変更想定
+
+- renderer7直接変更は非推奨。既存JSONが同じでも再編集とJPEG/PNGが新表示へ変わり、保存thumbnailは旧表示で不一致。複製はdoc版と既存thumbnailをコピーするため不一致が残る。
+- renderer8分離を推奨。旧1〜7の描画を完全保持、新規8、旧作品は明示更新プレビュー→保存成功時だけ8へ。取消・破棄・保存失敗で旧版維持、複製は元rendererを保持。元コメント全文・12書体・サイズ・色・写真・掲載順を保持。
+- A/Bの配置変更だけならschema1／既存JSONキーを維持できる見込み。CoreData移行不要。Cを保存する場合は自動調整用の新しい項目と未知値保持・旧版拒否を別途設計する必要がある。
+- 想定ファイル：PlateEditorView.swift（新8の配置／行計測／Draft版／更新確認）、PlateHomeView.swift（旧版更新入口）、PlateRepository.swift（DTOの対応版追加のみ）。actorのatomic保存・写真store・RootView／Bアイコンは変更不要の見込み。今回どれも変更しない。
+- 描画経路：編集previewはPlateCanvasViewをscaleEffect、保存thumbnailは同Canvasをscale2のImageRenderer→JPEG0.8、書き出しは同Canvasをscale3/4・opaque→JPEG/PNG。高解像度へしても論理枠・行数は増えない。旧データ復元はPlateDraft(document:)で版と全文を保持。複製は既存documentのrendererVersionを維持し既存thumbをコピー。
+- 承認後の検証：旧1〜7画素一致、12書体／8〜16pt／0〜100字／和英・改行・絵文字・空行、写真と名前・日付非交差、全件数、保存・再起動・再編集・複製・両形式両解像度、明示更新取消と失敗保護、実機で写真比率と文字の可読性を確認。
+
+### 未検証・管理
+
+今回新たなDebug／Releaseビルド、保存・複製・画像書き出し試験、実機操作はしていない。現行描画の分離調査プログラムだけをコンパイル・Simulator実行した。過去のrenderer7・Bアイコンのユーザー実機合格は維持するが、コメント問題の解決済みとは扱わない。
+
+既存Swift・IDE設定は全開始hash一致。Git commit／push／reset／cleanなし、更新は2文書だけ。PlateCommentVisibilityは高優先・調査完了／実装承認待ち、PlatePhotoNameAlignmentは未着手で継続。
+
+df Data開始296000000KiB＝303.1040GB→終了299200000KiB＝306.3808GB、3.2768GB増。今回資料du121580KiB時点で約0.125GB、固定Debug／Release約0.882GBは再利用のため保持。合計約1.007GBだが新規と既存を分ける。削除・清掃なし。空き容量増加の原因は本調査で特定しておらず、今回の整理効果と報告しない。2文書だけを既存単発sync.zshで同期しクラウド識別子を確認する。
+
+次はB案の写真配分、最大16ptの表示目標、先頭空行の扱いのユーザー判断待ち。製品コードやrenderer8の実装は開始せず停止する。
+
+
+### 2026-11-08 コメント調査・連携最終確認
+
+識別子 `PlateCommentVisibilitySyncFinal-20261108`。2文書更新・既存sync.zsh終了0、クラウド両本文でPlateCommentVisibilityResearch-20261108を取得確認済み。本最終記録も再同期。ChatGPT側でチェック可能。製品コード・IDE設定は開始時のまま、Git操作なし。日本語480条件を整理、混在20条件の厳密表示文字数は未確定。比較資料約0.125GBを保持し削除なし。最終df Data306.3808GB、開始比3.2768GB増（空き増加原因は未特定）。B案／renderer8／先頭空行の扱いの承認待ちで停止。PlatePhotoNameAlignmentは未着手で継続。
+
+
+## 2026-11-08 コメント表示B比較プレビュー
+
+識別子 `PlateCommentBPreview-20261108`。Phase 3.5後のPlateCommentVisibility・デザイン比較段階、比較完了／正式実装承認待ち。
+
+4テンプレート×3案の実描画・同条件renderer7比較を完了。詳細は専用Report.mdとCHATGPT_HANDOFF.mdの本節。最新サマリーの表示文字数は日本語60字・12書体の範囲であり、任意の文章の全文表示を保証しない。通常文字サイズはElegant/Sweet12pt、Noir/Recipe11pt。最大16ptを縮小せず比較。
+
+### 最終保護・容量・連携
+
+全製品Swiftとproject.pbxprojは開始時SHA256一致。HEADとローカルorigin/mainはe3852ea871a0ab29c1a76972c839dc2398845af2。fetchやGit書き込みなし。ステージ/未追跡なし、開始時と同じIDE設定・2文書だけが変更。既存の履歴は保持。比較専用コピーだけをコンパイルし、実データのない専用Simulatorで描画。製品Debug/Release・実機・保存/書き出し統合テストは未実施。比較用アプリは終了し保持、削除しない。
+
+df -k /System/Volumes/Data（2026-11-08、開始/終了同方式）：Available299200000→298800000KiB、306.3808→305.9712GB、0.4096GB減。専用資料du413944KiB≒0.424GB、既存固定Debug628460KiB＋Release232512KiB≒0.882GBを保持（合計約1.306GB、親子重複なし）。割当量は削除時の確実な回収量ではない。今回削除なし、2GB減の追加調査閾値未到達。初稿・比較証拠・再生成コードは設計判断と再現のため保持。/private/tmpの永続性は保証されない。
+
+Google Driveへは既存sync.zshで2文書だけを同期。比較PNG/アプリ/写真/実データはアップロードしない。確定仕様はユーザー指定のB方向、推奨組み合わせはCodex提案、採用案・注意UI採用・正式実装は未決定。ChatGPTには画像をMacで確認後、推奨組み合わせと写真縮小量・装飾・先頭空行UIについてレビューしてほしい。承認前に実装・次TODOへ進まない。
+
+
+### 2026-11-08 00:52 JST 連携最終確認
+
+識別子 `PlateCommentBPreviewSyncFinal-20261108`。既存sync.zsh終了0・更新2件、クラウド両本文のPlateCommentBPreview-20261108を確認済み。本記録も再同期し最終版を確認する。ChatGPT側でチェック可能。製品コード変更・Git書き込み・実機操作なし。比較専用Simulatorアプリは終了済み。最終資料du414076KiB≒0.424GB、固定キャッシュとの合計約1.306GBを保持。ユーザーのB1/B2/B3採用判断と正式実装承認待ちで停止。
+
+
+## 2026-11-08 renderer8 B2正式実装＋アイテム可変表示比較
+
+識別子 `PlateRenderer8B2-20261108`。正式実装・検証は上記最新サマリー、詳細はdocs/CHATGPT_HANDOFF.md末尾同名節と専用Report.md。新8 B2のみ製品実装、6/9個と短縮カテゴリは試作のみ。既存の開発履歴を保持。ユーザー実機確認・可変表示の採用判断待ち。
+
+製品3ファイル（PlateEditorView/PlateHomeView/PlateRepository）、連携2文書を更新。旧1〜7の84画像一致、コメント3,888条件、保存/復元/複製/失敗/書き出し/サムネイル、Debug/Release、UI1/1成功。実機未操作。既存IDE差分を保持、Git書き込み・削除なし。新8以外のアイテム写真/名前整列TODOは未着手。
+
+作業資料 `/private/tmp/NailNoteValidation/PlateRenderer8B2/`、総合Renderer7vs8Overview.png/VariableOverview.png、カテゴリCategoryShortLabels.md/.png。df Data305.9712→305.6921GB、0.2791GB減、今回資料約0.337GB＋固定キャッシュ約0.886GBを保持。既存sync.zshで2文書のみ同期しクラウド確認を行う。
+
+
+### 2026-11-08 01:43 JST 同期・終了確認
+
+識別子 `PlateRenderer8B2SyncFinal-20261108`。既存sync.zsh終了0・更新2件、クラウド両本文でPlateRenderer8B2-20261108を取得確認済み。本記録も再同期し最終版を確認する。ChatGPT側でチェック可能。専用テストアプリ終了済み。最終df Data298527472KiB=305.6921GB、開始比0.2791GB減（途中測定305.5616GBとは区別）。専用資料329064KiB≒0.337GB、固定キャッシュ約0.886GBを保持。製品3Swift＋既存IDE設定＋2文書が未コミット、staged/untrackedなし、Git書き込み・削除なし。正式renderer8 B2は実機確認待ち、6/9個と短縮ラベルは比較だけで採用判断待ち。次タスクへ進まず停止。
+
+
+## 2026-11-08 renderer8 最大6アイテム正式実装
+
+識別子 `PlateRenderer8SixItems-20261108`。正式実装・分離検証完了、ユーザーの実機確認待ち。
+
+製品変更はPlateEditorView.swiftだけ。既存のrenderer8 B2と承認済み6個比較を基礎に、0〜3個は元のスロット、4〜6個はコンパクト、7個以上は6個＋N。カテゴリ短縮は表示専用。名前の既存書体/サイズ/色を保持し、原文を変更せず収まる表示値だけ末尾省略。Recipe5個の行境界重なりを0.5ptの行間で修正し再検証。コメント・主写真・日付はB2のまま、renderer1〜7・JSON・CoreData・保存actorは変更なし。
+
+Debug/署名なしReleaseの最終ビルド成功。総合11,734チェック、旧84画像一致、指定40件数の非干渉/全データ保持、名前3,456描画のclip前後一致、12件を保存/復元/複製しても全情報・順序・画像参照を保持、4構図の両形式/両解像度出力・サムネイル一致・出力前後ファイル不変を確認。今回のUI操作テストは未実施、前回UI成功は履歴として保持。実機は未操作・未確認。
+
+資料：`/private/tmp/NailNoteValidation/PlateRenderer8SixItems/`。FinalOverview.png、final-各構図-count6.png、Counts-各構図.png、長い名前・fallback画像、Report.md、CSV/JSON、検証コード、ビルドログ。詳細はCHATGPT_HANDOFF末尾とReport.md。Noir長名の省略・Recipe写真18pt・カテゴリ補助文字7.5/8ptは実機の実寸で確認。既存8の一覧サムネイルは保存時だけ更新する。
+
+main/HEAD/ローカルorigin/main=e3852ea。既存IDE設定と他Swiftは開始hash一致。未コミット全体6ファイル/ステージなし/未追跡なし。commit/push/reset/clean/削除なし。df Data305.5616→305.3270GB（0.2346GB減）、今回資料約0.267GB＋固定キャッシュ約0.887GBを再現・次回利用用に保持。既存の他資料と今回対象容量は分ける。PlatePhotoNameAlignment・AI再開・他TODOへ進まず、実機確認待ちで停止。
+
+連携2文書だけを既存sync.zshで同期しクラウド確認する。比較画像/アプリ/実データは同期しない。
+
+
+### 2026-11-08 02:21 JST 連携最終確認
+
+識別子 `PlateRenderer8SixItemsSyncFinal-20261108`。既存sync.zsh終了0・更新2件、クラウド両本文でPlateRenderer8SixItems-20261108を取得確認済み。本記録も再同期し最終版を確認する。ChatGPT側でチェック可能。製品の今回追加変更はPlateEditorView.swiftのみ、他Swift/既存IDE設定は開始hash一致。専用テストアプリ終了済み。11734チェック成功、旧84画像/指定40条件/名前3456描画、最終Debug/Release成功。実機確認待ちで停止。commit/push/削除なし。
+
+
+## 2026-11-08 プレート新配置比較・画像経路調査
+
+識別子 `PlateItemLayoutImageResearch-20261108`。調査・比較制作のみ完了／修正・正式配置は承認待ち。製品は変更していない。
+
+実機報告の画像4〜6件目fallbackは、Session.refreshItemImagesの先頭3件制限で分離再現。参照/有効JPEGは6、Session/ExportSnapshotの表示辞書は3。新規/復元/並替/複製/全4構図で確認した。実機asset個別は未調査。前回は全画像を渡したCanvas試験と同じ3件辞書同士の一致が中心で、Sessionの有効6ID集合を検査していなかった。今回の調査2085検査成功は不具合が再現できたことを含み、修正済みとは扱わない。
+
+最小案は8だけ画像復号6件、旧1〜7は3件、画像Taskキーに実効上限/版を追加し明示更新にも対応。Recipeサイドバーの旧3件説明も対象。グローバルrecipeLimit=3は旧描画用に維持する。想定PlateEditorView/PlateHomeView、保存方式・モデル・元画像の変更不要の見込み。まだ実装しない。
+
+新配置は4構図×1/3/4/6/8件の20案。Noirは画像→カテゴリ→名前の左端一致、E/S/Recipeは画像左・文字右でカテゴリ上/名前下。カテゴリーは既存短縮。最大6/+N・コメント原文・主写真/日付を維持。Recipe縦6行は通常9ptなら描けるが12/14ptでは名前が入らず、サイズ扱い/2列/領域配分の承認が必要。製品へ無断縮小を入れない。
+
+資料 `/private/tmp/NailNoteValidation/PlateItemLayoutImageResearch/` にProposedOverview.png、BeforeAfter6.png、BugImagePathOverview.png、構図別3/6・件数別・拡大比較、RecipeTextSizeConstraint.png、Report.md、CSV/JSON、検証コードを保存。分離Itemの自作JPEGを保存スナップショットから復号した。実機写真は未取得。
+
+製品全SwiftとIDE設定は開始hash一致。連携2文書だけ更新、既存未コミット6ファイルを保持。Debug/Release再ビルド、実機、正式修正の保存回帰は未実施。専用Simulatorアプリは終了。df Data304.7424→304.6681GB、約0.0743GB減、今回資料約0.183GB＋固定キャッシュ約0.886GBを保持。専用テスト写真64KiB、CoreDataはメモリ内。削除/commit/pushなし。既存同期で2文書だけ連携し、承認待ちで停止。
+
+
+### 2026-11-08 15:05 JST 調査連携の最終確認
+
+識別子 `PlateItemLayoutImageResearchSyncFinal-20261108`。既存sync.zsh終了0・更新2件、クラウド両本文でPlateItemLayoutImageResearch-20261108を取得確認済み。本記録も再同期。ChatGPT側でチェック可能。製品全Swift・project.pbxprojは開始hash一致、製品修正・Git書き込み・実機操作なし。専用試作アプリ終了済み。画像3件制限の正式修正、配置案、Recipe6行の12/14ptの扱いは承認待ちで停止する。
+
+
+## 2026-11-08 Recipe 2列比較プレビュー
+
+識別子 `RecipeTwoColumnPreview-20261108`。比較制作と検証完了、正式実装は未実施・承認待ち。
+
+ユーザーの列優先方針を再現：3個は縦1列、4個左01–02/右03–04、5個左01–03/右04–05、6個左01–03/右04–06。元配列/保存順は変更しない。7/9選択でも可視6件と+1/+3、6選択は残数なしを描画。
+
+主写真/コメントB2/日付は元矩形を維持。2列の154×42ptパネル、写真30/28pt、名前枠高25pt、カテゴリ8pt/名前9・12・14pt。通常/長い名前24全体ケース、12書体の名前1,296件で本文消失/部分行クリップなし。計3,231チェック成功。前案の縦6行の12/14pt問題は2列試作で解消。14pt長名は約6〜7文字＋…で、原文を保持しサイズを縮めない。
+
+前回の分離Itemの保存JPEG6枚を再利用し、保存FixtureStoreの全ファイルhash不変。実機登録写真は未取得。refreshItemImagesの3件制限は製品では未修正であり、今回のプレビューだけ6枚を明示入力した。画像最小修正・Taskキー・Recipe旧説明・他テンプレート配置は引き続き承認後の実装対象。
+
+資料 `/private/tmp/NailNoteValidation/RecipeTwoColumnPreview/` のSixItemsSizeComparison.png、NumberOrderDetail.png、Overview-normal/long.png、Counts14pt.png、OverflowComparison.png、Report.md、CSV/JSON、検証Swift/Python。全体画像は標準書体、12書体は文字部の実描画/画素検査。比較ラベルは外枠のみ。試作アプリは専用bundleで実機ではなくSimulator/iOS27.0、終了済み。
+
+製品全Swift/既存IDE設定は開始hash一致、今回プロジェクト内変更は連携2文書だけ。main e3852ea、staged/untrackedなし、既存6ファイル未コミットを保持。commit/push/reset/clean/削除なし。製品Debug/Release・正式修正の保存回帰・実機/VoiceOver/全ウェイトは今回未検証。df Data記録304.3328→304.3328GB、今回資料約0.150GB＋固定キャッシュ約0.886GBを再現/次回用に保持（計約1.036GB）。tmpは永続保証なし。
+
+比較上の推奨はこの2列案。今までの写真18ptより大きい28ptを6個でも確保できる。正式実装はユーザー確認後に画像不具合とまとめて実施する。今回それ以外の作業に進まず承認待ちで停止。既存sync.zshで2文書のみ同期・クラウド確認を行う。
+
+
+### 2026-11-08 15:40 JST Recipe比較の連携最終確認
+
+識別子 `RecipeTwoColumnPreviewSyncFinal-20261108`。既存sync.zsh終了0・更新2件、クラウド両本文でRecipeTwoColumnPreview-20261108を取得確認済み。本記録も再同期。ChatGPT側でチェック可能。全製品Swift/既存IDE設定は開始hash一致。比較アプリ終了済み。3,231検査/名前1,296描画/24全体ケース成功、元FixtureStore不変。製品の画像3件制限は未修正、正式実装承認待ちで停止。Git書き込み・削除・実機操作なし。
+
+## 2026-11-08 Recipeアイテム名の2行・自動縮小比較
+
+- Phase：renderer8 Recipe表示の調査・比較のみ。識別子 `RecipeNameAutoFitPreview-20261108`。完了/正式実装承認待ち。
+- 3/4/5/6個×9/12/14pt×短/中/長/非常に長い名前×1行/最大2行/最大2行自動×42/45pt×12書体をSwiftUI実描画検証。15,552名前レコード、75,746チェック成功。混在・改行180ピクセル条件等追加183チェック成功。全体画像288枚＋追加3枚。
+- 確認済み：42ptでは2行不足条件が残る。45pt＋自動案は省略540条件すべて2行目末尾。短名の縮小なし、元サイズ2行に収まる場合は維持。下限順守、カテゴリ/写真/隣接枠/コメント/日付の非干渉、名前/設定サイズ/順序・元FixtureStore全hash不変。
+- 推奨案（未確定）：パネル45pt、名前枠30.5pt、0.5pt刻み縮小、暫定下限9→8/12→9/14→10。主写真(22,32,316,181)、B2コメント(22,364,316,52)、日付(248,421,88,16)は変更不要。3行の最下端358.5pt、区切り359pt。
+- 6個×14pt標準書体：短名14pt1行、中程度12.5〜14pt1〜2行、長名11pt2行で全文、非常に長い名前10pt2行で省略。見た目だけでなくサイズ/行数/省略/接頭辞/実高さをCSV記録。これは人工データでの結果。
+- 方式：実フォントの自然高を測定、1行→2行→0.5pt縮小→書記素単位の末尾…の優先順。二分＋近傍探索と測定キャッシュ、代表12条件を全探索と一致確認。全Unicode文字列で最長接頭辞が数学的保証されるわけではない。3強制改行は2行に収まらず下限省略、原文は保持。
+- 変更ファイル：リポジトリ内はPROJECT_STATUS.mdとdocs/CHATGPT_HANDOFF.mdのみ。検証Swift/アプリ/画像/CSV/JSON/Reportは `/private/tmp/NailNoteValidation/RecipeNameAutoFitPreview/` に分離。全製品Swiftとproject.pbxprojの開始hash一致、既存差分を維持。
+- 画像：分離FixtureStoreの独自ボトルJPEG6枚。製品refreshItemImagesの3件制限は正式修正していない。実機写真や個人データ不使用。
+- 未検証/懸念：下限8ptの実機可読性、他サイズ7/8/10/11/13/端数/自動設定の下限設計、全ウェイト、正式実装後の性能・保存/復元/複製/JPEG/PNG回帰。製品Debug/Release/実機操作は今回未実施。既存仕様の成功と混同しない。
+- Git：main HEADとローカルorigin/main=e3852ea871a0ab29c1a76972c839dc2398845af2。既存IDE/Plate3Swift/文書2の6ファイルdirty保持、staged/untrackedなし、git diff --check成功。fetch/commit/push/reset/cleanなし。
+- 容量：2026-11-08 15:56/16:14、df -k /System/Volumes/Data、304.3328→303.5136GB（10進、減0.8192GB）。今回資料約0.4286GB、既存Debug/Release約0.8856GB、計約1.3142GB保持。比較判断/再利用目的、削除なし。割当量と空き増減は別。
+- ChatGPTへの判断依頼：45ptパネル＋最大2行自動案/暫定下限の妥当性。ユーザー承認後のみ正式実装し、既知の3枚制限など別承認対象と範囲を整理する。今回は製品未変更で停止。
+- 比較ガイド：ComparisonGuide.md、主比較Focus6x14-panel45.png、PanelHeightComparison.png、AutoSizeComparison6.png、MixedTextAndOverflow.png。詳しい仕様/限界はReport.md、個別実測はMeasurements.csv/MixedTextControls.csv、検証結果はresults.json/extras-results.jsonを参照。
+
+### RecipeNameAutoFitPreviewSyncFinal-20261108
+
+既存sync.zsh終了0、連携2文書のローカルDriveコピー更新2件。Google Drive取得APIで両方のクラウド本文にRecipeNameAutoFitPreview-20261108があることを確認済み。ローカルコピー成功だけをクラウド成功と扱っていない。ChatGPT側でチェック可能。製品未変更、正式実装承認待ちで停止。
+
+## 2026-11-08 renderer8 プレート表示改善 正式実装
+
+- Phase：承認されたrenderer8 B2仕上げ。識別子 `PlateRenderer8DisplayImplementation-20261108`。実装/分離検証完了、iPhone17e実機確認待ち。
+- 対象：Elegant/Sweet/Noirの写真・カテゴリ・名前配置、Recipe2列/45pt・最大2行自動サイズ、Sessionの写真3件制限、関連説明。製品変更は `NailNote/Features/Plates/PlateEditorView.swift` と `NailNote/Features/Plates/PlateHomeView.swift` のみ。
+- 配置：Elegant/Sweetは写真左・カテゴリ右上・名前右下、Noirは写真→カテゴリ→名前を左端揃え。Recipe1〜3件は縦1列、4件左2右2、5件左3右2、6件左3右3。最大6＋N、保存配列・全件・順序は維持。
+- Recipe名前：パネル45pt/名前30.5pt、カテゴリ上2pt/名前上13pt。指定サイズ1行→同サイズ2行→0.5pt縮小→下限で書記素単位の末尾…、保存値は不変。9→8/12→9/14→10は承認値。その他は7〜8縮小なし、8〜9下限8、9〜12は8+(s−9)/3、12〜14は9+(s−12)/2で連続補間。最後の下限ステップだけ0.5pt未満の場合あり。自動nilは従来実効値10/9.5を起点にし、nilを保持。キャッシュで再計測を抑制。
+- 主写真(22,32,316,181)、B2コメント(22,364,316,52)、日付(248,421,88,16)、区切り359ptは不変。最下段パネル358.5pt、名前357pt。画像3/4件30pt、5/6件28pt。主写真/コメントを縮小していない。
+- 写真原因：保存参照は6件あるがrefreshItemImagesがrecipeLimit=3で打切り。8だけ6件化し、旧1〜7は3を保持。itemImageRequestKeyに版/上限を追加。UUID対応・並べ替えを保持。Recipeの非表示説明も版別に3/6へ修正。JSON/共有JPEG/写真ストアは変更なし。
+- ビルド：今回Debug Simulator成功、署名なしRelease iOS成功、git diff --check成功。既存のSwift6/actor isolation警告は残存、無関係な整理なし。
+- 自動検証：20,284チェック成功。旧1〜7×4テンプレート×3画像比率=84枚が今回開始時Canvasとの全RGBA一致。名前5,016条件、12書体/33ウェイト組合せ、7〜14の0.5刻み＋端数、短/中/長/非常に長い名前、混在/記号/絵文字/改行。全条件2行以内/下限順守/上下clipなし。省略1,254条件すべて2行目末尾。短名と元サイズ2行に収まる名前は不要縮小なし。人工条件の結果で実ユーザー成功率ではない。
+- 画像経路：独立メモリCoreData/写真ストアで正常6枚をSession.prepareItemImages経由で取得。新規/保存復元/再起動相当/並べ替え/複製/7→8で6 UIImage、旧7は3。商品→サンプルfallback、欠損/破損fallback、元画像hash不変を確認。Canvasへ直接6枚を渡すだけの試験ではない。
+- 保存回帰：写真参照/原文/設定サイズ/順序、明示更新の未保存旧版不変・取消相当復元・保存確定、beforeHead失敗時の旧head/revision/assetsとDraft保持。サムネイルは同じCanvas/JPEG条件で一致。4テンプレート×JPEG/PNG×1080×1350/1440×1800を確認。書出し前CGImageはプレビューRGBA一致、PNG再復号一致、JPEGは非可逆なので寸法/正常復号を確認。書出し前後の保存ファイルhash不変。
+- UI：Simulator1/1成功（旧7更新取消→プレビュー→編集継続→破棄→再開→8保存、先頭空行注意、再編集、PNG共有、戻る）。本体Root全タブや実機での試験ではない。
+- 途中失敗も保存：初回Debugのgeometry初期化self参照を修正。初回旧資料基準の画像差異は不採用とし、開始時Canvas基準で2回84枚一致（初回差異の詳細ピクセル原因は未確定）。次の保存試験は古いrevision指定で正しく競合拒否されたため、テストを最新revision取得へ修正。最終成功はresults-final.json。失敗結果も削除していない。
+- 追加完成画像：以前の独自ボトルFixtureをSession経由6枚で読込み、追加2チェック成功/元Fixture全hash不変。FinalOverview.png/RecipeSizeComparison.png/Counts-各テンプレート.pngを保存。実ユーザーデータ不使用。
+- 保存互換性：renderer1〜7分岐は開始時から同一。PlateRepository/JSON/schema/CoreData不変。既存renderer8作品は新配置で開くが、自動保存・サムネイル一括更新はしない。次の明示保存までは旧サムネイルと新プレビューで配置差があり得る。
+- 未検証/制約：実機可読性/速度、境界0.5pt、全Unicode/全端数サイズ/全OS、VoiceOver、他画面全CRUD/Root4タブは未確認。強制改行3行以上は下限省略、原文は維持。最長接頭辞は二分＋近傍探索であり全Unicodeへの数学的保証なし。
+- Git：main HEAD/ローカルorigin/main=e3852ea871a0ab29c1a76972c839dc2398845af2。既存dirty6ファイルとIDE/Repository差分を保護し、今回追加変更は製品2Swiftと文書2だけ。IDE/Repository開始hash一致、staged/untrackedなし。commit/push/reset/clean/削除/実機操作なし。
+- 容量：2026-11-08 16:25:09→16:39:09、df -k /System/Volumes/Data、303.5136→303.1040GB（10進、減0.4096GB）。今回資料約0.2424GB、既存固定Debug/Release現在約0.8897GB、計約1.1321GBを保持。比較証拠と再利用目的、削除なし。割当と回収見込みは別。
+- 資料：`/private/tmp/NailNoteValidation/PlateRenderer8DisplayImplementation/`。Report.md/ComparisonGuide.md、NameMeasurements.csv、results-final.json/presentation-results.json、ビルドログ、UI.xcresult、検証Swift、開始/終了監査を保持。
+- 実機確認：正常写真6件の4〜6件目、全4テンプレートの並び/カテゴリ/写真対応、Recipe9/12/14ptと長名、最下段/コメント/日付、並べ替え→保存→再起動→再編集→複製、旧7維持/明示更新取消、JPEG/PNG両解像度をユーザーが確認する。
+- 次：実機確認待ちで停止。GitHub保存・次フェーズ・未承認機能には進まない。同期結果は確認後に追記する。
+
+### PlateRenderer8DisplaySyncFinal-20261108
+
+既存sync.zsh終了0・ローカルDriveコピー更新2件。Google Drive取得APIで両クラウド本文のPlateRenderer8DisplayImplementation-20261108を照合済み。ChatGPT側でチェック可能。製品2Swift以外の開始時変更は保護、実機確認待ち、commit/pushなしで停止する。最終同期後の状態は完了報告でも伝える。
+
+## 2026-11-08 renderer8完成版 GitHub保存・コミット前確認
+
+- 識別子 `Renderer8GitHubSave-20261108`。ユーザーからiPhone17e実機確認が完了し問題なしと報告。対象はrenderer8の4テンプレート改善/Recipe2列・最大2行自動調整/写真6件読込修正。Codexの実機操作による結果ではない。
+- 開始main HEAD/取得後origin/main=e3852ea871a0ab29c1a76972c839dc2398845af2。staged/untrackedなし、dirty6ファイル。既存IDE設定は明示除外して保護。pull/merge/rebase/force/clean/resetなし。
+- commit対象：NailNote/Features/Plates/PlateEditorView.swift、PlateHomeView.swift、PlateRepository.swift、PROJECT_STATUS.md、docs/CHATGPT_HANDOFF.md。Repositoryはrenderer8を検証許可する必要な1行だけ。既存renderer8 B2導入/コメント改善/最大6個表示も完成版に必要な依存差分として含む。
+- 開発記録のrenderer8調査・試作・実装履歴と前回push後の記録は保持。検証用コードは/private/tmpの分離資料で、製品テストターゲットには未登録のため今回コミットしない。比較画像/ビルド成果物/実機写真/キャッシュ/秘密情報なし。全対象差分を確認し既知の認証情報パターンも検査。
+- 今回実行：Debug Simulator成功、署名なしRelease iOS成功、git diff --check成功。ログは/private/tmp/NailNoteValidation/Renderer8GitHubSave/。署名/実機インストールなし。
+- 再利用した検証：2026-11-08 16:33:32最終自動結果、16:34:57 UI終了（HEAD e3852ea＋その後コミット前の完成ソース）。20,284チェック、旧1〜7の84画像一致、12書体/33ウェイト組合せ/5,016名前条件、Session6画像・保存/復元/並替/複製/明示更新・失敗保護・サムネイル・JPEG/PNG両解像度、UI1件。これらは今回新たに実行した数ではない。検証以後の製品ソース変更なし、今回開始hashも保持。
+- ユーザー実機確認と分離Simulator確認を区別し、全OS/全Unicode/VoiceOver/他画面全CRUDまで保証しない。既存Swift6向け警告は未解消。新しい機能や仕様変更なし。
+- 予定メッセージ：Finalize renderer8 plate layouts and item image loading。SHA/push/残存差分は完了後追記し、追記文書に未コミット差分が残っても追加commitを繰り返さない。
