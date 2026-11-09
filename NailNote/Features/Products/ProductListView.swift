@@ -1,5 +1,6 @@
 import SwiftUI
 import CoreData
+import Combine
 
 struct ProductListView: View {
     @Environment(\.nailTabResetID) private var tabResetID
@@ -16,6 +17,9 @@ struct ProductListView: View {
     )
     private var products: FetchedResults<NailProduct>
 
+    @StateObject private var deletion = NailDeletionController()
+    @State private var selectingForDeletion = false
+    @State private var deletionSelection: Set<NSManagedObjectID> = []
     @State private var showingAddSheet = false
     @State private var editingProduct: NailProduct?
     @State private var selectedCategories = NailProductCategorySelection()
@@ -62,7 +66,9 @@ struct ProductListView: View {
             }
         }
         .modifier(NailTabStackReset())
-        .onChange(of: tabResetID) { _, _ in showingAddSheet = false; editingProduct = nil }
+        .onChange(of: tabResetID) { _, _ in showingAddSheet = false; editingProduct = nil; deletion.cancel(); selectingForDeletion = false; deletionSelection = [] }
+        .onChange(of: deletion.completed) { _, _ in selectingForDeletion = false; deletionSelection = [] }
+        .modifier(NailDeletionDialogs(deletion: deletion, context: context))
         .modifier(NailAppearanceEnvironment(area: .items))
         .sheet(isPresented: $showingAddSheet) {
             NavigationStack {
@@ -97,20 +103,10 @@ struct ProductListView: View {
 
     private func deleteSelectedProducts(at offsets: IndexSet) {
         let items = filteredProducts
-        for index in offsets {
-            let item = items[index]
-            context.delete(item)
-        }
-        saveContext()
+        let ids = offsets.compactMap { items.indices.contains($0) ? items[$0].objectID : nil }
+        deletion.request(.items, ids: ids, in: context)
     }
 
-    private func saveContext() {
-        do {
-            try context.save()
-        } catch {
-            print("CoreData save error: \(error)")
-        }
-    }
 }
 
 private extension ProductListView {
@@ -124,9 +120,15 @@ private extension ProductListView {
             } else {
                 ForEach(Array(filteredProducts.enumerated()), id: \.element.objectID) { index, product in
                     Button {
-                        editingProduct = product
+                        if selectingForDeletion {
+                            if !deletionSelection.insert(product.objectID).inserted { deletionSelection.remove(product.objectID) }
+                        } else { editingProduct = product }
                     } label: {
                         HStack(spacing: 0) {
+                            if selectingForDeletion {
+                                Image(systemName: deletionSelection.contains(product.objectID) ? "checkmark.circle.fill" : "circle")
+                                    .foregroundStyle(Color.accentColor).frame(width: 44, height: 44)
+                            }
                             Spacer(minLength: 0)
                             ProductRow(
                                 product: product,
@@ -138,6 +140,8 @@ private extension ProductListView {
                         }
                     }
                     .buttonStyle(.plain)
+                    .accessibilityIdentifier("product.row." + (product.id?.uuidString ?? "unknown"))
+                    .accessibilityValue(selectingForDeletion ? (deletionSelection.contains(product.objectID) ? "削除対象に選択中" : "未選択") : "")
                     .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
                     .listRowSeparator(.hidden)
                     .listRowBackground(Color.clear)
@@ -501,6 +505,19 @@ private extension ProductListView {
             VStack(spacing: 8) {
                 filterControls
                 CategoryTabBar(selected: $selectedCategories)
+                HStack {
+                    Button(selectingForDeletion ? "選択をキャンセル" : "選択して削除") {
+                        selectingForDeletion.toggle(); deletionSelection = []
+                    }.frame(minHeight: 44).accessibilityIdentifier("product.delete.selection")
+                    Spacer(minLength: 4)
+                    if selectingForDeletion {
+                        Button("\(deletionSelection.count)件を削除", role: .destructive) {
+                            deletion.request(.items, ids: deletionSelection.sorted { $0.uriRepresentation().absoluteString < $1.uriRepresentation().absoluteString }, in: context)
+                        }
+                        .frame(minHeight: 44).disabled(deletionSelection.isEmpty)
+                        .accessibilityIdentifier("product.delete.selected")
+                    }
+                }.font(.subheadline)
             }
             .padding(.horizontal, 16)
         }
@@ -802,5 +819,78 @@ private struct UsageCountRing: View {
     private var progress: CGFloat {
         let ratio = min(max(Double(count) / goal, 0), 1)
         return CGFloat(ratio)
+    }
+}
+
+// 一覧ごとの削除状態を保持する。失敗時の対象は残し、整理警告では再削除させない。
+@MainActor final class NailDeletionController: ObservableObject {
+    @Published var confirming = false
+    @Published var message: String?
+    @Published private(set) var working = false
+    @Published private(set) var completed = 0
+    @Published private(set) var plan: RecordDeletionTransaction.Plan?
+    private(set) var conflict = false
+    private(set) var committed = false
+    private var kind: RecordDeletionTransaction.Kind = .items
+    private var ids: [NSManagedObjectID] = []
+    private let hooks: RecordDeletionTransaction.Hooks
+    init(hooks: RecordDeletionTransaction.Hooks? = nil) { self.hooks = hooks ?? .init() }
+    func request(_ kind: RecordDeletionTransaction.Kind, ids: [NSManagedObjectID], in context: NSManagedObjectContext) {
+        guard !working, !ids.isEmpty else { return }
+        self.kind = kind; self.ids = ids; committed = false; message = nil
+        reconfirm(in: context)
+    }
+    func reconfirm(in context: NSManagedObjectContext) {
+        guard !working else { return }
+        message = nil; confirming = false; plan = nil
+        do { plan = try RecordDeletionTransaction.prepare(kind, ids: ids, in: context); confirming = true }
+        catch { conflict = true; message = error.localizedDescription }
+    }
+    func cancel() { guard !working else { return }; confirming = false; message = nil; plan = nil }
+    func execute(in context: NSManagedObjectContext) {
+        guard !working, !committed, let plan else { return }
+        confirming = false; message = nil; working = true
+        Task { @MainActor in
+            await Task.yield()
+            defer { working = false }
+            do {
+                let warning = try RecordDeletionTransaction.delete(plan, in: context, hooks: hooks)
+                committed = true; self.plan = nil; completed += 1
+                message = warning
+            } catch {
+                conflict = (error as? RecordDeletionTransaction.Failure) == .conflict
+                message = error.localizedDescription
+            }
+        }
+    }
+}
+
+struct NailDeletionDialogs: ViewModifier {
+    @ObservedObject var deletion: NailDeletionController
+    let context: NSManagedObjectContext
+    func body(content: Content) -> some View {
+        content
+            .disabled(deletion.working)
+            .modifier(NailTabExitProtection(dirty: false, blocked: deletion.working, hidesTabBar: false))
+            .background {
+                Color.clear.alert(deletion.plan?.title ?? "削除を確認", isPresented: $deletion.confirming) {
+                    Button("削除する", role: .destructive) { deletion.execute(in: context) }.accessibilityIdentifier("deletion.confirm")
+                    Button("キャンセル", role: .cancel) { deletion.cancel() }
+                } message: { Text(deletion.plan?.message ?? "") }
+            }
+            .background {
+                Color.clear.alert(deletion.committed ? "削除は完了しました" : "削除できませんでした", isPresented: Binding(get: { deletion.message != nil }, set: { if !$0 { deletion.message = nil } })) {
+                    if deletion.committed {
+                        Button("閉じる") { deletion.cancel() }
+                    } else {
+                        if deletion.conflict {
+                            Button("内容を確認し直す") { deletion.reconfirm(in: context) }
+                        } else {
+                            Button("再試行") { deletion.execute(in: context) }
+                        }
+                        Button("キャンセル", role: .cancel) { deletion.cancel() }
+                    }
+                } message: { Text(deletion.message ?? "") }
+            }
     }
 }

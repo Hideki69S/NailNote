@@ -224,8 +224,8 @@ extension EntryPhotoStore {
             return object
         }
     }
-    private struct Old { let space: PreparedPhotoFiles.Space; let id: UUID; let url: URL; let hash: String? }
-    private static func oldFiles(_ space: PreparedPhotoFiles.Space, _ id: UUID?) -> [Old] {
+    fileprivate struct Old { let space: PreparedPhotoFiles.Space; let id: UUID; let url: URL; let hash: String? }
+    fileprivate static func oldFiles(_ space: PreparedPhotoFiles.Space, _ id: UUID?) -> [Old] {
         guard let id else { return [] }
         let urls = space == .entry ? [EntryPhotoStore.fullURL(photoId: id), EntryPhotoStore.thumbnailURL(photoId: id)] : [ProductPhotoStore.sourceURL(photoId: id)].compactMap { $0 }
         return urls.compactMap { url in
@@ -248,7 +248,7 @@ extension EntryPhotoStore {
             object.entity.name == entity && !object.isDeleted && object.hasChanges && keys.contains { (object.value(forKey: $0) as? UUID) == id }
         }
     }
-    private static func cleanup(_ files: [Old], coordinator: NSPersistentStoreCoordinator, view: NSManagedObjectContext, hooks: Hooks) -> Bool {
+    fileprivate static func cleanup(_ files: [Old], coordinator: NSPersistentStoreCoordinator, view: NSManagedObjectContext, hooks: Hooks) -> Bool {
         var complete = true
         for file in files {
             do {
@@ -343,6 +343,169 @@ extension EntryPhotoStore {
             product.name = input.name; product.category = input.category; product.purchasedAt = input.purchasedAt
             product.purchasePlace = input.place; product.productUrl = input.url; product.priceYenTaxIn = input.price; product.updatedAt = Date()
             return old
+        }
+    }
+}
+
+// 確認時の値と関連を固定し、削除だけを独立contextで一括確定する。
+@MainActor enum RecordDeletionTransaction {
+    enum Kind { case items, entries
+        var entity: String { self == .items ? "NailProduct" : "NailEntry" }
+    }
+    struct Record: Equatable {
+        let id: NSManagedObjectID
+        let version: PhotoSaveTransaction.Version
+    }
+    struct Plan {
+        let kind: Kind
+        let targets: [NSManagedObjectID]
+        let records: [Record]
+        let linkIDs: [NSManagedObjectID]
+        let usedItemCount: Int
+        let diaryCount: Int
+        fileprivate let photos: [PhotoSaveTransaction.Old]
+        var title: String {
+            kind == .items ? (targets.count == 1 ? "アイテムを削除しますか？" : "選択した\(targets.count)件のアイテムを削除しますか？")
+                           : "\(targets.count)件のデザインを削除しますか？"
+        }
+        var message: String {
+            if kind == .entries { return "選択したデザインと使用アイテムの関連を削除します。アイテム本体と保存済みプレート作品は残ります。この操作は取り消せません。" }
+            let usage = usedItemCount == 0 ? "デザインでは使用されていません。" : "\(targets.count)件中\(usedItemCount)件がデザインで使用されています。影響するデザインは合計\(diaryCount)件です。\n削除すると、該当デザインの使用アイテム一覧からも削除されます。"
+            return usage + "\nデザインの記録・写真・保存済みプレート作品は残ります。この操作は取り消せません。"
+        }
+    }
+    struct Hooks {
+        var beforeSave: ((NSManagedObjectContext) throws -> Void)? = nil
+        var beforeCleanup: ((URL) throws -> Void)? = nil
+    }
+    enum Failure: LocalizedError {
+        case conflict, database, configuration
+        var errorDescription: String? {
+            switch self {
+            case .conflict: return "削除対象または関連が変更・削除されたか、未保存の変更があります。削除していません。内容を確認し直してください。"
+            case .database: return "削除を保存できませんでした。元のデータ・写真は保持しています。再試行するかキャンセルしてください。"
+            case .configuration: return "安全な削除対象を確認できませんでした。データは削除していません。"
+            }
+        }
+    }
+    private static func coordinator(_ view: NSManagedObjectContext) throws -> NSPersistentStoreCoordinator {
+        guard view.concurrencyType == .mainQueueConcurrencyType,
+              let psc = view.persistentStoreCoordinator, !psc.persistentStores.isEmpty else { throw Failure.configuration }
+        return psc
+    }
+    private static func context(_ psc: NSPersistentStoreCoordinator) -> NSManagedObjectContext {
+        let c = NSManagedObjectContext(concurrencyType: .mainQueueConcurrencyType)
+        c.persistentStoreCoordinator = psc
+        c.mergePolicy = NSMergePolicy(merge: .errorMergePolicyType)
+        return c
+    }
+    private static func snapshot(_ kind: Kind, ids: [NSManagedObjectID], in c: NSManagedObjectContext) throws -> Plan {
+        guard !ids.isEmpty, Set(ids).count == ids.count, ids.allSatisfy({ !$0.isTemporaryID }) else { throw Failure.configuration }
+        let targets = try ids.map { id -> NSManagedObject in
+            guard let o = try? c.existingObject(with: id), !o.isDeleted, o.entity.name == kind.entity else { throw Failure.conflict }
+            return o
+        }
+        let request = NailEntryUsedItem.fetchRequest()
+        request.predicate = NSPredicate(format: kind == .items ? "product IN %@" : "entry IN %@", targets)
+        let links = try c.fetch(request)
+        // 不完全な既存関連を無断で修復せず、削除を停止する。
+        guard links.allSatisfy({ $0.entry != nil && $0.product != nil }) else { throw Failure.conflict }
+        var watched = Dictionary(uniqueKeysWithValues: targets.map { ($0.objectID, $0) })
+        for link in links {
+            watched[link.objectID] = link
+            if let e = link.entry { watched[e.objectID] = e }
+            if let p = link.product { watched[p.objectID] = p }
+        }
+        if kind == .entries {
+            for case let entry as NailEntry in targets {
+                if let score = entry.aiScore { watched[score.objectID] = score }
+            }
+        }
+        let records = watched.values.map { Record(id: $0.objectID, version: PhotoSaveTransaction.version($0)) }
+            .sorted { $0.id.uriRepresentation().absoluteString < $1.id.uriRepresentation().absoluteString }
+        let photos = targets.flatMap { object -> [PhotoSaveTransaction.Old] in
+            if kind == .entries { return PhotoSaveTransaction.oldFiles(.entry, object.value(forKey: "photoId") as? UUID) }
+            return ["photoId", "samplePhotoId"].flatMap { PhotoSaveTransaction.oldFiles(.product, object.value(forKey: $0) as? UUID) }
+        }
+        return Plan(kind: kind, targets: ids, records: records, linkIDs: links.map(\.objectID),
+                    usedItemCount: Set(links.compactMap { $0.product?.objectID }).count,
+                    diaryCount: Set(links.compactMap { $0.entry?.objectID }).count, photos: photos)
+    }
+    private static func validateShared(_ plan: Plan, view: NSManagedObjectContext) throws {
+        let watched = Set(plan.records.map(\.id))
+        let pending = view.insertedObjects.union(view.updatedObjects).union(view.deletedObjects)
+        for object in pending {
+            if watched.contains(object.objectID) { throw Failure.conflict }
+            // 確認後に共有側へ挿入された中間レコードも検知する。
+            if object.entity.name == "NailEntryUsedItem" {
+                for key in ["entry", "product"] {
+                    let current = object.value(forKey: key) as? NSManagedObject
+                    let old = object.committedValues(forKeys: [key])[key] as? NSManagedObject
+                    if [current, old].compactMap({ $0?.objectID }).contains(where: watched.contains) { throw Failure.conflict }
+                }
+            }
+        }
+    }
+    static func prepare(_ kind: Kind, ids: [NSManagedObjectID], in view: NSManagedObjectContext) throws -> Plan {
+        let c = context(try coordinator(view))
+        let plan = try snapshot(kind, ids: ids, in: c)
+        try validateShared(plan, view: view)
+        return plan
+    }
+    private static func retireCommittedChanges(deleted: [NSManagedObjectID], updated: [NSManagedObjectID], in view: NSManagedObjectContext) {
+        for id in deleted {
+            if let local = view.registeredObject(for: id), local.isDeleted { view.refresh(local, mergeChanges: false) }
+        }
+        guard let psc = view.persistentStoreCoordinator else { return }
+        let persisted = context(psc)
+        for id in updated {
+            guard let local = view.registeredObject(for: id), !local.isDeleted,
+                  let stored = try? persisted.existingObject(with: id) else { continue }
+            // 後から入ったユーザー入力や関連変更があれば、その値を捨てない。
+            if PhotoSaveTransaction.version(local) == PhotoSaveTransaction.version(stored) { view.refresh(local, mergeChanges: false) }
+        }
+        view.processPendingChanges()
+    }
+    static func delete(_ plan: Plan, in view: NSManagedObjectContext, hooks suppliedHooks: Hooks? = nil) throws -> String? {
+        let hooks = suppliedHooks ?? Hooks()
+        let psc = try coordinator(view), work = context(psc)
+        do {
+            try validateShared(plan, view: view)
+            let initial = try snapshot(plan.kind, ids: plan.targets, in: work)
+            guard initial.records == plan.records else { throw Failure.conflict }
+            for id in plan.linkIDs { work.delete(try work.existingObject(with: id)) }
+            for id in plan.targets { work.delete(try work.existingObject(with: id)) }
+            work.processPendingChanges()
+            try hooks.beforeSave?(work)
+            try validateShared(plan, view: view)
+            // 独立した再読込で、確認後・保存直前の関連追加や外部更新も検知する。
+            let latest = try snapshot(plan.kind, ids: plan.targets, in: context(psc))
+            guard latest.records == plan.records else { throw Failure.conflict }
+            // 保存成功の通知を同じキューで取り込み、削除待ち状態を共有側へ残さない。
+            let observer = NotificationCenter.default.addObserver(forName: .NSManagedObjectContextDidSave, object: work, queue: nil) { notification in
+                let deleted = (notification.userInfo?[NSDeletedObjectsKey] as? Set<NSManagedObject> ?? []).map(\.objectID)
+                let updated = (notification.userInfo?[NSUpdatedObjectsKey] as? Set<NSManagedObject> ?? []).map(\.objectID)
+                view.performAndWait {
+                    view.mergeChanges(fromContextDidSave: notification)
+                    MainActor.assumeIsolated { retireCommittedChanges(deleted: deleted, updated: updated, in: view) }
+                }
+                // 自動mergeが同じ通知をキューへ積んだ場合も、その直後に確定済み状態だけ整理する。
+                view.perform { MainActor.assumeIsolated { retireCommittedChanges(deleted: deleted, updated: updated, in: view) } }
+            }
+            defer { NotificationCenter.default.removeObserver(observer) }
+            try work.save()
+            view.processPendingChanges()
+            var photoHooks = PhotoSaveTransaction.Hooks()
+            photoHooks.beforeCleanup = hooks.beforeCleanup
+            let clean = PhotoSaveTransaction.cleanup(plan.photos, coordinator: psc, view: view, hooks: photoHooks)
+            return clean ? nil : "削除は完了しましたが、不要な写真の整理は完了しませんでした。安全のため写真を残しています。"
+        } catch {
+            // 共有contextと写真は触らず、この試行の未確定状態だけを破棄する。
+            work.reset()
+            if let failure = error as? Failure { throw failure }
+            let e = error as NSError
+            if e.code == NSManagedObjectMergeError || e.code == NSPersistentStoreSaveConflictsError { throw Failure.conflict }
+            throw Failure.database
         }
     }
 }

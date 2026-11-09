@@ -35,8 +35,7 @@ struct EntryListView: View {
     @AppStorage("EntrySortField") private var sortFieldRaw: String = EntrySortField.date.rawValue
     @AppStorage("EntrySortAscending") private var sortAscending: Bool = false
     @State private var keywordText: String = ""
-    @State private var pendingDeletionEntries: [NailEntry] = []
-    @State private var showingDeleteAlert = false
+    @StateObject private var deletion = NailDeletionController()
 
     var body: some View {
         NavigationStack {
@@ -74,7 +73,7 @@ struct EntryListView: View {
             }
         }
         .modifier(NailTabStackReset())
-        .onChange(of: tabResetID) { _, _ in showingAddSheet = false; activeFilter = nil; showingDeleteAlert = false }
+        .onChange(of: tabResetID) { _, _ in showingAddSheet = false; activeFilter = nil; deletion.cancel() }
         .modifier(NailAppearanceEnvironment(area: .design))
         .sheet(isPresented: $showingAddSheet) {
             AddEntryView()
@@ -88,37 +87,11 @@ struct EntryListView: View {
             if designFiltersRaw == nil { designFiltersRaw = EntryFilterSelection.encode(selectedDesigns) }
             if colorFiltersRaw == nil { colorFiltersRaw = EntryFilterSelection.encode(selectedColors) }
         }
-        .alert("デザインを削除しますか？", isPresented: $showingDeleteAlert) {
-            Button("削除", role: .destructive) {
-                deleteEntries(pendingDeletionEntries)
-                pendingDeletionEntries = []
-            }
-            Button("キャンセル", role: .cancel) {
-                pendingDeletionEntries = []
-            }
-        } message: {
-            Text(NailNoteFeatureFlags.aiEvaluationEnabled
-                 ? "選択したデザインと紐づくAIスコアがある場合は同時に削除されます。"
-                 : "選択したデザインを削除します。この操作は取り消せません。")
-        }
+        .modifier(NailDeletionDialogs(deletion: deletion, context: viewContext))
     }
 
     private func deleteEntries(_ entries: [NailEntry]) {
-        for entry in entries {
-            if let photoId = entry.photoId {
-                EntryPhotoStore.delete(photoId: photoId)
-            }
-            if let aiScore = entry.aiScore {
-                viewContext.delete(aiScore)
-            }
-            viewContext.delete(entry)
-        }
-
-        do {
-            try viewContext.save()
-        } catch {
-            print("削除エラー: \(error)")
-        }
+        deletion.request(.entries, ids: entries.map(\.objectID), in: viewContext)
     }
 
     private func promptEntryDeletion(offsets: IndexSet) {
@@ -128,8 +101,7 @@ struct EntryListView: View {
             return list[index]
         }
         guard !targets.isEmpty else { return }
-        pendingDeletionEntries = targets
-        showingDeleteAlert = true
+        deleteEntries(targets)
     }
 }
 

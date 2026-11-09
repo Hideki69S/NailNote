@@ -3,12 +3,12 @@
 <!-- latest-status:start -->
 ## 最新状況サマリー
 
-- 最終更新：2026-11-09。識別子 `PhotoSaveSafetyGitHubSave-20261109`。Diary・Item写真保存安全性の正式実装完了。ユーザー本人によるiPhone 17e実機確認8/8合格（Codexの実機操作ではない）。
-- GitHub保存：開始main HEAD/origin/main/GitHub mainは `10bf6c45a444a1a7e131ea439c1c58755136f6e6` で一致。承認済み製品5Swift＋連携2文書の計7ファイルを通常commit/pushする。確定SHA・push結果は末尾の完了記録へ追記する。
-- 検証：2026-11-08の最終ソース検証を再利用。539/539、基準30/30、Simulator UI3/3、Debug Simulator/署名なしRelease iOS成功。今回、製品5ファイルのSHA256がFinalBuildSources.sha256と完全一致、diff --check成功。新たなビルド/自動テスト実行ではない。
-- 保護：既存project.pbxprojのIDE設定差分はコミット対象外として維持。製品追加変更なし。CoreDataモデル/Plate renderer1〜8/AI休止/実データを変更しない。
-- 次回：関連付きItem削除の安全性調査。今回は着手せず、GitHub保存と2文書同期完了後に停止する。
-- ChatGPT連携：今回記録を2文書へ更新し、既存sync.zshとクラウド本文照合を実施する。最終結果は完了報告と末尾を参照。
+- 最終更新：2026-11-09。`DeletionTerminologyGitHubSave-20261109`。削除安全性改善はユーザー本人のiPhone17e実機確認6/6合格。Codexによる実機操作ではない。
+- 表示統一：今回の製品修正はEntryPhotoStore.swiftの削除確認2行・Diaryの5箇所を「デザイン」へ置換するだけ。型/変数/エンティティ/保存キー/ロジック/画面構造は不変。Item/Plateの表示は既存のアイテム/プレートを維持。内部識別子/開発ログ/正式な出力ファイル名は保持。
+- 今回新規検証：72/72条件、1,379照合、表示メッセージ73件、Simulator UI7/7が成功。Debug Simulator/署名なしRelease成功、diff --check成功。過去結果の再利用だけではなく文言修正後に再実行。
+- GitHub保存準備：開始main HEAD/origin/main/GitHub main=89c696920a447fb718eb373daceb4f3c657fde75。承認済み製品3Swift＋連携2文書の5ファイルだけを指定commit/pushする。確定SHA/push結果は末尾へ追記する。
+- 保護：既存project.pbxprojのIDE設定差分は開始hash一致、stage/commit対象外。モデル、写真保存、Plate renderer1〜8/保存形式、Root、AI休止は変更なし。今回開始後のProductListView/EntryListViewも開始hash一致。
+- 次回：削除安全性/文言統一のGitHub保存と連携完了後に停止。希望リスト機能追加/UI再設計へ進まない。同期結果・確定SHAは末尾/完了報告へ。
 <!-- latest-status:end -->
 
 
@@ -5774,3 +5774,168 @@ main/HEAD/ローカルorigin/main=10bf6c45a444a1a7e131ea439c1c58755136f6e6。既
 予定メッセージ：Improve Diary and Item photo save safety。通常pushのみ。確定SHA/push結果は次節に追記し、その文書差分は追加commitせず残す。次回再開は関連付きItem削除の安全性調査だが、今回は開始しない。
 
 容量：開始df -k /System/Volumes/Data、空き303200000KiB＝310.4768GB（10進）。今回作成は既存検証フォルダのGitHubSave-20261109-start.json等の小規模監査資料のみ。以前の約1.2GBの検証/固定キャッシュは再利用・証拠保持のため残し、削除/cleanなし。
+
+## 2026-11-09 写真保存安全性 GitHub保存完了
+
+識別子 `PhotoSaveSafetyGitHubSaveComplete-20261109`。記録日時：2026-11-09T02:13:48.064287+09:00。
+
+- commit：`89c696920a447fb718eb373daceb4f3c657fde75`。メッセージ：`Improve Diary and Item photo save safety`。
+- push：origin/mainへ通常push成功（10bf6c4→89c6969）。ローカルHEAD・ローカルorigin/main・GitHub refs/heads/mainの3値が上記SHAに完全一致。
+- 対象7ファイル：NailNote/Core/EntryPhotoStore.swift、NailNote/Core/ProductPhotoStore.swift、NailNote/Features/Entries/AddEntryView.swift、NailNote/Features/Entries/EditEntryView.swift、NailNote/Features/Products/AddOrEditProductView.swift、PROJECT_STATUS.md、docs/CHATGPT_HANDOFF.md。
+- ユーザー本人のiPhone17e実機確認8/8合格。前回2026-11-08の539/539・基準30/30・Simulator UI3/3・Debug/署名なしRelease成功を再利用し、今回の製品hash一致を確認済み。今回は再ビルド/自動テスト再実行なし。
+- push直後の残存はproject.pbxprojのみ（開始時hash/差分一致）。この確定結果追記後はIDE設定＋連携2文書が未コミット。staged/untrackedなし。製品Swift差分なし。追加commit/pushは行わない。
+- Mac空き容量：開始310.4768GB→終了確認310.4768GB（差+0.0000GB、df -k /System/Volumes/Data、10進）。今回の一時物は小規模監査記録のみ。キャッシュ・資料・実データの削除なし。
+- 次回再開地点：main `89c696920a447fb718eb373daceb4f3c657fde75`。次工程は関連付きItem削除の安全性調査。今回は未着手、希望リスト/新機能も未着手。
+- ChatGPT連携：更新した2文書のみを既存sync.zshで同期し、クラウド本文の本識別子・SHA・8/8を照合する。最終同期結果は完了報告で伝える。
+
+## 2026-11-09 関連付きItem削除の安全性調査
+
+識別子 `LinkedItemDeletionResearch-20261109`。製品コード変更なし。現在main/HEAD=89c696920a447fb718eb373daceb4f3c657fde75、製品全Swift/モデル/IDEは開始hash一致。
+
+現行34条件＋A/B成立確認12条件、216観測照合成功/0失敗（不具合を含む結果の照合で、製品正常の合格数ではない）。現行save成功8、エラー26（必須関連の実CoreDataエラー10・注入16）。失敗26件は確定DB不変だが共有contextに削除/変更が残る。再saveは6件成功、20件は必須関連エラー継続。関連付きItemの必須product/Diaryの必須entryがNullifyでnilとなる1570/1560を再現。
+
+重大：Diary削除でDB確定前に旧full/thumbを削除。失敗8条件でもDBの記録は残り写真が失われる。共有photoIdの残Diaryでも写真喪失を再現。未使用Itemは削除成功するが商品/サンプル画像が残存。削除saveが別画面の未保存値を確定する2条件も再現。Diary本体/Item本体の相互連鎖削除、Plate保存作品の破壊は再現なし。Plateの文書/主写真/アイテム画像は現行20＋案12ケースで不変。
+
+A：使用中は変更前に拒否。モデル変更不要、低〜中リスクだがDiaryから手動解除が必要。B：確認後に対象の中間レコードを明示削除しItem削除。Diary本文/写真/残Item順序/Plateは維持。モデル変更不要、操作性が良く推奨。単にproduct=nilでは保存不可。案の成立確認は12条件で完了したが、製品の競合/merge/写真整理/UIは未実装。
+
+推奨B：安定objectID/関連version→利用一意Diary数の確認→同じPSC直結独立contextで中間＋対象削除→成功差分だけmerge→旧写真のDB/未保存参照・通常ファイル・hashを確認して個別整理。共有viewContext全体のsave/rollback、写真先行削除、一括GCなし。Diary削除も関連明示削除＋確定後の写真整理へ。失敗は旧DB/旧写真維持、整理失敗は削除成功と区別。複数対象は全体成功/失敗とする案。
+
+承認後の想定変更：ProductListView.swift、EntryListView.swift、共通削除トランザクション（既存EntryPhotoStore.swiftの安全な参照/所有判定を最小限再利用、または適切な新規Swift）。ProductPhotoStore.swiftは必要時のみ。モデル/Plate/renderer/Root/テーマ/AI変更は不要。正式仕様のA/B選択、確認文言、混在batchの扱いは承認待ち。
+
+未検証：実機・実I/O/保護・途中中断、実SwiftUI一覧のエラー/取消/再試行/遷移、関連ありなし混在batch、写真片方だけ等全組合せ、AI付随/破損関連/全OS/大量データ/競合。今回製品Debug/Releaseビルド未実施、専用分離アプリのcompile/実行のみ。前回写真保存のビルド/実機8/8合格は維持。
+
+資料：/private/tmp/NailNoteValidation/LinkedItemDeletionResearch-20261109/Report.md、Measurements.csv、results.json、PolicyProbe.json、Summary.json、抽出関数/検証コード/専用SQLite/Plate/compile.log。途中の検証ハーネスの参照寿命問題は修正・再実行済み、途中失敗資料も保持。
+
+容量：2026-11-09 22:04:29→22:14:19 JST、df -k /System/Volumes/Data、310.0672→309.6576GB（10進、差-0.4096GB）。今回資料約0.1334GB/専用Simulator写真約0.0015GB、既存固定Debug/Release約0.6487GBを保持。削除なし。実機/実データ/製品Swift/モデルに変更なし、dirtyは既存IDE＋2文書、commit/pushなし。
+
+調査・提案までで停止。正式実装はユーザー仕様承認後。やりたいことリスト整理/開発は開始しない。
+
+### LinkedItemDeletionResearchSyncVerified-20261109
+
+既存sync.zsh終了0・更新2件。接続済みGoogle Drive取得APIで両クラウド本文のLinkedItemDeletionResearch-20261109、216照合、1570/1560、推奨削除トランザクション、正式実装承認待ちを確認済み。ChatGPT側でチェック可能。最終監査で全製品Swift/モデル/IDEは開始hash一致、HEAD89c6969、staged/untrackedなし、dirtyは既存IDE＋連携2文書のみ。今回確認結果を追記した版も同じ2文書だけ再同期する。正式実装や希望リスト開発へ進まない。
+
+## 2026-11-09 関連付きItem・Diary削除安全性 正式実装
+
+識別子 `LinkedDeletionImplementation-20261109`。承認B案を製品3Swiftへ実装。Item一覧の最小選択UI、単体/混在一括の確認、共通の削除中ガード/再試行/取消/競合再確認/整理警告を追加。Diaryの写真先行削除を廃止。詳細はdocs/CHATGPT_HANDOFF.mdの同識別子履歴と専用Report.mdを参照。
+
+安定objectID/全属性・関連versionを確認時に固定し、同じPSC直結の独立mainQueue contextでNailEntryUsedItemと本体を一括削除。保存直前にも独立contextで再確認。1件の競合/保存エラーで全体中止し旧DB/旧写真/共有入力を維持する。成功通知だけをmergeし、自動merge由来の確定済み削除待ちを通知順に整理。後から入った入力は永続状態との比較で保持し、共有全体save/rollbackや固定遅延は使わない。旧写真の最新参照/通常ファイル/hashを確認して個別整理し、整理失敗は削除成功と区別。残リンクのID/順序、Diary本文/写真、Plateの独立snapshotを保持。
+
+製品：NailNote/Core/EntryPhotoStore.swift（共通処理追加・既存ヘルパー3宣言の可視性のみ調整）、NailNote/Features/Products/ProductListView.swift、NailNote/Features/Entries/EntryListView.swift。モデル/IDE/Plate/Root/AI/他製品Swiftは開始hash一致。既存写真保存のロジックは変更しない。
+
+最終：基準34＋追加38の72条件成功/0失敗、1,379チェック成功。対象/中間/関連の競合更新・削除・追加/解除・並べ替え、DB失敗と実必須属性エラー、混在一括、共有UUID/未保存画像参照、hash不一致/整理失敗、自動merge/新入力保持、連続削除・二重操作、関連順序/ID、再オープン、既存写真保存APIとの共存を検証。Plate snapshotは基準20条件で文書/主写真/Item画像不変。
+
+Simulator UI7/7成功（UI-final.xcresult）：実Item一覧の複数選択/確認取消/選択保持/一括削除/残る行、単体スワイプ取消、実Diary一覧の削除。エラー再試行/取消・競合再確認・整理警告は実共通Controller/Dialogs＋分離fixture。Debug Simulator/署名なしRelease成功（build-Debug-complete.log、build-Release-complete.log）、diff --check成功。製品3ソースhashは全最終検証から不変。
+
+途中：Combine import不足を修正してビルド成功。削除mergeの残留/自動mergeの通知順を製品側で修正。件数期待値、UI要素の親子重複/標準アクション言語・全スワイプ/検証件数表示を検証コードで修正し、途中結果も保持。最終72/72・UI7/7と途中失敗を混同しない。
+
+未検証：実機、実容量不足/保護/SQLite I/O/電源断、真の別プロセス同時書込、全OS/大量データ/VoiceOver/全テーマ・全詳細画面、写真片方だけ等の全組合せ、破損既存関連の修復。中断後の孤立写真GC/過去写真復旧は対象外。実機テストで破壊的な容量埋め等は行わない。
+
+Git：main HEAD/origin/main=89c696920a447fb718eb373daceb4f3c657fde75。既存IDE＋2文書差分を保持し製品3追加、6dirty、staged/untrackedなし。commit/push/reset/cleanなし。2026-11-09 22:30:23→23:00:10 JST、同じdf -k /System/Volumes/Dataで309.6576→309.2480GB（-0.4096GB、10進）。資料0.3233GB/専用写真0.0041GB/既存固定Debug・Release0.7463GB、計約1.0737GBを証拠/再利用目的で保持。削除なし、固定キャッシュの開始du未測定につき増分は断定しない。
+
+ユーザー実機確認：未使用/使用中Itemの確認取消と削除、混在複数選択、Diary本文/写真/残Item順序、Diary削除後もItem/他Diary保持、Plate写真/再編集、連続削除・新規/編集・タブ切替・再起動を確認する。実機確認待ちで停止し、GitHub保存と希望リスト整理/開発へ進まない。
+
+# 関連付きItem・Diary削除安全性 正式実装
+
+識別子 `LinkedDeletionImplementation-20261109`。作業日2026-11-09、開始22:30:23 JST、最終検証23:00:10 JST。承認済みB案を実装。ユーザー実機確認待ち。
+
+## 変更ファイル（製品3ファイル）
+
+- NailNote/Core/EntryPhotoStore.swift：既存写真保存トランザクションの旧写真取得/参照確認/整理ヘルパー3宣言だけfileprivateへ変更し、保存処理のロジックは維持。RecordDeletionTransactionを同じファイルへ追加。新規Swift登録やproject.pbxproj編集なし。
+- NailNote/Features/Products/ProductListView.swift：旧共有context.delete/saveを廃止。Item選択・安定objectIDの複数選択・一括確認を追加。共通NailDeletionController/NailDeletionDialogsで確認、保存中ガード、失敗/再試行/取消、競合の再確認、写真整理警告を管理。
+- NailNote/Features/Entries/EntryListView.swift：写真先行削除と共有context.saveを廃止し、同じ共通削除処理へ接続。既存スワイプ/複数offsetの対象を安定IDへ固定する。
+
+他の製品Swift、CoreDataモデル/既存Delete Rule、ProductPhotoStore、Plate全コード/renderer1〜8/JSON、RootView、AI休止処理は開始hash一致。既存IDE設定差分も開始hash一致。連携2文書は別途更新。
+
+## 確認・削除の順序
+
+1. 確認要求時、同じPSCへ直接接続する独立mainQueue contextで対象objectID、全属性/関連version、関連中間レコード、影響するDiaryを読み取る。親contextは作らない。重複/一時ID/別エンティティ/消えた対象/不完全関連は拒否。
+2. Item数、使用中Item数、一意Diary件数を固定する。中間が複数あってもDiaryは重複計上しない。写真ID・通常ファイル/旧SHA256もこの時点で保持する。
+3. Itemは単体/一括とも破壊的な確認を表示。「Diaryの記録・写真・保存済みプレート作品は残る」「関連は解除される」と案内。未使用の場合も確認する。Diary削除ではItem本体とPlateが残ることを案内する。
+4. 確認後、削除対象/関連/影響先の共有context未保存変更を検査し、独立contextで最新versionを照合。確認後に新規中間が未保存挿入された場合も拒否する。
+5. 対象に対応するNailEntryUsedItemを明示削除し、同じcontextで本体を削除する。単なるproduct/entry=nilで残さない。残るリンクは再生成せず、orderIndexを保持する。Diaryの既存スコア付随データは従来のCascadeで削除、AI再開なし。
+6. 保存直前にも別contextからversionを再確認し、外部更新/削除/関連追加/解除/順序変更を検知。error merge policyでCoreDataの楽観ロックも維持する。1件でもエラーなら一括保存を中止する。
+7. 専用contextで1回save。失敗では専用contextだけresetし、共有context/写真を変更しない。全体save/rollbackは行わない。
+8. 保存成功通知を共有viewContextへ同期merge。確定した削除待ちだけを整理する。自動mergeが通知をキューに積む場合も通知順に整理し、タイマー/固定遅延は使わない。更新済みオブジェクトは永続状態と一致した場合だけrefreshし、通知前後に新しく入力された値は捨てない。
+9. DB確定後だけ、旧写真の最新DB参照と未保存参照、通常ファイル・元SHA256を確認して個別整理。ItemのphotoId/samplePhotoId、Diaryのfull/thumbを扱い、共有/変更hash/不明なものは保持する。フォルダ削除/自動GCなし。Plate専用画像は触らない。
+
+CoreDataがmerge通知でhasChangesを立てることがあるため、フラグだけを消すための共有save/rollbackはしない。確定済み対象の未確定オブジェクト状態と、他の本当の未保存入力を区別して検証している。
+
+## UI仕様
+
+- Itemに「選択して削除」入口を最小追加。選択時だけチェック表示と「N件を削除」を表示し、44pt以上の操作領域を確保する。フィルタやカードの通常動作は維持。
+- 一括対象はobjectIDの集合で保持。フィルタ順序変更で別対象へすり替わらない。確認取消では一覧の選択状態を保持し、明示的な「選択をキャンセル」で解除できる。
+- 削除中は画面操作・重複実行・タブ移動をガード。タブバーの見た目/寸法/表示は変更しない。
+- DB失敗：対象と入力を保持し「再試行」「キャンセル」。競合：古い確認のまま再実行せず「内容を確認し直す」へ。対象がなくなった場合は削除せず取消可能。
+- DB成功：対象選択を解除。写真整理だけ失敗した場合は「削除は完了しましたが、不要な写真の整理は完了しませんでした」と表示。「閉じる」のみで、成功済み削除を再実行しない。
+
+## 最終検証
+
+独立bundle dev.nailnote.deletionimpl、iPhone17e Simulator/iOS27.0、専用SQLite/テストJPEG/Plate rootを使用。実機・実データ・NailNote本体アプリは操作していない。
+
+- 基準34条件＋追加38条件＝72条件成功/0失敗、1,379照合成功。
+- Item/Diary、関連0/1/3、写真あり/なし、DB失敗/再試行、単体/複数、共有UUID、他画面未保存値の34条件を安全側で確認。写真のSHA256/正常復号、確定DBの全属性/関係、再オープンを照合。
+- 外部の対象更新/削除/リンク追加/解除/順序変更をItem/Diaryそれぞれ、確認後と保存直前に実行し、競合拒否と旧写真保持を確認。
+- 共有contextの対象/中間/影響先の未保存値、新規中間挿入、無関係な未保存挿入/削除を検証。自動merge有効時、削除直後に新しいメモ入力が入る場合も保持。
+- 使用中/未使用混在一括、同一Diaryへの重複リンクの一意件数、残リンクorderIndex/IDの維持、商品/サンプル共有参照、未保存レコードの写真参照を確認。
+- 実CoreData必須属性のバリデーション失敗、注入DB失敗、整理失敗、写真hash不一致、連続削除、二重実行/成功後再削除防止を確認。
+- 保存済みPlateの文書・主写真・アイテム画像snapshotは基準20ケースで不変。既存写真保存APIが連続削除後にも正常に新規保存できることも確認。
+- 最終Simulator UI 7/7成功、0失敗（UI-final.xcresult/ui-final.log）。実Item一覧の複数選択/確認取消/選択保持/一括削除/残る行、単体スワイプ取消、実Diary一覧のスワイプ削除。失敗再試行/取消、競合→再確認、整理警告は実共通Controller/Dialogs＋分離fixtureで確認。全実画面のI/O障害注入ではない。
+- Debug Simulator成功（build-Debug-complete.log）、署名なしRelease iOS成功（build-Release-complete.log）、git diff --check成功。API/ビルド/UIの製品3ソースはFinalBuildSources.sha256と一致。
+
+## 途中で検出・修正した点
+
+- 初回DebugはCombine import不足を修正して成功。
+- 削除mergeで共有contextに削除待ちが残る点と、自動mergeの遅れを検出。保存通知に基づく同期mergeと、確定状態だけを通知順に整理する処理へ修正。共有全体rollback/saveや固定時間の待機は追加していない。
+- 検証コードのDiary対象件数の期待値を修正。途中APIのfailure.json等は経緯として保持し、最終はresults-complete.json/VerificationSummary.jsonを参照。
+- 初回UIは同一識別子を持つ親子ボタンの特定、標準スワイプの言語/全スワイプ、検証件数表示の更新方法で失敗。検証コードだけを調整し、途中UI.xcresult/UI-verified.xcresult/ログも保持。最終7/7成功をそれらと区別する。
+
+## 未検証・残る制約
+
+1. iPhone17e実機での操作/速度/タブ表示。ユーザー担当。実機にはインストールしていない。
+2. 実際のディスク枯渇/保護属性/SQLite I/O障害/電源断/途中終了。失敗注入と実CoreDataバリデーション/競合を検証したが、実I/O障害の完全再現ではない。DB確定後の中断で写真が残る場合があり、自動GCは追加しない。
+3. 真の別プロセス/全バックグラウンド同時書込、全OS/大量レコード/VoiceOver/全テーマの全操作。競合試験は独立contextでタイミングを制御している。
+4. 既に壊れた関連や所有不明写真の一括修復、過去に失われた写真の復旧は対象外。壊れた関連は安全に拒否する。
+5. 全画面の詳細表示・Plate再編集/画像出力の新たな全回帰は未実施。関連/Plate snapshot保護と製品ソース不変を確認。既存Plateの仕様を変更していない。
+6. 商品写真のみ/サンプルのみ、欠損full/thumb、全データ量の総当たりは未実施。両写真/写真なし、共有・hash不一致・正常復号は確認。
+
+## Git・データ・容量
+
+main HEAD/ローカルorigin/main=89c696920a447fb718eb373daceb4f3c657fde75。開始時のIDE設定と連携2文書の未コミット差分を保持。今回製品3Swiftを追加し、計6dirty。staged/untrackedなし。commit/push/reset/cleanなし。モデル/Root/AI/Plate/他製品Swift/IDEは開始hash一致。
+
+2026-11-09 22:30:23→23:00:10 JST、同じdf -k /System/Volumes/Dataで309.6576→309.2480GB（10進、差-0.4096GB）。今回資料315716KiB≒0.3233GB、専用Simulator Documents4024KiB≒0.0041GBを保持。固定Debug490764KiB/Release238060KiB≒0.7463GBは既存キャッシュを再利用し保持。計約1.0737GB（親子二重計上なし）を証拠/再利用のため残す。固定キャッシュの開始duを今回計測していないため、その増分は断定しない。2GB減の閾値未到達。資料/キャッシュの削除なし。試験の保存/削除処理自身が整理したのは専用テスト画像だけ。割当量を削除回収量とは扱わない。
+
+## 実機確認手順（ユーザー担当）
+
+1. 未使用のテストItem：削除確認→キャンセルで残る、再度削除で消える。
+2. Diaryで使用中のItem：表示件数/影響説明を確認し、削除後もDiary本文/日付/写真と残るItemの順序が維持されること。
+3. 「選択して削除」で使用中/未使用を混ぜて選択。取消で選択保持、一括削除で全対象が消えること。
+4. テストDiaryの削除：Item本体は残り、残るDiaryの記録/写真が変わらないこと。
+5. 保存済みPlateの見た目・アイテム写真が変わらず、再編集できること。
+6. 連続削除、削除後の新規登録/編集、タブ切替、アプリ再起動後の表示を確認。
+7. 実機容量を埋める等の破壊的な失敗再現はしない。エラーが出た場合は文言と取消/再試行時の状態を報告する。
+
+完了後は実機確認待ちで停止。GitHub保存・希望リストの整理/開発へは進まない。
+
+### LinkedDeletionImplementationSyncVerified-20261109
+
+既存sync.zsh終了0・更新2件。Google Drive取得APIで両クラウド本文のLinkedDeletionImplementation-20261109、1,379チェック、UI7/7、実機確認待ちを照合済み。ChatGPT側でチェック可能。製品3ソースの最終ビルドhash一致、diff --check成功。既存IDE/モデル/Plate/Root/他Swiftは開始hash一致、staged/untrackedなし、commit/pushなし。今回の確認記録を追記した版も同じ2文書だけ再同期する。ユーザー実機確認待ちで停止し、希望リスト開発へ進まない。
+
+## 2026-11-09 表示文言統一と削除安全性改善のGitHub正式保存（検証完了）
+
+識別子 `DeletionTerminologyGitHubSave-20261109`。LinkedDeletionImplementation-20261109はユーザー本人がiPhone17eで指定6項目を確認し、全6/6合格と報告。Codexは実機を操作していない。
+
+今回の表示修正はNailNote/Core/EntryPhotoStore.swiftのRecordDeletionTransaction.Plan.message、2行/Diary5箇所だけ。「デザインでは使用されていません」「N件がデザインで使用されています」「影響するデザインは合計N件」「該当デザインの使用アイテム一覧」「デザインの記録・写真」を表示する。開始ソースにDiary→デザインを適用した文字列が修正後全文と完全一致し、その他の製品動作/構造は不変。NailDeletionDialogsのタイトル/失敗/競合/再試行/整理警告/アクセシビリティ表示は既に日本語で修正不要。
+
+検索分類：①表示文字列は上記3リテラルを修正。②開発ログ・型/変数・補間式内の識別子は保持。③コメント/検証コードは保持（検証専用の件数ラベル等は製品UIではない）。④CoreData名、設定キー、保存先/フォント資源名、NailNote-Plateの共有ファイル名は互換性/正式名称のため保持。ユーザー自身の入力値や既存日本語の「記録」を機械的に置換しない。製品SwiftでDiary文字列残存なし、Entryは型/保存名/開発メッセージ等だけ。StringAudit-before.json/StringClassification.jsonへ記録。
+
+今回の検証（2026-11-09 23:36:18 JST）：文言修正後に基準34＋追加38＝72条件成功/0失敗、1,379チェック成功。別枠の実行時表示メッセージ73件も内部名称残存なし。Simulator UI7件全成功（UI.xcresult/ui.log）：実一覧の単体/複数削除、確認取消/選択保持/一覧反映、失敗再試行/取消、競合再確認、整理警告、確認メッセージの内部名称残存チェック。Debug Simulator/署名なしRelease iOS成功（build-Debug.log/build-Release.log）、diff --check成功。今回は過去結果を新規成功として扱わず、実際に再実行した。
+
+未検証：文言修正後の新たな実機操作、VoiceOver読み上げ/全文字サイズ/全OS、実容量不足/SQLite I/O/電源断/全競合・全CRUD。前回のユーザー実機6/6合格と今回Simulatorを区別する。コード/保存仕様に文言以外の変更なし。モデル/Plate/Root/AI/写真保存/既存IDEは開始hash一致。
+
+保存対象はNailNote/Core/EntryPhotoStore.swift、NailNote/Features/Products/ProductListView.swift、NailNote/Features/Entries/EntryListView.swift、PROJECT_STATUS.md、docs/CHATGPT_HANDOFF.mdの5ファイル。前回コミット後の確定結果/調査/正式実装の文書履歴も保持する。既存IDE設定は除外。秘密情報パターン検出なし。画像/実データ/ビルド成果物/一時検証ファイルは対象に含めない。
+
+開始main/HEAD/origin/main/GitHub main=89c696920a447fb718eb373daceb4f3c657fde75、dirty6、staged/untrackedなし。予定メッセージはImprove deletion safety and unify user-facing terminology。通常commit/push後に確定SHAと結果を追記し、その文書差分は追加commitせず保持する。
+
+容量：同じdf -k /System/Volumes/Data、開始309.2480→検証終了308.8384GB（差-0.4096GB、10進）。今回検証資料193324KiB≒0.1980GBと固定Debug/Releaseキャッシュ約0.7440GBを証拠/再利用目的で保持。過去の検証フォルダ全体は今回集計していない。資料/キャッシュの削除なし。2GB減の閾値未到達。
+
+資料：/private/tmp/NailNoteValidation/DeletionTerminologyGitHubSave-20261109/。VerificationSummary.json、結果JSON、TerminologyMessages.json、文字列分類、UI.xcresult、ビルドログ、開始hash/Beforeソース/監査コード。2文書以外はDriveへ同期しない。次工程はユーザー/ChatGPTの指示待ちで、希望リスト機能追加・UI再設計は開始しない。
