@@ -40,6 +40,7 @@ struct EditEntryView: View {
     @State private var showingPhotoPicker = false
     @State private var showingPhotoChangeConfirm = false
     @State private var showingPhotoDeleteConfirm = false
+    @State private var photoViewer: NailPhotoPresentation?
 
     var body: some View {
         GlassBackgroundView {
@@ -99,6 +100,7 @@ struct EditEntryView: View {
                  : "写真の削除は保存時に反映されます。")
         }
         .photosPicker(isPresented: $showingPhotoPicker, selection: $photoItem, matching: .images)
+        .nailPhotoViewer($photoViewer)
     }
 
     private var dateFormatted: String {
@@ -176,7 +178,15 @@ struct EditEntryView: View {
     private var photoSection: some View {
         Section("写真") {
             HStack(spacing: 12) {
-                photoPreview
+                Button {
+                    if let page = NailPhotoPage.design(id: entry.photoId, image: selectedUIImage, removed: removeExistingPhoto) {
+                        photoViewer = NailPhotoPresentation(pages: [page])
+                    }
+                } label: { photoPreview }
+                .buttonStyle(.borderless)
+                .disabled(removeExistingPhoto || (selectedUIImage == nil && entry.photoId == nil))
+                .accessibilityLabel("デザイン写真を拡大")
+                .accessibilityIdentifier("photo.entry.edit")
                 VStack(alignment: .leading, spacing: 8) {
                     Button {
                         showingPhotoChangeConfirm = true

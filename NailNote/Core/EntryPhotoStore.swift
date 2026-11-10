@@ -16,6 +16,13 @@ enum EntryPhotoStore {
             .appendingPathComponent("full_\(photoId.uuidString).jpg")
     }
 
+    /// 閲覧専用。保存ディレクトリの作成や既存ファイルの変更を行わない。
+    static func readOnlyFullURL(photoId: UUID) -> URL {
+        FileManager.default.urls(for: .documentDirectory, in: .userDomainMask)[0]
+            .appendingPathComponent(folderName, isDirectory: true)
+            .appendingPathComponent("full_\(photoId.uuidString).jpg")
+    }
+
     static func loadThumbnail(photoId: UUID) -> UIImage? {
         let url = thumbnailURL(photoId: photoId)
         guard let data = try? Data(contentsOf: url) else { return nil }

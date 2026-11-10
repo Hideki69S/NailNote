@@ -38,6 +38,7 @@ struct AddEntryView: View {
     @State private var showingPhotoPicker = false
     @State private var showingPhotoChangeConfirm = false
     @State private var showingPhotoDeleteConfirm = false
+    @State private var photoViewer: NailPhotoPresentation?
 
     var body: some View {
         NavigationStack {
@@ -65,7 +66,15 @@ struct AddEntryView: View {
 
                 Section("写真") {
                     HStack(spacing: 12) {
-                        photoPreview
+                        Button {
+                            if let page = NailPhotoPage.design(id: nil, image: selectedUIImage) {
+                                photoViewer = NailPhotoPresentation(pages: [page])
+                            }
+                        } label: { photoPreview }
+                        .buttonStyle(.borderless)
+                        .disabled(selectedUIImage == nil)
+                        .accessibilityLabel("デザイン写真を拡大")
+                        .accessibilityIdentifier("photo.entry.add")
                         VStack(alignment: .leading, spacing: 8) {
                             Button {
                                 showingPhotoChangeConfirm = true
@@ -173,6 +182,7 @@ struct AddEntryView: View {
             .modifier(NailEditorExit(dirty: !saveCompleted && (originalFields.map { $0 != editFields } ?? false), blocked: saving, onReturn: { dismiss() }))
         }
         .modifier(NailPhotoSaveFeedback(message: $saveMessage, completed: saveCompleted, retry: save, close: { dismiss() }))
+        .nailPhotoViewer($photoViewer)
         .onAppear { if originalFields == nil { originalFields = editFields } }
         .modifier(NailTabExitProtection(dirty: !saveCompleted && (originalFields.map { $0 != editFields } ?? false), blocked: saving))
     }

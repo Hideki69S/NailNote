@@ -22,6 +22,7 @@ struct ProductListView: View {
     @State private var deletionSelection: Set<NSManagedObjectID> = []
     @State private var showingAddSheet = false
     @State private var editingProduct: NailProduct?
+    @State private var photoViewer: NailPhotoPresentation?
     @State private var selectedCategories = NailProductCategorySelection()
     @State private var shopFilterText: String = ""
     @State private var keywordFilterText: String = ""
@@ -65,8 +66,9 @@ struct ProductListView: View {
                 }
             }
         }
+        .nailPhotoViewer($photoViewer)
         .modifier(NailTabStackReset())
-        .onChange(of: tabResetID) { _, _ in showingAddSheet = false; editingProduct = nil; deletion.cancel(); selectingForDeletion = false; deletionSelection = [] }
+        .onChange(of: tabResetID) { _, _ in showingAddSheet = false; editingProduct = nil; photoViewer = nil; deletion.cancel(); selectingForDeletion = false; deletionSelection = [] }
         .onChange(of: deletion.completed) { _, _ in selectingForDeletion = false; deletionSelection = [] }
         .modifier(NailDeletionDialogs(deletion: deletion, context: context))
         .modifier(NailAppearanceEnvironment(area: .items))
@@ -99,6 +101,13 @@ struct ProductListView: View {
         return NailProductCategory(rawValue: normalized) ?? .other
     }
 
+    private func selectOrEdit(_ product: NailProduct) {
+        guard !deletion.working else { return }
+        if selectingForDeletion {
+            if !deletionSelection.insert(product.objectID).inserted { deletionSelection.remove(product.objectID) }
+        } else { editingProduct = product }
+    }
+
     // MARK: - Delete
 
     private func deleteSelectedProducts(at offsets: IndexSet) {
@@ -119,28 +128,26 @@ private extension ProductListView {
                     .listRowSeparator(.hidden)
             } else {
                 ForEach(Array(filteredProducts.enumerated()), id: \.element.objectID) { index, product in
-                    Button {
+                    HStack(spacing: 0) {
                         if selectingForDeletion {
-                            if !deletionSelection.insert(product.objectID).inserted { deletionSelection.remove(product.objectID) }
-                        } else { editingProduct = product }
-                    } label: {
-                        HStack(spacing: 0) {
-                            if selectingForDeletion {
+                            Button { selectOrEdit(product) } label: {
                                 Image(systemName: deletionSelection.contains(product.objectID) ? "checkmark.circle.fill" : "circle")
                                     .foregroundStyle(Color.accentColor).frame(width: 44, height: 44)
-                            }
-                            Spacer(minLength: 0)
-                            ProductRow(
-                                product: product,
-                                cardIndex: index,
-                                isFavorite: isFavorite(product),
-                                toggleFavorite: { toggleFavorite(product) }
-                            )
-                            Spacer(minLength: 0)
+                            }.buttonStyle(.borderless).accessibilityLabel("削除対象の選択を切り替える")
                         }
+                        Spacer(minLength: 0)
+                        ProductRow(product: product, cardIndex: index, isFavorite: isFavorite(product),
+                                   toggleFavorite: { toggleFavorite(product) }, onOpen: { selectOrEdit(product) },
+                                   onPhoto: {
+                            guard !deletion.working else { return }
+                            if selectingForDeletion { selectOrEdit(product); return }
+                            let pages = [NailPhotoPage.product(id: product.photoId, sample: false),
+                                         NailPhotoPage.product(id: product.samplePhotoId, sample: true)].compactMap { $0 }
+                            guard !pages.isEmpty else { return }
+                            photoViewer = NailPhotoPresentation(pages: pages)
+                        })
+                        Spacer(minLength: 0)
                     }
-                    .buttonStyle(.plain)
-                    .accessibilityIdentifier("product.row." + (product.id?.uuidString ?? "unknown"))
                     .accessibilityValue(selectingForDeletion ? (deletionSelection.contains(product.objectID) ? "削除対象に選択中" : "未選択") : "")
                     .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
                     .listRowSeparator(.hidden)
@@ -164,6 +171,8 @@ private struct ProductRow: View {
     let cardIndex: Int
     let isFavorite: Bool
     let toggleFavorite: () -> Void
+    let onOpen: () -> Void
+    let onPhoto: () -> Void
     @AppStorage(GlassTheme.Keys.itemCardPreset) private var itemCardPresetRaw: String = GlassTheme.ItemCardPreset.roseChampagne.rawValue
     private let textInset: CGFloat = 8
     private let mediaShiftLeft: CGFloat = 6
@@ -249,8 +258,7 @@ private struct ProductRow: View {
 
                         // 右：写真＋お気に入り
                         ZStack(alignment: .topTrailing) {
-                            ProductThumbnail(photoId: product.photoId, size: 92)
-                                .frame(width: 92, height: 92)
+                            photoThumbnail
 
                             FavoriteButton(isFavorite: isFavorite, action: toggleFavorite)
                                 .offset(x: 6, y: -6)
@@ -259,6 +267,11 @@ private struct ProductRow: View {
                     }
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
+                .background {
+                    Button(action: onOpen) { Color.clear.contentShape(Rectangle()) }
+                        .buttonStyle(.borderless).accessibilityLabel("アイテムを編集、\(displayName)")
+                        .accessibilityIdentifier("product.row." + (product.id?.uuidString ?? "unknown"))
+                }
             }
         }
     }
@@ -268,6 +281,19 @@ private struct ProductRow: View {
         let value = NSNumber(value: product.priceYenTaxIn)
         let formatted = Self.priceFormatter.string(from: value) ?? "\(product.priceYenTaxIn)"
         return "¥\(formatted)"
+    }
+
+    @ViewBuilder private var photoThumbnail: some View {
+        if product.photoId != nil || product.samplePhotoId != nil {
+            Button(action: onPhoto) {
+                ProductThumbnail(photoId: product.photoId ?? product.samplePhotoId, size: 92)
+                    .frame(width: 92, height: 92)
+            }.buttonStyle(.borderless).accessibilityLabel("アイテム写真を拡大")
+                .accessibilityIdentifier("photo.product." + (product.id?.uuidString ?? "unknown"))
+        } else {
+            ProductThumbnail(photoId: nil, size: 92).frame(width: 92, height: 92)
+                .accessibilityLabel("写真なし")
+        }
     }
 
     private var placeText: String? {

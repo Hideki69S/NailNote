@@ -68,6 +68,7 @@ struct AddOrEditProductView: View {
     @State private var sampleUIImage: UIImage?
     @State private var removeSample: Bool = false
     @State private var showingSamplePhotoPicker: Bool = false
+    @State private var photoViewer: NailPhotoPresentation?
     private static let currencyFormatter: NumberFormatter = {
         let formatter = NumberFormatter()
         formatter.numberStyle = .decimal
@@ -157,7 +158,9 @@ struct AddOrEditProductView: View {
                 // MARK: - 商品写真
                 Section("商品写真") {
                     HStack(spacing: 12) {
-                        mainPhotoPreview
+                        Button { openPhoto(sample: false) } label: { mainPhotoPreview }
+                            .buttonStyle(.borderless).disabled(!hasAnyMainPhoto)
+                            .accessibilityLabel("商品写真を拡大").accessibilityIdentifier("photo.product.main")
                         VStack(alignment: .leading, spacing: 10) {
                             Button {
                                 showingMainPhotoPicker = true
@@ -188,7 +191,9 @@ struct AddOrEditProductView: View {
                 // MARK: - サンプルカラー写真
                 Section("サンプルカラー写真") {
                     HStack(spacing: 12) {
-                        samplePhotoPreview
+                        Button { openPhoto(sample: true) } label: { samplePhotoPreview }
+                            .buttonStyle(.borderless).disabled(!hasAnySamplePhoto)
+                            .accessibilityLabel("サンプル写真を拡大").accessibilityIdentifier("photo.product.sample")
                         VStack(alignment: .leading, spacing: 10) {
                             Button {
                                 showingSamplePhotoPicker = true
@@ -223,6 +228,7 @@ struct AddOrEditProductView: View {
             .modifier(NailPhotoSaveFeedback(message: $saveMessage, completed: saveCompleted, retry: save, close: { dismiss() }))
             .photosPicker(isPresented: $showingMainPhotoPicker, selection: $mainPhotoItem, matching: .images)
             .photosPicker(isPresented: $showingSamplePhotoPicker, selection: $samplePhotoItem, matching: .images)
+            .nailPhotoViewer($photoViewer)
             .navigationTitle(mode.title)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -240,6 +246,14 @@ struct AddOrEditProductView: View {
     }
 
     // MARK: - Previews
+
+    private func openPhoto(sample: Bool) {
+        let main = NailPhotoPage.product(id: mode.product?.photoId, image: mainUIImage, sample: false, removed: removeMain)
+        let samplePage = NailPhotoPage.product(id: mode.product?.samplePhotoId, image: sampleUIImage, sample: true, removed: removeSample)
+        let pages = [main, samplePage].compactMap { $0 }
+        guard !pages.isEmpty else { return }
+        photoViewer = NailPhotoPresentation(pages: pages, initialIndex: sample && main != nil ? 1 : 0)
+    }
 
     private var hasAnyMainPhoto: Bool {
         if removeMain { return false }

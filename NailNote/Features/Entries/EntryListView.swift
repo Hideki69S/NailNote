@@ -16,6 +16,8 @@ struct EntryListView: View {
     private var entries: FetchedResults<NailEntry>
 
     @State private var showingAddSheet = false
+    @State private var photoViewer: NailPhotoPresentation?
+    @State private var editingEntry: NailEntry?
     @AppStorage(GlassTheme.Keys.designCardPreset) private var controlPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
     @AppStorage(GlassTheme.Keys.backgroundPreset) private var backgroundPresetRaw: String = GlassTheme.BackgroundPreset.smokySageChampagne.rawValue
     private var controlPalette: GlassTheme.DesignCardPalette {
@@ -71,9 +73,11 @@ struct EntryListView: View {
                     }
                 }
             }
+            .navigationDestination(item: $editingEntry) { EditEntryView(entry: $0) }
         }
+        .nailPhotoViewer($photoViewer)
         .modifier(NailTabStackReset())
-        .onChange(of: tabResetID) { _, _ in showingAddSheet = false; activeFilter = nil; deletion.cancel() }
+        .onChange(of: tabResetID) { _, _ in showingAddSheet = false; activeFilter = nil; photoViewer = nil; editingEntry = nil; deletion.cancel() }
         .modifier(NailAppearanceEnvironment(area: .design))
         .sheet(isPresented: $showingAddSheet) {
             AddEntryView()
@@ -247,6 +251,8 @@ struct EntryRowView: View {
     @AppStorage(NailAppearance.key) private var appearanceRaw = ""
     @ObservedObject var entry: NailEntry
     let cardIndex: Int
+    var onOpen: (() -> Void)? = nil
+    var onPhoto: (() -> Void)? = nil
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @AppStorage(GlassTheme.Keys.designCardPreset) private var designCardPresetRaw: String = GlassTheme.DesignCardPreset.roseChampagne.rawValue
     private var palette: GlassTheme.DesignCardPalette {
@@ -265,6 +271,13 @@ struct EntryRowView: View {
         .padding(12)
         .frame(maxWidth: GlassTheme.listCardWidth, alignment: .leading)
         .frame(minHeight: 148, alignment: .leading)
+        .background {
+            if let onOpen {
+                Button(action: onOpen) { Color.clear.contentShape(Rectangle()) }
+                    .buttonStyle(.borderless).accessibilityLabel("デザインを編集、\(displayTitle)")
+                    .accessibilityIdentifier("entry.row." + (entry.id?.uuidString ?? "unknown"))
+            }
+        }
         .background(EntryPremiumCardMaterial(palette: palette))
         .overlay(alignment: .trailing) {
             if dynamicTypeSize < .xxLarge {
@@ -311,8 +324,15 @@ struct EntryRowView: View {
         }
     }
 
-    private func photo(size: CGFloat) -> some View {
-        EntryThumbnailView(photoId: entry.photoId, aiScore: entry.aiScoreBridge?.totalScore, rowPalette: palette, size: size, framePadding: 3)
+    @ViewBuilder private func photo(size: CGFloat) -> some View {
+        if entry.photoId != nil, let onPhoto {
+            Button(action: onPhoto) {
+                EntryThumbnailView(photoId: entry.photoId, aiScore: entry.aiScoreBridge?.totalScore, rowPalette: palette, size: size, framePadding: 3)
+            }.buttonStyle(.borderless).accessibilityLabel("デザイン写真を拡大")
+                .accessibilityIdentifier("photo.entry." + (entry.id?.uuidString ?? "unknown"))
+        } else {
+            EntryThumbnailView(photoId: entry.photoId, aiScore: entry.aiScoreBridge?.totalScore, rowPalette: palette, size: size, framePadding: 3)
+        }
     }
 
     private var infoRow: some View {
@@ -530,21 +550,13 @@ private extension EntryListView {
             } else {
                 Section {
                     ForEach(Array(sortedEntries.enumerated()), id: \.element.objectID) { index, entry in
-                        ZStack {
-                            HStack(spacing: 0) {
-                                Spacer(minLength: 0)
-                                EntryRowView(entry: entry, cardIndex: index)
-                                Spacer(minLength: 0)
-                            }
-                            NavigationLink {
-                                EditEntryView(entry: entry)
-                            } label: {
-                                EmptyView()
-                            }
-                            .buttonStyle(.plain)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                            .contentShape(Rectangle())
-                            .opacity(0.001)
+                        HStack(spacing: 0) {
+                            Spacer(minLength: 0)
+                            EntryRowView(entry: entry, cardIndex: index, onOpen: { editingEntry = entry }, onPhoto: {
+                                guard !deletion.working, let page = NailPhotoPage.design(id: entry.photoId) else { return }
+                                photoViewer = NailPhotoPresentation(pages: [page])
+                            })
+                            Spacer(minLength: 0)
                         }
                         .listRowInsets(EdgeInsets(top: 6, leading: 0, bottom: 6, trailing: 0))
                         .listRowBackground(Color.clear)

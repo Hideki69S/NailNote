@@ -3,12 +3,12 @@
 <!-- latest-status:start -->
 ## 最新状況サマリー
 
-- 最終更新：2026-11-09。`DeletionTerminologyGitHubSave-20261109`。削除安全性改善はユーザー本人のiPhone17e実機確認6/6合格。Codexによる実機操作ではない。
-- 表示統一：今回の製品修正はEntryPhotoStore.swiftの削除確認2行・Diaryの5箇所を「デザイン」へ置換するだけ。型/変数/エンティティ/保存キー/ロジック/画面構造は不変。Item/Plateの表示は既存のアイテム/プレートを維持。内部識別子/開発ログ/正式な出力ファイル名は保持。
-- 今回新規検証：72/72条件、1,379照合、表示メッセージ73件、Simulator UI7/7が成功。Debug Simulator/署名なしRelease成功、diff --check成功。過去結果の再利用だけではなく文言修正後に再実行。
-- GitHub保存準備：開始main HEAD/origin/main/GitHub main=89c696920a447fb718eb373daceb4f3c657fde75。承認済み製品3Swift＋連携2文書の5ファイルだけを指定commit/pushする。確定SHA/push結果は末尾へ追記する。
-- 保護：既存project.pbxprojのIDE設定差分は開始hash一致、stage/commit対象外。モデル、写真保存、Plate renderer1〜8/保存形式、Root、AI休止は変更なし。今回開始後のProductListView/EntryListViewも開始hash一致。
-- 次回：削除安全性/文言統一のGitHub保存と連携完了後に停止。希望リスト機能追加/UI再設計へ進まない。同期結果・確定SHAは末尾/完了報告へ。
+- 最終更新：2026-11-10。`PhotoViewerGitHubSave-20261110`。共通写真拡大はユーザー本人のiPhone 17e実機テスト10/10正常、不具合報告なし。Codexによる実機操作ではない。
+- 保存準備：main HEAD／fetch後origin/main／GitHub main=a2ecbad81bd5c4b9c3cd0e1ab71de3dd702413f7。指定製品7Swift＋連携2文書の9ファイルだけをcommit・通常pushする。既存project.pbxproj IDE差分は対象外。
+- 検証整合：PhotoViewerImplementation-20261110最終hashと製品・モデル・IDEの41ファイルが一致。2026-11-10のReader49、保存539／30条件、削除1379／72条件、最終UI14実行成功、Debug Simulator／署名なしRelease成功を再利用。今回は新規ビルド・UIテスト再実行なし。diff --check成功。
+- 保護：保存・削除安全性、CoreData、Plate renderer1〜8、Root・タブバー・AI休止、IDE差分は維持。C案フォームは未実装。
+- 次工程：C案フォームの正式実装。ただし次のユーザー指示を待ち、今回着手しない。
+- ChatGPT連携：実機10項目と保存予定を両文書へ追記。commit SHA・push結果・残存差分・Google Driveのクラウド確認結果は保存後に追記する。完了記録は追加commitしない。
 <!-- latest-status:end -->
 
 
@@ -4068,3 +4068,102 @@ Git：main HEAD/origin/main=89c696920a447fb718eb373daceb4f3c657fde75。既存IDE
 容量：同じdf -k /System/Volumes/Data、開始309.2480→検証終了308.8384GB（差-0.4096GB、10進）。今回検証資料193324KiB≒0.1980GBと固定Debug/Releaseキャッシュ約0.7440GBを証拠/再利用目的で保持。過去の検証フォルダ全体は今回集計していない。資料/キャッシュの削除なし。2GB減の閾値未到達。
 
 資料：/private/tmp/NailNoteValidation/DeletionTerminologyGitHubSave-20261109/。VerificationSummary.json、結果JSON、TerminologyMessages.json、文字列分類、UI.xcresult、ビルドログ、開始hash/Beforeソース/監査コード。2文書以外はDriveへ同期しない。次工程はユーザー/ChatGPTの指示待ちで、希望リスト機能追加・UI再設計は開始しない。
+
+## 2026-11-09 表示統一・削除安全性 GitHub保存完了
+
+識別子 `DeletionTerminologyGitHubSaveComplete-20261109`。日時：2026-11-09T23:39:09.637268+09:00。
+
+- commit：`a2ecbad81bd5c4b9c3cd0e1ab71de3dd702413f7`。メッセージ：`Improve deletion safety and unify user-facing terminology`。
+- origin/mainへの通常push成功（89c6969→a2ecbad）。ローカルHEAD・ローカルorigin/main・GitHub refs/heads/mainの3値が上記SHAと完全一致。
+- commit対象5ファイル：NailNote/Core/EntryPhotoStore.swift、NailNote/Features/Products/ProductListView.swift、NailNote/Features/Entries/EntryListView.swift、PROJECT_STATUS.md、docs/CHATGPT_HANDOFF.md。IDE設定・画像・実データ・検証資料・成果物は除外。
+- ユーザー本人の実機6/6合格。今回文言修正後に72/72条件、1,379照合、表示メッセージ73件、Simulator UI7/7、Debug Simulator/署名なしRelease、diff --checkを再実行し成功。新たな実機操作は未実施。
+- 表示統一：削除確認のDiary5箇所をデザインへ。今回の製品修正は2行の文字列だけ。型/内部変数/保存形式/削除・写真保存ロジック/renderer/画面構造は維持。
+- push直後の残存差分は既存project.pbxprojのみ。開始hash一致を確認しstage/commitしていない。この確定結果追記後はIDE設定＋連携2文書が未コミット。staged/untrackedなし、製品Swift差分なし。追加commit/pushは行わない。
+- 終了時のMac空き容量：308.8384GB（df -k /System/Volumes/Data、10進）。キャッシュ/比較資料の削除なし。
+- 次回再開地点：main `a2ecbad81bd5c4b9c3cd0e1ab71de3dd702413f7`。ユーザー/ChatGPTの次指示待ち。希望リスト機能追加/UI再設計は未着手。
+- ChatGPT連携：今回の確定記録を既存sync.zshで2文書のみ同期し、クラウド本文の本識別子・SHA・検証結果を照合する。最終結果は完了報告へ。
+
+### DeletionTerminologyGitHubSaveSyncVerified-20261109
+
+既存sync.zsh終了0・更新2件。Google Drive取得APIで両クラウド本文のDeletionTerminologyGitHubSaveComplete-20261109、a2ecbad81bd5c4b9c3cd0e1ab71de3dd702413f7、実機6/6、1,379照合を確認済み。ChatGPT側でチェック可能。残存は既存IDE設定＋確定結果を記録した連携2文書のみ、staged/untrackedなし。追加commit/pushなし。確認結果を追記したこの2文書だけ再同期して終了し、新機能/UI再設計へは進まない。
+
+
+## 2026-11-10：デザイン追加画面の高級化・A／B比較（DesignAddLuxuryComparison-20261110）
+
+- Phase：調査・比較のみ完了／正式実装承認待ち。ユーザー確定は製品コードを変更しないこと。Codexの推奨はB（ガラスカード）であり採用確定ではない。
+- 現行：AddEntryViewのForm、必須入力、評価、写真・メモ・12カテゴリのアイテム選択、保存DTO、未保存確認を調査。保存・削除安全性、Plate renderer1〜8、Root・テーマ設定は変更なし。
+- A：既存順序とFormを維持、上品な見出し・枠・保存ボタン。B：写真先頭、GlassCard15pt角丸と1.25pt縁、カード間14pt・左右16pt。両案は同じ独自写真・入力条件。Bは統一感と写真の存在感、Aは画面効率と統合の安全性が利点。
+- 成果物：`/private/tmp/NailNoteValidation/DesignAddLuxuryComparison-20261110/`。Overview.png、Regions.png、Empty.png、LongText.png、Dark.png、Widths.png、LargeType.png、Keyboard.png。詳細はComparisonGuide.md／Report.md、検証はVerificationSummary.json／UI-final.xcresult。/private/tmpの永続性は保証されず、今回は製品外の判断資料として保持。
+- 新規検証：SwiftUI実描画44画面（通常42＋キーボード想定2）、幅320／390／430、通常／Accessibility1、濃色・空・長文。分離Simulator iPhone17e・iOS27.0の入力・未保存確認2/2成功、失敗0。製品保存・実PhotosPickerには接続していない。製品Debug／Releaseは不要なビルド回避のため未再実行。
+- 未検証：実ソフトウェアキーボード表示・リサイズ。最初の検出は画面外のkeyboard要素だったため成功扱いを取り消し、最終JSONにfalseを記録。Keyboard.pngは300ptの想定領域であることを画像内に明記。実機・VoiceOver・全テーマ・写真実選択／実保存は未検証。Accessibility1ではメモ内部スクロールが必要。正式実装後の回帰計画はReport.mdを参照。
+- 変更ファイル：連携2文書のみ。正式実装時の主対象候補はAddEntryView.swift（private補助Viewを同ファイルへ）。共通デザイン全体・保存処理の変更は不要。
+- 保護：main HEAD・ローカルorigin/main=a2ecbad81bd5c4b9c3cd0e1ab71de3dd702413f7。全製品Swift・モデル・project.pbxprojは開始hash一致。既存IDE差分を保持。ステージ・未追跡なし。Git commit／push／reset／cleanなし。実データ・実機操作なし。
+- 容量：df -k /System/Volumes/Data、2026-11-10 09:58:22→10:18:13 JST、301600000→301200000KiB（308.8384→308.4288GB、減少0.4096GB）。今回資料約0.3533GB、既存固定Debug／Release約0.7423GBを証跡・再利用のため保持。削除なし。
+- 次の判断：ユーザーがA／Bを選択し正式実装を承認。ChatGPTには高級感優先のBと入力密度優先のAの比較、実キーボード確認の追加をレビューしてほしい。承認前の製品実装は行わない。
+
+- ChatGPT連携確認（DesignAddLuxuryComparison-20261110）：既存sync.zsh終了0／更新2件。ローカルコピー更新後、Drive接続で両クラウド本文の識別子・44画面・実ソフトウェアキーボード未検証・ComparisonGuide.mdを照合済み。SyncVerified-DesignAddLuxury-20261110。
+
+
+## 2026-11-10：C案フォーム＋共通写真拡大調査（DesignCPhotoViewer-20261110）
+
+- Phase：調査・設計・分離比較のみ完了／正式採用・実装承認待ち。確定仕様は製品コードを変更しないこと。推奨はCと最小UIKit連携であり、採用決定ではない。
+- 前回A／B資料は残存し再利用。Cは基本情報→写真→評価→メモ→使用アイテム。90pt写真、カード内12pt・間隔10pt、既存GlassCard／テーマ／サテン背景を使用。通常・空・長文・暗色・文字拡大・320/390/430と写真縦横比を比較。
+- 写真調査：デザイン一覧は透明NavigationLinkの全面重ね、Item一覧はカードButton＋お気に入りがあり、写真Button単純追加は競合する。兄弟の操作領域への分離を提案。既存Listスワイプ削除・削除選択・下端clipped/contentShapeを維持する。共通写真拡大は既存に見当たらず、Plate編集のscaleとは分離する。
+- 拡大試作：全画面暗色、Fit、1〜4倍pinch、pan、種類・ページ表示、44pt閉じる、リセット。拡大中はページ横移動を無効、全体表示で再開。商品／サンプルは登録済み種類を保持。現Item一覧は商品1枚でfallbackなし。提案では1枚維持＋商品なし時のみサンプルfallback（表示差分・承認待ち）。保存・写真ファイルを変更しない。
+- 読込設計：Diary full／Product sourceURLまたは編集中UIImageから読み、ImageIOで必要解像度だけ展開。既存Entry fullURLはフォルダ作成副作用があるためread-only API検討。保存・削除処理変更不要。ローダー・実メモリ制御は設計のみ、試作は独自画像で実PhotoStore接続なし。
+- 検証：C24画面＋拡大7画面。最終UI4/4成功・失敗0（2026-11-10 10:41、UI-second.xcresult）。pinch後の倍率上昇、pan移動、拡大中ページ保持、リセット後左右スワイプ、閉じる、1枚・失敗状態、入口分離・削除選択抑止、C入力と未保存確認を検証。初回は2成功・2失敗、倍率初期化を試作内修正、スイッチ本体の操作とvalue確認へテスト修正。失敗ログ保持。最終コンパイル・UI実行は終了0。
+- 未検証：実キーボード表示／リサイズ（C-Keyboard.pngは300pt想定と明記）、実機、VoiceOver、製品一覧の全ジェスチャー・下端hit test、片方破損の2ページ、大画像メモリ・速度、端末回転中心保持。エラー画面は状態注入であり実破損読込ではない。製品Debug/Releaseは再実行せず。
+- 資料：`/private/tmp/NailNoteValidation/DesignCPhotoViewer-20261110/` のComparisonGuide.md／Report.md、ABC-Overview.png／ABC-Regions.png、C-States／Widths／LargeType／PhotoCrop／Keyboard、PhotoViewer-Overview／Pages／Gestures。Swift試作・RenderResults・VerificationSummary・UIログも保持。/private/tmpは永続性保証なし。
+- 正式実装候補：共通PhotoViewerView／ZoomablePhotoPager／Source・Loader、AddEntryView／EditEntryView／AddOrEditProductView／EntryListView／ProductListView。EntryPhotoStoreは参照APIの必要時だけ最小変更。モデル・Root・テーマ全体・Plate renderer1〜8・写真保存／削除ロジック変更不要。詳細回帰計画はReport.md。
+- 保護結果：main HEAD／ローカルorigin/main=a2ecbad81bd5c4b9c3cd0e1ab71de3dd702413f7。fetchなし。全製品Swift・CoreDataモデル・project.pbxprojは開始SHA256一致。IDE差分と連携2文書履歴を保持。stage／未追跡なし、commit/push/reset/cleanなし、実データ・実機操作なし。diff --check成功。
+- 容量：df -k /System/Volumes/Data、2026-11-10 10:33:08→10:42:45 JST、301200000→300400000KiB＝308.4288→307.6096GB（減少0.8192GB）。今回資料約0.4698GB、既存固定Debug/Release約0.8824GBを証跡・再利用用に保持。削除なし。2GB減少閾値未到達。
+- 次の判断：Cの採用、拡大ビューの操作規則と一覧fallbackの表示差分をユーザーが確認・承認。製品実装へ進まず停止する。
+
+- 同期確認：DesignCPhotoViewer-20261110、既存sync.zsh終了0・更新2件。Drive接続で両クラウド本文の識別子・UI4/4・C仕様・実キーボードの制約を確認済み。SyncVerified-CPhoto-20261110。
+
+
+## 2026-11-10：共通写真拡大 正式実装（PhotoViewerImplementation-20261110）
+
+- Phase：正式実装・分離検証完了／ユーザーのiPhone17e実機確認待ち。今回承認は写真拡大のみ。C案フォームは未実装、その他の機能へ進まない。
+- 製品変更7ファイル：Core/ProductPhotoStore.swift（共通閲覧DTO・ローダー・SwiftUI枠・UIScrollView pagerを末尾へ追加）、Core/EntryPhotoStore.swift（readOnlyFullURLのみ）、Features/Entries/AddEntryView.swift／EditEntryView.swift／EntryListView.swift、Features/Products/AddOrEditProductView.swift／ProductListView.swift（写真入口・一覧操作領域分離）。新規登録を避け、project.pbxprojは変更していない。既存ストア本文は追加分を除き完全一致。
+- 確定仕様：暗色全画面、Fit、種類、ページ、44pt閉じる、1〜4倍ピンチ・pan、拡大中はページ移動停止、リセット後に切替、ページ変更時は倍率・位置を初期化。大量説明なし。商品／サンプルは別ページ。商品未登録の場合だけ一覧サンプルfallback。欠損・破損を別写真へ無断置換しない。
+- 画像安全性：元URL／未保存UIImageから非同期縮小デコード、最大4096px。EXIFと未保存画像の向きは表示時だけ補正。読み取りでディレクトリを作らず、元写真を変更・再圧縮しない。現在ページだけ追加デコード画像を保持、閉じる／切替時解放・キャンセル後の古い結果を拒否。元UIImageは既存入力Stateで保持する。
+- 操作安全性：デザインの全面透明Linkとアイテムの親Buttonを除き、兄弟の写真・カード本体・お気に入りへ分離。削除選択中は写真も選択操作。既存List.onDeleteと下端clipped/contentShapeを維持。保存／削除・editFieldsには閲覧状態を含めない。Form・写真72pt・既存項目順・テーマを維持。
+- 分離回帰：Reader49チェック成功。写真保存30条件のAPI285＋SQLite属性／旧写真254＝539成功。削除72条件・1379成功。今回製品ソースで新規実行し、過去結果を今回成功として流用していない。CoreData・実ユーザー写真不使用、専用Bundle ID dev.nailnote.photoviewer.validationと独立SQLite・検証写真のみ。
+- 最終UI：14実行成功・0失敗（基本10＋Accessibility3／ピンチ縮小1＋PhotosPicker未保存写真とRoot再確認3、Rootの再実行を含み異なるメソッド13）。UI-final.xcresult、UI-zoom-accessibility.xcresult、UI-add-photos.xcresult。写真／本体遷移分離、お気に入り、削除選択抑止、スワイプ削除取消、欠損、サンプルのみ、写真なし、入力保持・保存、拡大だけでdirtyにならない、4タブ・下端、編集写真を閉じてもタブ非表示・戻ると復元を確認。新規商品2枚の写真選択→未保存拡大→保存→一覧から再閲覧も成功。
+- 失敗履歴：初回UI8件中1成功7失敗、第2回8件中6成功2失敗。VoiceOverページラベルの期待表記、Popover取消操作、List仮想化・キーボード上のスクロールをテスト側で調整。初回Debugの状態プロパティ名誤りはworkingへ修正。以後Fit領域・表示中心・ページ終了を調整し最終ソースでDebug／Release再ビルド成功。失敗ログは保持。停止した初回・第2回xcodebuild結果収集のみ中断した。
+- ビルド：Debug Simulatorと署名なしRelease iOS、最終ソースで成功（Debug-complete.log／Release-complete.log）。git diff --check成功。保存関数・editFields・削除関数8箇所も開始本文一致。モデル・Plate1〜8・Root・AI・テーマ・IDEは開始hash一致。
+- 読込／容量実測：24MP 6000×4000を1024／2048／4096pxへ縮小。4096は4096×2731、bitmap44.7MB、93.77ms。residentBefore/Afterは2時点値でピークではなく、実機メモリ安全性を保証しない。ReaderResults.jsonへ記録。
+- 未検証：iPhone17e実機、VoiceOver実音声、iCloud画像・各権限・特殊CIImage、実機ピークメモリ／速度。保存失敗UI全経路は今回再操作せず、失敗注入の保存／削除回帰を実施。キーボード表示中の全レイアウトは保証しない。大きい写真と文字拡大を実機で確認する。
+- 検証資料：`/private/tmp/NailNoteValidation/PhotoViewerImplementation-20261110/Report.md`、VerificationSummary.json、ProtectionProof.json、FinalSourceHashes.json、ReaderResults.json、SafetyRegression／DeletionRegression、UI結果・ログ・動作画像。再利用キャッシュと証跡を保持。/private/tmpの永続性は保証されない。SimulatorへNailNote-PhotoViewer-TEST.jpgを1枚追加し、該当検証写真だけ選択。既存写真を変更・削除せず追加検証写真も保持。
+- Git：main HEAD／ローカルorigin/main=a2ecbad81bd5c4b9c3cd0e1ab71de3dd702413f7（fetchなし）。既存IDE差分＋製品7Swift＋連携2文書を未コミットで保持。stage／未追跡なし。commit／push／reset／cleanなし。製品の実機インストール・操作なし。
+- 容量：df -k /System/Volumes/Data、2026-11-10 11:12:47→11:45:52 JST、300400000→299600000KiB＝307.6096→306.7904GB、減少0.8192GB。今回資料500348KiB≒0.5124GB、固定Debug658140KiB＋Release239516KiB≒0.9192GB、合計約1.4316GBを証跡／再利用用に保持（割当量、回復量保証ではない）。2GB減少閾値未到達。削除なし。
+- 次：ユーザー実機確認。写真選択・未保存拡大・商品／サンプル切替・pinch縮小／pan・戻る・タブ・大画像を確認。GitHub保存、C案、他機能は追加指示待ちで停止。
+
+- ChatGPT連携照合：PhotoViewerImplementation-20261110。既存sync.zsh終了0／更新2件。両クラウド本文に実装識別子・最終UI14・Reader49・Debug／Release・C案未実装が反映済み。CloudVerified-PhotoViewer-20261110。
+
+
+## 2026-11-10：共通写真拡大の実機確認・GitHub保存準備（PhotoViewerGitHubSave-20261110）
+
+- Phase：完成実装の確定保存のみ。新機能・C案フォームの実装・製品コード修正なし。
+- 確認日：2026年11月10日。端末：iPhone 17e。確認者：ユーザー本人。結果：実機10/10正常。不具合報告なし。これはユーザー申告による実機確認であり、Codexが実機を操作した結果ではない。
+
+実機確認項目（全て正常）：
+
+1. デザイン一覧の写真拡大とカード本体遷移。
+2. アイテム一覧の写真拡大とお気に入り操作。
+3. 商品写真・サンプル写真の左右切り替え。
+4. 商品写真がない場合のサンプル写真表示。
+5. ピンチ拡大・縮小、ドラッグ、リセット。
+6. デザイン追加・編集での未保存写真拡大と入力保持。
+7. アイテム追加・編集での2枚の写真選択・拡大・保存。
+8. 削除・複数選択・お気に入りへの影響なし。
+9. 拡大画面を閉じた後の画面遷移・タブ操作。
+10. 高解像度写真での異常終了・極端な遅延なし。
+
+- 自動検証再利用：PhotoViewerImplementation-20261110のReader49、保存539／30条件、削除1379／72条件、最終UI14実行（異なるメソッド13、Root再確認含む）が成功。Debugは2026-11-10 11:31:17 JST、署名なしReleaseは11:32:13 JSTの成功ログ。基準HEAD a2ecbad81bd5c4b9c3cd0e1ab71de3dd702413f7上の未コミット製品ソースを検証したもので、現在の41ファイルhashがFinalSourceHashes.jsonと一致。今回は新規実行の結果として報告しない。
+- 作業前Git：main、HEAD／fetch後origin/main／GitHub refs/heads/mainはa2ecbad81bd5c4b9c3cd0e1ab71de3dd702413f7で一致、先行／遅延0。既存差分は製品7Swift・連携2文書・project.pbxprojの計10ファイル、stage／未追跡なし。既存SSHを利用し、pull／merge／rebaseを行わない。
+- 保存対象9ファイル：NailNote/Core/ProductPhotoStore.swift、NailNote/Core/EntryPhotoStore.swift、NailNote/Features/Entries/AddEntryView.swift、NailNote/Features/Entries/EditEntryView.swift、NailNote/Features/Entries/EntryListView.swift、NailNote/Features/Products/AddOrEditProductView.swift、NailNote/Features/Products/ProductListView.swift、PROJECT_STATUS.md、docs/CHATGPT_HANDOFF.md。
+- 保存予定メッセージ：Add shared photo viewer and verify on device。指定9ファイルを明示stageし、ステージ差分と対象を確認後にcommit・origin mainへ通常pushする。
+- 対象外：既存project.pbxproj IDE設定差分、画像、ログ、Simulatorアプリ、SQLite、比較資料、ビルド生成物、秘密情報。保存／削除ロジック・CoreDataモデル・Plate1〜8・Root／タブバー・AI休止・C案は変更しない。
+- 次工程はC案フォームの正式実装。今回C案は未実装のまま保持し、次のユーザー指示待ちで停止する。
