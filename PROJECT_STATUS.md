@@ -3,12 +3,16 @@
 <!-- latest-status:start -->
 ## 最新状況サマリー
 
-- 最終更新：2026-11-10。`PhotoViewerGitHubSave-20261110`。共通写真拡大はユーザー本人のiPhone 17e実機テスト10/10正常、不具合報告なし。Codexによる実機操作ではない。
-- 保存準備：main HEAD／fetch後origin/main／GitHub main=a2ecbad81bd5c4b9c3cd0e1ab71de3dd702413f7。指定製品7Swift＋連携2文書の9ファイルだけをcommit・通常pushする。既存project.pbxproj IDE差分は対象外。
-- 検証整合：PhotoViewerImplementation-20261110最終hashと製品・モデル・IDEの41ファイルが一致。2026-11-10のReader49、保存539／30条件、削除1379／72条件、最終UI14実行成功、Debug Simulator／署名なしRelease成功を再利用。今回は新規ビルド・UIテスト再実行なし。diff --check成功。
-- 保護：保存・削除安全性、CoreData、Plate renderer1〜8、Root・タブバー・AI休止、IDE差分は維持。C案フォームは未実装。
-- 次工程：C案フォームの正式実装。ただし次のユーザー指示を待ち、今回着手しない。
-- ChatGPT連携：実機10項目と保存予定を両文書へ追記。commit SHA・push結果・残存差分・Google Driveのクラウド確認結果は保存後に追記する。完了記録は追加commitしない。
+- 更新：2026-11-12。`GitHubSave-20261112`、ユーザーが検証済み8ファイルのGitHub保存を承認。全体回帰完了、保存前確認済み、commit／pushはこれから実行。製品追加修正なし。
+- ユーザー本人のiPhone 17e確認：写真拡大10項目、星グラデーションOK、ドラッグ配置5項目、C案フォーム6項目すべてOK。不具合報告なし。Codexによる実機操作ではない。
+- 今回実行：Design/Item安全性37条件220チェック＋追加10条件46チェック、Plate20条件360チェック、DTO1352ケース、旧JSON288ケースが成功。独立SQLiteのDesign34・Item31レコードも値照合一致。
+- 今回UIは最終15項目成功・失敗0・skip0（Plate10＋Root5）。実ドラッグ・保存再起動・C案・実ソフトウェアキーボード入力/スクロール/破棄・Item追加編集・検索フィルター・お気に入り・写真ピンチ/ページ切替・4タブを確認。途中のテスト識別子等の失敗試行は別記・ログ保持。過去成功を合算していない。
+- 描画288画像は287画素完全一致、renderer5 Sweet・1件の(59,110)で赤220↔219だけ差。同型・同入力の連続描画10回でも再現し描画丸め揺らぎが示唆されるが内部原因未確定。全画像完全一致とは扱わない。renderer8は36/36一致。
+- Debug Simulator／署名なしRelease iOSの増分ビルド成功。今回両ログは製品Swift警告0・AppIntents通知0（過去の抽出省略通知とは区別）。diff --check成功。製品・リソース・IDE98ファイルの開始hash全件一致、モデル/schema1/renderer1〜8/AI休止/既存差分を保持。
+- 未実施：OS PhotosPickerの一連UI、スワイプ/一括削除UI、VoiceOver、AXドラッグ、メモ末尾キャレットの厳密測定、長時間メモリ負荷等。保存・削除ロジックは分離データで実行済み。実ユーザーDB・写真は非使用。
+- Git：main HEAD／origin/main／GitHub main=`7daeb2663f1204619f65113e451433011e62f2a9`。dirty9、stage／untrackedなし、Git書込なし。保存候補はSwift6＋連携2文書の8件、既存pbxproj IDE差分は除外。保存承認済み。指定8件だけを保存し、他機能へ進まない。
+- 容量：同じdfで312.9344→312.1152 GB、0.8192 GB減。今回資料約0.438 GB、既存固定キャッシュ約0.701 GB・前回資料約0.591 GBを保持、削除なし。詳細：`/private/tmp/NailNoteValidation/FullRegression-20261112/Report.md`。
+- ChatGPT連携：2026-11-12T16:20:34.585476+09:00、既存sync.zsh終了0・更新2件。ローカルコピー一致、両クラウド本文の今回実機確認・UI15項目・微小画像差を照合済み。この完了追記も再同期する。FullRegressionCloudVerified-20261112。保存作業中（commit／push未実行）。
 <!-- latest-status:end -->
 
 
@@ -4167,3 +4171,579 @@ Git：main HEAD/origin/main=89c696920a447fb718eb373daceb4f3c657fde75。既存IDE
 - 保存予定メッセージ：Add shared photo viewer and verify on device。指定9ファイルを明示stageし、ステージ差分と対象を確認後にcommit・origin mainへ通常pushする。
 - 対象外：既存project.pbxproj IDE設定差分、画像、ログ、Simulatorアプリ、SQLite、比較資料、ビルド生成物、秘密情報。保存／削除ロジック・CoreDataモデル・Plate1〜8・Root／タブバー・AI休止・C案は変更しない。
 - 次工程はC案フォームの正式実装。今回C案は未実装のまま保持し、次のユーザー指示待ちで停止する。
+
+
+### 2026-11-10 14:13:53 JST：GitHub保存完了（PhotoViewerGitHubSave-20261110）
+
+- commit成功：`7daeb2663f1204619f65113e451433011e62f2a9`、日時2026-11-10 14:12:36 JST、メッセージ`Add shared photo viewer and verify on device`。
+- push成功：既存SSHのoriginへ`git push origin main`を通常実行。GitHub mainはa2ecbad→7daeb26のfast-forward。push前fetchでリモートが旧HEADと一致することを再確認し、競合・想定外更新なし。force／reset／clean／pull／merge／rebaseなし。
+- 3者一致：ローカルHEAD／ローカルorigin/main／GitHub refs/heads/main=`7daeb2663f1204619f65113e451433011e62f2a9`。GitHub側はSSH ls-remoteの実応答で照合。
+- コミット対象は承認9ファイルだけ：NailNote/Core/EntryPhotoStore.swift, NailNote/Core/ProductPhotoStore.swift, NailNote/Features/Entries/AddEntryView.swift, NailNote/Features/Entries/EditEntryView.swift, NailNote/Features/Entries/EntryListView.swift, NailNote/Features/Products/AddOrEditProductView.swift, NailNote/Features/Products/ProductListView.swift, PROJECT_STATUS.md, docs/CHATGPT_HANDOFF.md。画像・ログ・SQLite・検証アプリ・ビルド成果物・秘密情報・IDE設定は含めていない。
+- push直後の未コミット差分は既存project.pbxprojだけ。開始時のhashと差分本文が完全一致し、保護済み。製品7Swiftは検証済みhashと一致し、残存差分なし。stage／未追跡なし。
+- この完了記録の追記後は、project.pbxproj＋PROJECT_STATUS.md＋docs/CHATGPT_HANDOFF.mdの3ファイル差分が残る。ユーザー許可どおり、結果追記を追加commitしない。
+- 実機確認：2026-11-10、ユーザー本人のiPhone 17e、上記10項目すべて正常、不具合報告なし。Codexによる実機操作ではない。自動検証・ビルドは同日実施済み結果と現在ソースhashの一致を確認し再利用。今回は新規検証として報告しない。
+- 保存・削除安全性、CoreDataモデル、Plate renderer1〜8、Root／タブバー、AI休止、既存IDE差分を維持。C案フォーム未実装。次工程はC案フォームの正式実装、次のユーザー指示待ち。今回は着手しない。
+- 容量：df -k /System/Volumes/Data、開始2026-11-10T14:10:52.404541+09:00→2026-11-10 14:13:53 JST、298800000→299200000KiB＝305.9712→306.3808GB（10進、+0.4096GB）。削除操作なし、OS側の変動を含み本作業による回収量とは扱わない。新規ビルドなし。今回保存確認資料は/private/tmp/NailNoteValidation/PhotoViewerGitHubSave-20261110（測定時12KiB）、既存実装検証500324KiB＋固定Debug658108KiB／Release237908KiB、約1.43GBを証跡・再利用用に保持。
+
+- Google Drive同期確認：PhotoViewerGitHubSave-20261110。既存sync.zsh終了0／更新2件。両クラウド本文の実機10/10正常・GitHub保存完了・7daeb2663f1204619f65113e451433011e62f2a9・C案未実装・次工程C案正式実装を照合済み。CloudVerified-PhotoViewerGitHubSave-20261110。追加commitなし。
+
+
+## DesignAddCImplementation-20261110：C案正式実装・実機確認待ち
+
+
+## 最終検証結果（2026-11-10）
+
+- 製品変更：AddEntryView.swiftのみ。他の40ファイル（共通部品／PhotoStore／CoreData／Plate／Root／IDE設定を含む）は開始時hash一致。Protection.jsonの保存関数・DTO生成・必須判定・editFields・写真読み込み・関連操作・共有Feedbackは本文一致。
+- Debug Simulator：Debug-keyboard.logでBUILD SUCCEEDED。署名なしRelease iOS：Release-final.logでBUILD SUCCEEDED。固定DerivedData再利用、cleanなし。git diff --check成功。
+- 分離UI対象13ケースの最終結果を複数実行から集計：11成功・2スキップ。単一の13件連続実行の成功とは扱わない。FinalResults.jsonにケースと採用ログを記録。
+- C案4成功：空欄／破棄確認、写真変更・解除・ポップオーバー取消・拡大後の入力保持、タイトルの実キーボード表示中保存／戻る／継続／入力完了、必須判定・写真・3.5評価・長文メモ・アイテム選択／解除／順序・保存とSQLite内容一致。
+- 写真・一覧回帰7成功：デザイン写真と本体の別遷移、アイテム拡大／ピンチ／ドラッグ／2ページ／リセット／お気に入り、商品なし／写真なし／破損、アイテム編集写真閲覧だけでdirtyにならない、削除選択中の拡大抑止、スワイプ削除取消、4タブの実タップと下端・編集終了状態。
+- 49ローダーチェック、写真保存539チェック／30条件、削除1379チェック／72条件を今回再実行。今回UI専用変更後も関連コアのhash一致。実ユーザーデータなし。
+
+### キーボードの確認済み事項と未検証
+
+390pt通常／320pt制約＋Accessibility 3でタイトルの実ソフトウェアキーボードをXCUIScreen・キー領域・caretで確認。タイトルからメモへスクロールして長文入力できる。通常サイズのメモcaretは可視領域内。タイトル入力中の保存と戻る／継続、入力完了後の上部余白復元は成功。
+
+ただしメモ入力後はこのSimulatorでキー本体が画面外になり、ツールバーだけになるため、メモ実キーボード項目2ケースはXCTSkipにした。タイトルの成功で代替しない。320pt＋Accessibility 3の長文末尾caretは計測がクリップ外を示し、末尾の可視性を確定できていない。実機ではメモ・大きな文字・カーソル・内部スクロールを重点確認する。VoiceOverの実読み上げ、iCloud写真、多数の実アイテム、メモキーボード中の写真／アイテム遷移は未検証。
+
+### 検証中の不成功と対応
+
+- Formからの移行時に写真選択onChangeが外れていたことをUIテストで検出し、元と同じハンドラを復旧して保存まで再検証した。
+- 日本語キーボードのAXキー領域と候補欄を含む領域の差によりドラッグ開始位置がキーボード上だった。検証専用テストの座標を修正。Memoの画面外キーボードは残るため成功扱いしていない。
+- Rootを分離アプリのmodal内でホストした際、見えている写真のisHittableがfalseになった。座標タップと拡大画面の実表示・タブ選択値で確認し直し、Root製品コードは変更しない。
+- iOS 27のconfirmationDialogは写真削除でポップオーバー表示となり、キャンセルボタンがない。外側タップによる取消と状態維持を実際に確認。最初のテストの取消位置はポップオーバー内だったため修正した。
+- UI-finalは旧検証メニューを前提とする調査テストを含めて起動してしまったため、C案6件の完了後に停止。旧test.menuや起動時viewer前提の調査テストを除外し、現行ハーネスで関連7件を選択して実行した。中断／失敗ログは保持。UI-regression-finalは旧取消テストの1失敗を含み、回帰7件は成功。取消ケースはUI-photo-finalで再実行しTEST EXECUTE SUCCEEDED。各結果を混同しない。
+
+### 未変更領域の回帰保証の範囲
+
+Plate renderer1〜8は製品hashを保持したことを確認。今回プレート全画像・全書体・書き出しの再実行は行っていない。CoreDataモデル、保存／削除関数、PhotoStore、AI休止、Root、編集／一覧／アイテム／設定画面は製品変更なし。前回ユーザー実機写真拡大10/10合格は過去の確定履歴として維持し、C案の実機確認とは区別する。
+
+## 容量・Git・終了状態
+
+- 開始2026-11-10 15:54:03 JST：df -k /System/Volumes/Data、空き299200000KiB＝306.3808GB。
+- 終了2026-11-10T16:49:54.491883+09:00：同じdf、空き296800000KiB＝303.9232GB。2.4576GB減。OS・Simulator側の変動も含み、全量をこの作業へ帰属させない。
+- 今回資料フォルダ1981620KiB＝2.0292GB。複数の失敗調査xcresult（動画・添付画像を含む）が主な占有。比較PNG、検証コード、SQLite、ログとともに追跡・承認判断用に保持。製品へ登録なし。
+- 以前から再利用する固定キャッシュ：Debug664552KiB＝0.6805GB、Release240124KiB＝0.2459GB、計0.9264GB。現在の占有量であり今回の増加分ではない。今回資料と合計約2.956GB。削除操作なし。APFSで削除による回復量は断定しない。
+- main HEAD／origin/mainは7daeb2663f1204619f65113e451433011e62f2a9のまま。残存は既存IDE差分＋AddEntryView＋連携2文書の4ファイル。stage／未追跡なし。commit／push／reset／cleanなし。
+- C案のiPhone 17e実機確認待ちで停止。他画面へ展開せず、次工程へ進まない。
+
+### 次回の再開地点
+
+ユーザーがiPhone 17eでC案を確認。写真90pt・明暗テーマ、タイトル／長文メモの実キーボード、特に大きな文字のカーソルとスクロール、写真選択／外す／拡大の入力保持、評価・12カテゴリ・選択順、保存・戻る・未保存確認・一覧反映を確認する。Codexの実機操作なし。GitHub保存、他画面へのC案展開は別途指示を待つ。
+
+従来のPlatePhotoNameAlignment等の履歴とAI休止方針を保持。今回他TODOへ着手しない。詳細資料・コードは上記専用フォルダ。/private/tmpの永続性は保証されない。
+
+### ChatGPT連携完了（C案）
+
+既存sync.zsh終了0・更新2件。Drive上の両本文でDesignAddCImplementation-20261110、11成功／2スキップ、メモのキーボード未検証、303.9232GB、iPhone 17e実機確認待ちを確認。完了記録も2文書だけ再同期し、製品コード追加変更・commit／pushなしで停止する。
+
+同期完了識別子：CFormImplementationCloudVerified-20261110
+
+
+## RatingPlateSelection-20261110：自己評価・掲載順・カテゴリ選択UI
+
+# 自己評価の星・プレートアイテム選択UI改善
+
+## 結果
+
+製品変更はEntryListView.swiftのprivate EntryCardRatingViewと、PlateHomeView.swiftのPlateProductSelectionViewのみ。C案AddEntryView、IDE設定、保存・削除・写真ストア、PlateEditorView／Repository、CoreDataモデル、Root／4タブ／AI休止は開始時hash一致。保存やrendererを変更していない。実機未操作、commit／pushなし。
+
+## 星の配色
+
+調査時の一覧は評価別カラーではなく、背景とのコントラストから選ぶ単色ゴールドだった。編集画面のStarRatingViewは星の位置1〜5でピンク→ゴールド→アンバーのグラデーションを使っている。今回、編集画面は変更せず、その5つの配色を一覧の評価5→1へ逆順に対応させた。評価5は編集の1側（ピンク）、評価1は編集の5側（アンバー）、評価3は中央の配色。整数間はグラデーションの両端色を補間。0〜1は低評価の端色とする。
+
+既存の一覧に評価別配色があったという前提ではない。現在の編集配色を参照した明示的な逆順マッピングとして実装した。明暗背景の3サーフェスに対してグラデーション両端が3:1以上となるよう、同じ色相を基本に黒／白との混色で明度を調整する。9カードプリセット・0〜5の0.5刻みと基準色の201チェックが成功。文字のコントラスト保証と混同しない。
+
+星の13pt ScaledMetric・medium weight、間隔3、星5個、全塗り／半塗り／未塗り、評価数値、横幅に応じた既存の並び、VoiceOverラベルは維持。ratingの書き込み・変更や編集画面の星の変更はない。
+
+## プレート選択画面
+
+実際の定義箇所はPlateEditorView.swiftではなく、PlateHomeView.swift内のPlateProductSelectionView。
+
+順序：
+1. 登録済みのアイテムから選択（12カテゴリの横スクロールタブ＋当該カテゴリの登録済み一覧）
+2. 選択済みアイテムの確認（件数・保持方針・横スクロールの名前カード・必要時の表示超過案内）
+3. 掲載順（既存の写真・保存時名称・上下／解除ボタン）
+
+掲載順の件数が増えても登録済み選択領域の前に行を追加しない。選択済みの名前カードは補助確認表示であり、保存順序の変更やアイテムの複製はしない。上限超過説明はrenderer8で全作品先頭6件、旧版では既存Recipeの案内を維持する。
+
+カテゴリはNailProductCategory.allCasesの既存12定義。UIだけのselectedCategoryをcolorで開始し、カテゴリ変更はDraftを書き換えない。検索は当該カテゴリ内で名称検索。カテゴリ未設定／未知値はother。空の場合は「このカテゴリに該当するアイテムがありません」。タブは44pt以上、背景・枠・ウェイトとアクセシビリティ選択値／traitで選択中を示す。
+
+選択／解除と上下移動は従来のdraft.toggleProduct／moveProductをそのまま使用。保存時のアイテム名・カテゴリはDraft優先、登録元が変更／削除されても選択済み表示と掲載順に保持する。カテゴリ分類は現在の登録候補の分類に従い、保存済みスナップショットへ書き戻さない。商品写真→サンプル→カテゴリの既存サムネイル処理は変更なし。選択数を6件へ制限せず、7件以上の元データと順序を保持する。
+
+## 検証
+
+- Debug Simulator（Debug-final.log）：BUILD SUCCEEDED。
+- 署名なしRelease iOS（Release-final.log）：BUILD SUCCEEDED。
+- git diff --check：成功。
+- 星：201チェック成功。9カードプリセット、0／0.5／1〜5の0.5刻み、両端色のコントラスト、逆順の基準色を確認。Stars-*.pngは現行ソースから抽出した同じViewのSwiftUI実描画。Rating-List*.pngは実製品EntryListViewを分離環境で撮影。
+- Plate：20,296チェック成功。renderer1〜8の96画像（4テンプレート×3画像形状×8版）が開始時のCanvasコピーとpixel一致。うち旧1〜7は84画像、8は12画像。257回描画、名前の計測5,016条件を含む。
+- renderer8：全テンプレートで0／1／2／3／4／5／6／7／9件、長い名前・カテゴリラベル・コメント・日付、最大6件表示と残数を確認。写真6件・UUID対応・再保存・再起動相当・複製、更新取消／beforeHead失敗時の旧版／Draft保護、サムネイルとCanvas一致、JPEG／PNGの標準／高解像度・書き出し前後の保存ファイル不変を確認。12書体と実在ウェイト、Recipe2行・下限サイズ・省略の既存検証を再利用して今回再実行。
+- Simulator UI：最終UI-final.xcresult／ui-final.logで4/4成功、TEST EXECUTE SUCCEEDED。実製品View＋独立NSInMemoryStore／専用PlateRepository、架空アイテム・パターン画像だけを使用。
+  - 自己評価一覧の実表示
+  - 12カテゴリ全タブ、暗色、検索0件表示
+  - 異カテゴリから1／3／6／7件、解除、掲載順変更、7件保存・復元、6件へ解除後に複製、UUID順序保持
+  - Accessibility 2・長名、保存時の名称、元Itemが存在しない保存済みアイテムを含む8件の保持・保存
+
+## 検証中の不成功と修正
+
+初回の過去工程BeforeCanvas基準は現在の開始ソースとは異なり、旧renderer1のRecipeで比較失敗（9チェック時点）。過去工程のコードを保持したまま、開始hashと一致する現行Canvasから基準コピーを作り直し、今回前後の1〜8全96画像一致を確認した。製品rendererを変更して辻褄を合わせていない。
+
+最初のUIテストは横ScrollViewの内容幅を使うswipeにより画面外から操作してシールへ到達できなかった。テストを画面内座標へ変更。次に検証専用親画面がnested Sessionの変更を監視しておらず、移動結果ラベルが更新されなかった。検証親のObservedObjectを修正。いずれも製品へ追加変更せず、4件を最終実行して成功。初期ログ・古い基準コードは保持し、初回失敗を成功結果として扱わない。
+
+## 保護と未検証
+
+Protection.jsonで一覧の星View以外、PlateHomeの選択View以外が本文一致。他38製品／モデル／IDEファイルは開始hash一致。C案とproject.pbxproj既存差分も保持。新規CoreDataモデル・schema・rendererVersion変更なし。JSON・atomic保存・画像参照・JPEG/PNG経路は製品変更なし。
+
+実機の色味・タップ感・スクロール、大量の既存アイテムでの性能、VoiceOver実読み上げ、ユーザー個別カスタマイズの全組合せは未検証。通常／暗色とAccessibility 2をSimulatorで確認したが、iPhone 17e成功とは扱わない。C案の前回メモ実キーボード制約は未解決・今回対象外として保持する。
+
+## Git・容量
+
+main HEAD／origin/main：7daeb2663f1204619f65113e451433011e62f2a9のまま。既存4差分へ今回2Swiftを追加した計6差分。stage・未追跡なし。commit／push／reset／cleanなし、実ユーザーデータ・実機操作なし。
+
+開始2026-11-10T18:08:59.472348+09:00、終了2026-11-10T18:23:02.339578+09:00、同じdf -k /System/Volumes/Data（/dev/disk3s5、KiB）で空き303.9232→303.1040GB、0.8192GB減（OS・Simulator変動を含む）。今回検証フォルダ574928KiB＝約0.589GB、既存固定キャッシュDebug666156KiB＋Release241512KiB＝約0.929GB、計約1.518GBを保持。キャッシュ値は現在の割当量であり今回の増加量ではない。比較画像・ログ・独立Fixture・xcresultは検証証拠と承認確認用、キャッシュは再利用用。既存C案資料も含め削除なし。APFSの回収可能量とは扱わない。tmpの永続性は保証されない。
+
+## iPhone 17eでの確認
+
+1. 一覧で評価1・3・5と半星の色、明暗テーマ、星の塗り・数値を確認。
+2. プレートの＋から選択画面を開き、カテゴリタブを左右へ動かして複数選択。件数が増えても追加入口が上部にあることを確認。
+3. 下部の掲載順で上下移動・解除し、選択済み表示との一致を確認。
+4. 7件以上を選んでも保存データは全件保持され、作品は先頭6件＋残数となることを確認。
+5. 保存→再編集→複製、旧作品の名称／カテゴリ／順序・見た目・画像出力の維持を確認。
+6. 長い名前、文字拡大、選択中カテゴリの視認性・VoiceOverを確認。
+
+実装・検証・文書同期で停止。Git保存や他機能への着手は行わない。
+
+### ChatGPT連携完了：RatingPlateSelection-20261110
+
+既存sync.zshで2文書だけ同期し、Google Driveコネクタで最新サマリー本文を照合。完了記録も再同期して確認する。製品コード追加変更・Git commit／pushなし。ユーザーのiPhone 17e確認待ちで停止。
+
+同期完了識別子：RatingPlateSelectionCloudVerified-20261110
+
+
+## PositionStarGradient-20261110：星の位置別配色・確定仕様
+
+# デザイン一覧・星の位置別グラデーション確定仕様
+
+## 実装
+
+前回の「評価値ごとの逆順配色」はユーザーの確定指示により取消。EntryListView.swiftのprivate EntryCardRatingViewだけを変更。各星の位置に薄い黄色／ゴールド／中間ローズ／ピンク／濃いピンクを固定し、評価値による配色の変化・逆順補間は撤去した。
+
+元色は概ね #FAE080／#E8AD3B／#EBA399／#F06EA6／#BF3378。各星の左上を白との28%混色、右下を黒との6%混色にするLinearGradientで、編集画面のStarRatingViewに近い質感を持たせる。編集画面自体は変更しない。薄い黄色をコントラストのため暗色へ差し替える方式は使用せず、背景に応じた黒／白の0.35pt・55%の微細な陰影で輪郭を補う。図形のフレーム・フォント寸法は変更しない。
+
+評価値を使う箇所は従来と同じ塗り状態判定と数値・アクセシビリティ表示。評価1は星1、評価3は星1〜3、評価3.5は星4の左半分、評価5は星1〜5を塗る。未塗りは従来のstar輪郭、半星はstar.leadinghalf.filled、全塗りはstar.fillを維持する。星の13pt ScaledMetric、medium weight、間隔3、星5個、既存数値・横幅対応・VoiceOver文言は維持。
+
+## 検証結果
+
+- Debug Simulator、署名なしRelease iOS：BUILD SUCCEEDED。既存の固定DerivedDataを再利用、cleanなし。
+- git diff --check：成功。
+- 実描画・データ不変チェック676件成功。全9カードテーマ、評価0〜5の0.5刻みで同位置の色が不変。評価1／2／3／3.5／4／5の比較を生成。同じ位置で塗られた星は評価をまたいで切出しpixel一致。塗り／半塗りで全体寸法が一定。3.5の星4は未塗りより大きく全塗りより小さい描画面積。独立CoreDataの評価値・ID・未保存状態が描画前後で不変。
+- Simulator UI2/2成功、TEST EXECUTE SUCCEEDED。実製品EntryListViewの明暗テーマで上部・下部を撮影、評価5までスクロール。カード本体→既存編集画面→変更なしで戻る経路で、意図しない未保存確認なし。
+- 676件と2件は今回新規実行。前回の逆順配色201チェックは履歴であり、確定仕様の検証結果として再利用しない。
+- 前回のPlate20,296チェック・UI4件は前回結果。今回は再実行せず、関連コードhash一致で保護したことを確認。今回の成功数へ合算しない。
+
+## 保護範囲
+
+製品変更はEntryListView.swiftの星View内のみ。星Viewを除いたファイル本文は開始時と一致。他39ファイル（C案AddEntryView、プレート選択UI、PlateEditorView／Repository、StarRatingView、CoreDataモデル、PhotoStore、Root、IDE設定など）は開始hash一致。保存・編集・削除・renderer1〜8・JPEG/PNG・AI休止は変更なし。既存の未コミット差分を保持し、stage／commit／push／reset／cleanなし。
+
+main HEAD／origin/mainは7daeb2663f1204619f65113e451433011e62f2a9のまま。dirtyは既存と同じ6ファイル（IDE、C案、今回の星、前回プレートUI、連携2文書）。未追跡／stageなし。
+
+## 比較資料
+
+保存先：/private/tmp/NailNoteValidation/PositionStarGradient-20261110/
+
+- Comparison.png：指定6評価の明暗比較
+- Comparison-*.png：全9カードテーマ
+- ActualList.png：実製品一覧の明暗・上部／下部
+- List-Light／Dark-Top／Bottom.png：個別スクリーンショット
+- results.json／Protection.json：チェック結果と差分保護
+- Debug.log／Release.log／ui.log／UI.xcresult：ビルド・UI結果
+- RatingView.swift：現行の星Viewを名前・アクセス修飾だけ変えた検証用コピー
+- Validation.swift／UITests.swift：製品外の検証コード
+
+画像は分離Simulatorまたは製品の星ViewのSwiftUI実描画。仮の比較画像を実機確認済みとして扱わない。比較ラベルは星の外側へ表示。製品アセットへ追加していない。
+
+## 実機確認・残る制約
+
+ユーザーのiPhone 17eで未確認。薄い黄色の見やすさ、5個目の濃いピンク、明暗・カスタム外観、半星の見え方、文字拡大・VoiceOver実読み上げを確認する。色の見え方にはディスプレイ差がある。固定位置色は評価変更に依存しない。前回C案のメモ実キーボード制約は未解決・今回対象外として保持。C案／プレート選択UIの別実機確認も引き続き待つ。
+
+## 容量管理
+
+開始2026-11-10T18:40:36.417145+09:00→終了2026-11-10T18:46:20.418912+09:00。df -k /System/Volumes/Data（/dev/disk3s5、KiB）で、空き303.1040→303.1040GB。簡易df上の差0.0000GB。OSやAPFSの変動を含み、生成量や回収可能量と同一視しない。今回資料は約0.156 GB、既存固定Debug／Releaseキャッシュは約0.930 GB、合計約1.085 GBを保持。資料は比較・検証履歴用、キャッシュは再利用用。以前の比較資料・キャッシュを含め削除操作なし。tmpの永続性は保証されない。
+
+2文書へ記録・既存sync.zshで同期し、クラウド本文を照合する。GitHub保存や他機能へ進まず、実機確認待ちで停止する。
+
+### ChatGPT連携完了：PositionStarGradient-20261110
+
+既存sync.zshで2文書のみ同期し、Google Drive両本文の今回確定仕様・676チェック・UI2/2・既存差分保護・実機待ちを確認。完了記録を再同期して停止する。commit／pushなし。
+
+同期完了識別子：PositionStarCloudVerified-20261110
+
+
+## SharedStarStyle-20261110：追加・編集の自己評価を一覧へ統一
+
+# 一覧・追加・編集の自己評価スタイル統一
+
+## 実装結果
+
+製品変更は次の2ファイルのみ。
+
+- NailNote/Design/StarRatingView.swift：一覧の完成済み配色・グラデーション・輪郭陰影をNailRatingStarStyleへ移設し、共通StarRatingViewへ適用。既存ファイル内の小さな定義であり、新規ファイル登録やプロジェクト編集は不要。
+- NailNote/Features/Entries/EntryListView.swift：private EntryCardRatingViewの配色・陰影を上記定義への参照へ変更。見た目は移動前と完全一致を確認。
+
+既存利用箇所を検索し、StarRatingInputViewはデザイン追加AddEntryViewと編集EditEntryViewの2画面だけから使われていることを確認。両画面のSwiftファイルは変更していない。C案レイアウト、自己評価スライダー、0〜5・0.5刻み、保存DTO、必須判定・未保存確認・保存処理も変更なし。現行の星は表示用で、既存スライダーの操作を維持し、新しい星タップ操作は追加しない。
+
+## 共通の表面表現
+
+一覧を正として、既存RGBをそのまま移動。星1〜5は指定Hex相当の薄い黄色 #FAE080／ゴールド #E8AD3B／ローズ #EBA399／ピンク #F06EA6／濃いピンク #BF3378。位置だけで色を決定し、評価値は色計算へ渡さない。左上は白28%混色、右下は黒6%混色、輪郭の陰影は不透明度0.55・半径0.35pt・offset0。明暗の輪郭色は既存一覧と同じ背景3色のコントラスト判定を使用する。
+
+入力側は既存design領域の外観設定を読み、一覧と同じパレット解決を使う。設定値を書き換えない。一覧は13pt ScaledMetric・medium・間隔3pt、入力は従来の18pt・通常ウェイト・間隔4ptを維持。色・光沢・陰影の定義は共通だが、既存のサイズ・字形の太さ・間隔を同じ数値へ強制しない。入力側のウェイトを揃えた試行で外形高さの変化を検出したため、その変更は戻してC案の寸法を保護した。
+
+## 検証結果
+
+最終製品ソースでDebug Simulator／署名なしRelease iOSともBUILD SUCCEEDED、git diff --check成功。
+
+全9カードテーマ・0〜5の0.5刻み、297チェック成功：
+
+1. 一覧の完成済み全体画像99枚が開始時とpixel完全一致。
+2. 比較用コピーだけサイズ・太さ・間隔を入力側に揃えた99枚で、一覧由来の色・光沢・陰影と共通StarRatingViewがpixel一致。本番の寸法・太さ・間隔は変更していない。異なる既存の字形寸法のまま切り出したpixel比較とは区別する。
+3. StarRatingInputViewの外形寸法99条件が変更前と一致。SliderはImageRendererの描画非対応なので、その実表示・操作は下記UIで確認し、比較画像には星と数値行だけを使用する。
+
+最終Simulator UI3/3成功（ui-drag-final.log／UI-drag-final.xcresult、TEST EXECUTE SUCCEEDED）：
+
+- 追加：評価1・2・3・3.5・4・5を実ドラッグで選択。3.5で保存し、独立SQLiteの専用contextから読込、一覧反映を確認。
+- 編集：同じ6評価を実ドラッグで選択。3.5で保存し、SQLite上の元レコードIDと値、編集画面の再表示、変更なしで戻る際に破棄確認が出ないこと、一覧反映を確認。
+- 暗色：追加・編集の3.5と半星表示、追加の未保存破棄、編集を閉じる操作、暗色一覧の表示を確認。
+
+UIRecords.jsonでは元レコードID10000000-0000-4000-8000-000000000001のrating=3.5、今回追加のレコードも3.5。検証用データは独立Bundle ID dev.nailnote.sharedstars・専用SQLite・架空レコードだけを使用し、ユーザー実データ・実機は未操作。
+
+## 検証時の不成功・限界
+
+初回は既存の一覧3pt／入力4pt・medium／通常ウェイトを考慮しない切出し比較で失敗。比較専用コピーでその条件を揃えて表面表現を比較した。入力のウェイトをmediumにする試行では高さが変わったため、元の通常ウェイトへ戻し、最終297チェックで寸法維持を確認。
+
+最初のUIテストはXCTestの正規化位置指定が表示値とずれ、1を指定して0.5／1.5になる等の失敗があった。高速ドラッグにもずれがあり、最終テストを低速・保持付きの実つまみドラッグへ変更したところ、両画面の6評価すべて成功。製品スライダーへ補正・代入・テスト用分岐は追加していない。初期ログ・失敗xcresult・Slider-Traceを保持し、最終成功と区別する。
+
+比較用ImageRendererでネイティブSliderが非対応表示になった初期画像は残し、ユーザー確認用はComparison-Final-*.pngに星行だけを描画。実際のスライダーはActualScreens.pngのSimulator撮影とUI操作結果を正とする。静止画像だけで操作成功を判断していない。
+
+## 既存実装の保護
+
+Protection.jsonで、一覧の星View以外の本文、StarRatingInputView全体、半星判定imageNameの本文が開始時と一致。他38製品／モデル／IDEファイルのhash一致。C案AddEntryView、EditEntryView、プレートのカテゴリ選択・掲載順、PhotoStore、保存・削除安全性、renderer1〜8、CoreDataモデル、Root／タブ、AI休止を保持。project.pbxproj未編集。
+
+前回のPlate20,296／写真保存539／削除1379チェック等は今回再実行しておらず、過去結果として保持。今回の297チェック・UI3件・Debug／Releaseと混同しない。今回製品コードに保存・削除処理の変更なし。
+
+## 成果物
+
+/private/tmp/NailNoteValidation/SharedStarStyle-20261110/
+
+- Comparison.png：明暗2テーマの一覧／追加／編集・評価1／2／3／3.5／4／5比較
+- Comparison-Final-ivoryGold.png／Comparison-Final-noirGold.png：星と数値行だけの比較
+- ActualScreens.png：実製品追加／編集の明暗・3.5
+- List-Saved-35.png／List-Edited-35.png／List-Dark.png：保存後の一覧
+- results.json：297チェック、一覧99一致／共通99一致／入力外形99一致
+- Protection.json、UIRecords.json、各ビルド／UIログ、検証コード、専用SQLite、初期の不成功ログ
+
+比較ラベルは画面外の資料に表示。製品アセットへ追加していない。tmpの永続性は保証されない。
+
+## 未検証・実機確認
+
+ユーザーのiPhone 17eで未確認。追加・編集・一覧で黄色〜濃いピンクの配色・光沢・半星を確認し、スライダー操作→保存→再編集→一覧の値・戻る操作を確認する。個別外観設定の全組合せ・Dynamic Type全サイズ・VoiceOver実読み上げ・実機のタッチ感は未検証。前回C案の長文メモ実キーボード制約は保持し、今回対象外。実機インストール・データ操作は行っていない。
+
+## Git・容量・停止
+
+main HEAD／origin/main=7daeb2663f1204619f65113e451433011e62f2a9。開始時6差分へStarRatingView.swiftが加わり計7差分を保持。stage／未追跡なし。commit／push／reset／cleanなし。
+
+開始2026-11-10T19:02:37.067949+09:00→終了2026-11-10T19:33:10.303066+09:00、同じdf -k /System/Volumes/Data（/dev/disk3s5、KiB）で空き303.2121→302.0540 GB、減少1.1581 GB。OS・APFS・Simulator側の変動を含み、全量を今回生成物へ帰属させない。今回資料約0.978 GB（複数の失敗調査xcresult・最終成功ログ・比較画像・独立検証アプリ等）、既存固定キャッシュDebug＋Release約0.931 GB、計約1.909 GBを保持。キャッシュ値は現在の割当量であり今回増加分ではない。比較・検証履歴と再利用用に保持し、以前のC案・プレート資料も含め削除なし。削除時の回収可能量とは扱わない。
+
+連携2文書を更新し、既存sync.zshで2文書のみ同期、クラウド本文を照合して停止する。Git保存や他機能へ進まない。
+
+### ChatGPT連携完了：SharedStarStyle-20261110
+
+既存sync.zshで2文書だけ同期し、両クラウド本文の今回実装・297チェック・UI3/3・一覧保護・実機待ちを確認。完了記録も再同期して停止する。Git commit／pushなし。
+
+同期完了識別子：SharedStarStyleCloudVerified-20261110
+
+
+## BuildWarningFix-20261110：ビルド警告6か所の修正
+
+# ビルド警告の調査・修正
+
+## 結果
+
+ご申告の6件に対応する6つの発生箇所を特定して修正。Debug Simulator／署名なしRelease iOSの両方でビルド成功、製品Swiftコンパイラ警告0。ログには合成処理・表示用抜粋の重複があるため、単純なwarning文字列件数とXcodeの発生箇所数は一致しない。
+
+別枠で、Xcode appintentsmetadataprocessorの「Metadata extraction skipped, no AppIntents.framework dependency found」が各ビルド1件残る。AppIntentsを使用していない対象に対するメタデータ抽出省略通知であり、以下のSwift隔離警告とは別。無関係なSDK import、プロジェクト設定、警告抑制フラグで隠していない。ビルドログ全体の警告が完全0になったとは報告しない。
+
+## 原因と変更
+
+既定のMainActor隔離と、明示nonisolatedな保存値型／同期関数の境界が合っていなかった。Swift言語モード・プロジェクト設定は変更せず、該当宣言・呼び出しを修正。
+
+| 発生箇所（修正前） | 原因 | 最小修正 |
+|---|---|---|
+| PlateRepository.swift itemNameFontSize | 非隔離DTOの可変プロパティラッパーにnonisolatedが適用される | 通常のOptional値へ戻す |
+| 同 commentFontSize | 同上 | 同上 |
+| KeyedDecodingContainer.decode | 合成CodableからMainActor補助関数を同期呼び出し | 非隔離の専用decodeIfPresentへ変更 |
+| KeyedEncodingContainer.encode | 同上 | 通常Optionalの合成エンコードを使用 |
+| PlateEditorView layoutSixPhotoRect | 非隔離の矩形構築からMainActorプロパティを参照 | 純粋なCGRect計算だけをnonisolated指定 |
+| StarRatingView luminanceのmap参照 | MainActor関数の参照を非隔離の関数型として渡す | 同じMainActor内のインラインクロージャへ変更 |
+
+星のmap警告1件は直近の共通化時に追加されたもので、今回修正した。UIColor操作を非隔離化したり、別スレッドへ移したりしていない。unsafe・preconcurrency・警告抑制設定・Swift言語モード変更は追加していない。
+
+## 保存互換性
+
+PlatePreservedSizeラッパーは外部利用箇所がなく、内部実装だけを通常のPlateStyleValue?へ変更。プロパティ名・外から見た型・JSONキーは維持。
+
+専用decodeIfPresentはキーがない場合だけnilとし、明示nullはPlateStyleValue.nullで保持する。未知の文字列・配列・オブジェクト・Bool・範囲外数値も従来どおり保持。エンコードはnilを省略し、明示nullはnullとして出力する。未知値のtextStylesSupported判定と上書き防止も同じ。
+
+事前に最小コードで警告を再現し、修正候補はSwift 6の型検査で診断なし。キーなし／null／数値／未知値等169通りで旧コーデックとのJSON同値を確認してから製品へ適用した。
+
+schemaVersion=1・rendererVersion1〜8・保存JSON形式・写真参照・CoreDataは変更なし。一括移行や既存ファイルの書き換えなし。PlateRepositoryのDTOより後の原子保存・revision・head・共有画像保護・削除関連コードは開始時本文と完全一致。
+
+## 今回の検証結果
+
+- Debug.log／Release.log：BUILD SUCCEEDED、製品Swift警告0、AppIntentsツール通知各1。Warnings.jsonに区別して記録。
+- git diff --check成功。
+- 完全なPlateDocument比較：1,352ケース、6,760チェック成功。renderer1〜8×サイズ2項目の169組合せ。旧・新の値、対応可否、検証結果、ソート済みJSONバイト列が一致。Task.detached内でのデコード・エンコード結果も一致。
+- Plate：20,296チェック成功。旧1〜7の84画像＋8の12画像＝96画像が厳密pixel一致。保存・復元・複製・写真参照・beforeHead失敗時の旧版保持・サムネイル・標準／高解像度JPEG/PNGの回帰を含む。
+- 星：297チェック成功。一覧99画像の完全維持、寸法等を揃えた共通表現99画像一致、入力外形99条件維持。色・星の位置・半星・既存サイズに変更なし。
+- 今回はUIジェスチャーテストの再実行なし。直前の共通星UI3件成功は過去結果として保持し、今回の新規結果には加算しない。
+
+初回Recipe画像比較に不一致を観測したが、比較ソースは開始時のCanvasコピーと同一で、同じ製品ソースの厳密再実行では96画像一致。さらに初回／再描画を保存する診断を追加して再確認し、許容差・成功条件を緩めず全96一致。初回差の原因は確定しておらず、初回描画の一時差の可能性として記録する。初期不一致JSONも保持。警告修正のためにレイアウトやフォント描画を変更していない。
+
+診断コード追加中に検証専用Swiftの構文ミスがあり、修正して最終コンパイル・実行を完了した。製品ビルドの失敗ではない。旧コーデック対照コピーには旧警告が意図的に残るため、検証専用compile.logの警告と製品Debug／Release警告0を混同しない。
+
+## 保護状態
+
+今回の製品変更はStarRatingView.swift、PlateRepository.swift、PlateEditorView.swiftの3ファイル。他37製品／モデル／IDEファイルは開始hash一致。
+
+- StarRatingViewはmapの関数参照→クロージャだけ。
+- PlateEditorViewは矩形プロパティのnonisolated注釈だけで、数値・描画本文は一致。
+- PlateRepositoryはDTOのサイズ2項目とコーデックだけ。以下のファイル保存ロジックは本文一致。
+
+C案AddEntryView、EditEntryView、EntryListView、プレートカテゴリ選択・掲載順、PhotoStore・保存削除安全性、Root／4タブ、AI休止、CoreDataモデル、IDE既存差分を保持。実ユーザーデータ・実機は未操作。検証はdev.nailnote.warningfixの専用アプリ・専用データだけを使用。
+
+main HEAD／origin/main=7daeb2663f1204619f65113e451433011e62f2a9。開始7差分にRepository／Editorが加わり9差分を保持。stage／未追跡なし、commit／push／reset／cleanなし。
+
+## 資料・容量
+
+資料：/private/tmp/NailNoteValidation/BuildWarningFix-20261110/
+
+Report.md、Warnings.json、Protection.json、results-final.json、star-results.json、codec-results.json、Minimal.swift／MinimalFixed.swift、CodecComparison.swift、検証コード・旧基準コピー・画像・ビルドログを保持。製品プロジェクトへ登録していない。
+
+開始2026-11-10T20:50:10.167748+09:00→終了2026-11-10T21:09:39.420440+09:00。df -k /System/Volumes/Data（/dev/disk3s5、KiB）で空き302.0053→301.4656 GB（0.5397 GB減、OS・APFS・Simulatorの変動を含む）。今回資料約0.166 GB、以前から再利用の固定Debug／Releaseキャッシュ約0.932 GB、計約1.098 GBを保持。キャッシュ値は現在割当量であり今回の増加分ではない。資料は検証証拠、キャッシュは再利用用。既存資料も含め削除なし。回収可能容量とは扱わない。tmpは永続保存保証なし。
+
+## 次の確認・停止
+
+ユーザーのXcodeで通常ビルドし、Swift警告6か所が消えていることを確認する。別のAppIntents抽出省略通知は残存。iPhone 17eの既存機能確認はユーザー担当で、今回Codexは操作していない。C案・星統一・プレートUIの実機確認待ちと、C案のメモキーボード未検証事項は維持。他機能やGitHub保存には進まず停止する。
+
+### ChatGPT連携完了：BuildWarningFix-20261110
+
+既存sync.zshで2文書のみ同期し、両クラウド本文の今回修正・Swift警告0・AppIntents通知1件残存・検証・差分保護を確認。完了記録も再同期して停止。commit／pushなし。
+
+同期完了識別子：BuildWarningFixCloudVerified-20261110
+
+
+## 2026-11-11：PlateDragArrangement-20261111 実装・分離検証完了
+
+# PlateDragArrangement-20261111 実装報告
+
+## 実装範囲
+
+製品変更は `NailNote/Features/Plates/PlateHomeView.swift` の `PlateProductSelectionView` と、同ファイル内のprivateなドラッグ補助Viewだけ。既存の「選択済み確認」横スクロールと「掲載順」の縦リスト・上下ボタン・解除ボタンを、1つの「掲載アイテムの配置」に統合した。登録済みの12カテゴリ・検索・写真・選択解除は保持。右側の既存編集サイドバーは今回の対象外として開始時から保持した。
+
+## 実際のrenderer8の順序
+
+|テンプレート|1〜3件|4〜6件|読み順|
+|---|---|---|---|
+|Elegant／Sweet|件数に応じた横1列|3列×最大2行|行優先、01 02 03／04 05 06|
+|Noir|縦1列|2列×最大3行|行優先、01 02／03 04／05 06|
+|Recipe|縦1列|2列、4件は左2右2・5件は左3右2|左列優先、6件なら01 04／02 05／03 06|
+
+これは現行 `PlateLayoutEightItems` のphoto座標と照合した仕様。編集用の簡略グリッドであり、完成作品のCanvasは変更していない。旧renderer作品の先頭3件表示も保持し、明示更新は行わない。
+
+## ドラッグ方式とデータ保護
+
+SwiftUIのブロックを、privateのUIViewRepresentableでUIKit標準UIDragInteraction／UIDropInteractionへ接続。iPhoneでもdrag.isEnabledを明示。移動元は実ブロックの画面内スナップショットをメモリ上だけで使い、移動先を枠で強調する。同じ選択画面のUUIDトークン・単一ローカルitemだけを受け付け、最後にUUIDと現在の選択配列を再確認する。
+
+ドラッグ開始・hover中はDraftを変更しない。ドロップ成立時だけ既存 `draft.moveProduct(id:offset:)` に対象スロットとの差分を渡し、withAnimationで更新。取消・領域外・別画面・外部データでは配列を書き換えない。永続モデルや保存キーを追加していない。
+
+7件目以降は「掲載対象外（あとN件）」の小さな待機ブロックに残す。先頭6件と待機の相互移動で掲載対象を入れ替え、押し出された項目も保持する。選択数上限は追加しない。4／5件の空き枠へは末尾へ移動する。0件は選択を促す空表示。通常画面に解除・上下ボタンを追加せず、VoiceOverの前後移動カスタムアクションを用意した。
+
+商品写真→サンプル→カテゴリ代替の既存キャッシュを再利用。保存済みの名称・カテゴリ・順序はDraftスナップショットを優先する。長い名前は2行まで、全文はアクセシビリティラベルに保持する。AX文字サイズでは省略量が増える。
+
+## 最終ビルドとUI実操作
+
+- Debug-final.log：BUILD SUCCEEDED。
+- Release-final.log：署名なしiOS、BUILD SUCCEEDED。
+- 製品Swiftの警告0。従来のAppIntents抽出省略ツール通知は各1件残る。
+- UI-verified.log／xcresult：8/8成功。実際の長押し・移動・ドロップを実行。4テンプレート、同一グリッド／行をまたぐ移動、待機との双方向、取消、0/1/2/3/4/5/6/7/9件、暗色・320pt内容幅・AX2、上部選択解除を含む。
+- UI-integration.log／xcresult：2/2成功。カテゴリ切替＋検索、実ドラッグ後の保存・復元・複製・プロセス再起動後の順序を確認。
+- 今回は計10件のUIテスト成功。iPhone 17e iOS27.0 Simulatorの独立Bundle IDを使用。実機成功とは扱わない。
+- 比較画面はComparisonGuide.mdとPreviews/参照。「配置テスト」、下部の配列番号、保存復元ボタンは検証用アプリだけのUI。
+
+## 描画比較の測定と限界
+
+renderer1〜8×4テンプレート×0/1/2/3/4/5/6/7/9件、288画像を比較。開始時から不変のCanvasを検証用別名Viewとして抽出し、同じ入力・画像・サイズ・light条件で比較した。最終測定では287画像がsRGB RGBA画素完全一致。renderer5 Sweet 1件だけ1ピクセルで1/255の色差を記録した。全画像の完全一致とは報告しない。
+
+全画像を測定する段階では、最大色差1/255かつ変更32ピクセル以内の丸め差枠を別に設け、差のある画像と数値を保存した。最終差は上記1ピクセルのみ。幾何学計算は全36条件（4テンプレート×1〜9件）で編集グリッドの行・列とrenderer8のphoto座標を照合し、欠落・重複なし。最初の厳密PNG比較ではrenderer1 Recipe 1件に5ピクセル・最大1/255の差が出て中止した履歴も保持する。同一ソースのGPU合成等の丸め差と考えられるが根本原因未確定で、既存rendererを変更して合わせてはいない。測定コード・初回失敗・差画像は保持。
+
+## 保存・書き出し
+
+CoreValidation.swiftの最終20条件（4テンプレート×1/3/6/7/9件）、320/320チェック成功。並べ替え後の配列・選択集合・名称・コメント、Repository再生成後の復元、複製の順序とrenderer8、主写真バイト・アイテム画像バイト・保存サムネイルの一致、beforeHead失敗注入による旧revision保持を確認。JPEG／PNGを標準1080×1350・高解像度1440×1800で描画・エンコード・復号し、出力前後の保存document不変を確認。写真は分離生成画像だけ。結果はresults-core-final.json。最初の260チェック成功後、写真とサムネイル照合60チェックを加えた最終結果で、両者を合算して580とは数えない。
+
+## 検証中に修正した事項
+
+初回のUI起動はアプリ未登録、次はダミーItemの必須createdAt／updatedAt欠落により失敗。分離fixtureを修正した。SwiftUIのdraggableでは開始が届いてもList内のブロックがdropを受け取れなかったため、局所UIKit接続を採用した。親Gridの識別子が各ブロックへ伝播する現象は、識別・アクセシビリティをブロック外側へ移して解決。
+
+3列の対角移動は最初失敗したが、部分表示の要素をisHittableだけで成功扱いし、画面外の中心へドロップしていた検証の問題だった（frame6 y=775.33、高さ137.33、中心844pt超）。表示領域へスクロールし、可視矩形内へ実ドラッグするテストへ修正。期待する配列順は変更せず全8件で合格した。保存fixtureのUIImageRendererが暗黙3倍で256pxを超えた失敗も、製品制限を緩めず検証側をscale=1へ修正した。失敗ログは削除していない。
+
+## 既存機能の保護
+
+Protection.json参照。今回の製品変更は1ファイルだけで、他のSwiftとIDE設定の開始hashを照合。AddEntryのC案、一覧／追加／編集の星、写真保存・削除安全性、PhotoStore、CoreData、PlateEditor／Repository／renderer／書き出し、RootView／タブ／AI休止を変更していない。PlateHome内の選択画面以外の既存コードも一致。commit／push／reset／clean、stage、実機操作、実ユーザーデータ操作、資料削除なし。
+
+ユーザー申告として、自己評価グラデーションはiPhone 17eで実機確認OKを正式に記録する。今回のドラッグ配置は実機確認待ち。
+
+## 残る確認
+
+VoiceOverを有効にしたカスタムアクションの操作・読み上げ、実機での長押し時間と触覚、非常に長い待機リストの画面端自動スクロール、AX文字サイズでのドラッグ操作は未確認。通常幅の実ドラッグとAX表示確認は区別する。Dynamic Typeでは長い名前・カテゴリが省略されるが、保存原文と全文アクセシビリティラベルを保持する。
+
+製品の既存編集全体を使う未保存確認／取消や旧データ全件の実機再検証は今回未実施。対象機能の分離UI・保存系テストと、変更していないコードのhash保護で確認し、実機はユーザーが担当する。新機能へは進まず、GitHub保存もしない。
+
+## Git・容量・連携
+
+main HEAD／ローカルorigin/mainは7daeb2663f1204619f65113e451433011e62f2a9のまま。開始時9ファイルのdirtyを保持、今回もdirty9、ステージ／未追跡なし。製品追加変更はPlateHomeViewだけ、連携2文書へ追記。既存IDE設定hash一致。
+
+2026-11-11T10:27:28.836787+09:00 → 2026-11-11T13:10:14.294656+09:00、同じdf -k /System/Volumes/Data（/dev/disk3s5、10進GB）で316.2112 → 314.1632 GB、2.0480 GB減。今回の専用資料は約0.592 GB、再利用固定Debug／Releaseキャッシュは合計約0.701 GB（以前から存在する占有量を含み、今回増加分とは扱わない）。合計約1.293 GBを保持。2GB以上減少したため主要場所を測定したが、資料以外の増分はSimulator起動・OS等の変動と分離できず全量の原因は未確定。ユーザー指定に従って削除していない。duは割当量であり削除時の回復量を保証しない。
+
+PROJECT_STATUS.mdとdocs/CHATGPT_HANDOFF.mdへ記録し、既存sync.zshで2文書だけ同期する。同期の最終結果は両文書・完了報告で確認する。今回の画像・アプリ・ログは製品へ混入せず、資料保持と再検証のため専用フォルダに残す。/private/tmpの永続性は保証されない。
+
+
+識別子：PlateDragArrangement-20261111-Completed。実機確認待ち、GitHub保存未実施。
+
+### Google Drive同期確認（2026-11-11T13:11:07.279197+09:00）
+
+既存sync.zsh終了0・更新2件。2文書のローカルDriveコピーは元ファイルと完全一致。接続済みDriveからクラウド本文を読み、PlateDragArrangement-20261111-Completed・保存320チェック・UI8件＋2件成功・自己評価グラデーション実機OKを照合済み。ChatGPT側でチェック可能。ChatGPT自身の読了を保証するものではない。この追記も再同期する。確認識別子：PlateDragArrangementCloudVerified-20261111。
+
+
+## 2026-11-12：FullRegression-20261112 最終回帰検証と実機確認記録
+
+# FullRegression-20261112：GitHub保存前の最終回帰検証
+
+## 結論
+
+実行した範囲で、製品修正が必要な重大不具合は見つからなかった。GitHub保存準備は可能、ユーザー承認待ち。今回は製品コード・リソース・プロジェクト設定を変更せず、commit／push／reset／clean／stageなし。OSフォトピッカー操作などの未実施範囲は残るため、全操作・全端末の完全保証とは扱わない。
+
+## ユーザーの実機確認（今回の申告）
+
+報告日2026-11-12、端末iPhone 17e、確認者ユーザー本人。実施日が別途特定されたという意味ではない。共通写真拡大10項目OK、自己評価の星グラデーションOK（項目数指定なし）、プレートのドラッグ配置5項目OK、C案デザイン追加フォーム6項目OK。不具合報告なし。Codexが実機を操作した結果ではない。過去の実機記録は保持する。
+
+## 作業前・環境・保護
+
+main、HEAD／ローカルorigin/main／SSHで読み取ったGitHub refs/heads/mainはいずれも `7daeb2663f1204619f65113e451433011e62f2a9`。originは既存SSH `git@github.com:Hideki69S/NailNote.git`。pull／fetch／merge／rebaseは実行していない。開始dirty9ファイル、stage／untrackedなしを保持。
+
+Xcode27.1（27A9275）、iPhone17e iOS27.0 Simulator。既存アプリと異なる `dev.nailnote.fullregression` の分離アプリ、一時SQLite・生成写真だけを使用。実ユーザーDB・実写真・実機へ触れていない。モデルはHEADから変更なし。JSON schemaVersion=1、renderer1〜8を維持、データ一括移行なし。
+
+製品・リソース・IDE設定98ファイルの開始SHA256と終了SHA256が全件一致（Protection.json）。製品ターゲット36ソースの一覧に検証フォルダ参照なし（ProductSourceInventory.json）。検証用の可視性調整コピー・旧DTO・UI起動ハーネスはすべて専用フォルダ内だけ。製品へ診断分岐を入れていない。
+
+## ビルド・静的検証
+
+Debug Simulator／署名なしRelease iOSともBUILD SUCCEEDED、git diff --check成功。構成ごとの固定DerivedDataを再利用した増分ビルドで、clean・全ソース強制再ビルドはしていない。今回の両ビルドログは製品Swift警告0、エラー0、AppIntents通知0。過去に出ていたAppIntentsメタデータ抽出省略はSwiftコンパイラ警告とは別のビルドツール通知であり、今回再発したとは報告しない。検証コピーの旧DTO等に出る隔離警告や直接swiftcのsysroot通知は、製品ビルドの警告件数に含めない。BuildResults.json／Debug.log／Release.log参照。
+
+## 今回の自動検証結果（過去件数を合算しない）
+
+|段階|今回の最終結果|主な確認|
+|---|---|---|
+|Design／Item保存・削除安全性|37条件・220チェック成功|新規、文字編集、写真維持／差替え／削除、full／thumb・商品／sampleの書込失敗、DB失敗、再試行、取消、競合、共有参照、整理警告、他画面の未保存変更、SQLite再オープン、画像read-only、AI休止|
+|追加保存・参照安全性|10条件・46チェック成功|新規DB／1枚目／2枚目の失敗後に同じIDで再試行し1件だけ作成、重複保存拒否、4テンプレートでItem／Design削除後のPlate原文と独立画像保持|
+|Plate保存・書き出し|20条件・360チェック成功|4テンプレート×1/3/6/7/9件、順序・原文・主写真・item画像・サムネイル、復元・複製、beforeHead失敗注入の旧版保持、削除しても複製保持、JPEG/PNG標準1080×1350・高解像度1440×1800、出力前後document不変|
+|旧新DTO互換性|1,352ケース一致|renderer1〜8×サイズ2項目13値ずつ、欠落／null／数値／未知文字列／配列／object等の再エンコード値一致|
+|旧JSON復元|288ケース成功|実描画マトリクスのdocumentをJSON往復し、同値・同renderer・validate成功|
+|実UI操作|最終15項目成功・0失敗・0skip|今回のPlate10項目＋Root経由5項目。UIResults.json参照|
+
+保存済み合成データについて、独立SQLiteをread-onlyで追加照合し、Design34件の長文タイトル対象のメモ・3.5評価・日付・デザイン／カラー、Item31件のカテゴリ・購入日・購入場所・価格・URLに不一致なし（MetadataResults.json）。これは65レコードの値照合で、上の条件数へ重複加算しない。
+
+### UIの内訳と試行履歴
+
+Plate：4テンプレートの実際の長押し・移動・ドロップ、同一／対角・列優先配置、掲載対象外との双方向、取消、0/1/2/3/4/5/6/7/9件、暗色・320pt内容幅・AX2、カテゴリ検索・解除、実ドラッグ後の保存／復元／複製／プロセス再起動。
+
+Root：C案の必須条件と入力→保存→編集→再起動表示、実ソフトウェアキーボードでタイトル・長文メモ入力／スクロール／入力完了、戻る→編集継続→破棄、Design検索・フィルター、Item追加→検索→編集、カテゴリ単一選択とお気に入り、一覧写真タップ、商品／sampleの2ページ、ピンチ・拡大中ドラッグ・ページ切替抑止・リセット、閉じた後の4タブ実タップ。
+
+最終判定は、UI.logのPlate10件、UI-root-verified.logのC案／Item追加編集／キーボード3件、UI-root-last.logの写真1件、UI-filter.logのフィルター1件を条件単位で採用した。途中の失敗試行は削除せず保持し、全実行が初回から成功したとは扱わない。最終15成功は過去セッションの10成功等を流用した数字ではない。
+
+失敗試行の原因：テスト側のタブrawValue名の取り違え（実際は0〜3）、タブがOther要素で内側がButtonというAX型、ページャがUIScrollViewである点の取り違え、カテゴリが初期状態で全選択でありカラー1回タップは除外になる点の誤認。製品コードを直して通していない。初回データ試行はテスト側がNailEntryへsamplePhotoIdをKVC参照した例外で中断し、当該検証コードだけ修正して37条件を再実行した。判定済みの段階JSONと、失敗した試行全体を区別する。
+
+## renderer1〜8の画像比較
+
+4テンプレート×0/1/2/3/4/5/6/7/9件、360×450、同一の写真・文言・文字設定・lightで288画像を比較。過去の別名Canvas対照が現在の描画本文と同じであることを確認し、実SwiftUI描画のsRGB RGBAバッファを比較した。
+
+|renderer|完全一致|差あり|
+|---|---|---|
+|1〜4|各36/36|0|
+|5|35/36|Sweet・1件表示の1画像|
+|6〜8|各36/36|0|
+|合計|287/288|1/288|
+
+差の座標は比較バッファの(x,y)=(59,110)。RGBAは(220,195,205,255)対(219,195,205,255)、赤のみ1/255。写真枠・影付近の画素。完全一致したとは表現しない。今回は差を消すための製品変更・閾値による完全一致化をしていない。
+
+追加対照として同じPlateCanvasView型・同じ入力を連続描画した10回すべてでも同じ1ピクセル差が再現し、赤219／220の向きが逆になる回もあった。一方、その各回の別名View対照は0差。同一実装でも起きる描画／色合成の丸め揺らぎが強く示唆され、コード差由来のレイアウト変更とは考えにくい。ただしApple描画内部のどの段階かは未確定で、GPU等を原因確定とはしない。drawing-results.jsonに全座標・色差・対照結果、Images/に差のある前後PNGを保存した。
+
+## データ保護・AI・互換性
+
+独立contextの保存／削除・故障注入で旧DB参照と写真バイトを維持し、他画面の未保存挿入も保持。削除は関連を解除してDesign本体やPlateを残す。商品写真／サンプル・full／thumbの共有UUID保護、整理失敗の警告区別を確認。Plateは元ItemとDesignの実削除後もdocument・主写真・item snapshotを保持した。
+
+AIは固定falseフラグ、Rootの非表示分岐と実通信入口guardを静的確認。実際のevaluateもfeaturePausedで停止した。実API送信やパケット監査は行っていない。実ユーザーの既存DBは扱わず、現行モデルの独立SQLite再オープンとモデルのHEAD一致で互換性を確認した。
+
+## 未実施・残課題
+
+- OS PhotosPickerでの写真ライブラリ選択・差替えの一連UI操作、一覧からのスワイプ／複数選択削除UIは今回未実施。保存／削除トランザクションは実行済みで、ユーザーの実機確認結果は別枠。
+- VoiceOver実操作、AX文字サイズでのドラッグ、キーボード中のメモ末尾キャレットの厳密な可視量測定、高解像度実写真での長時間メモリ／性能は未実施。ソフトウェアキーボードの存在・入力・スクロール操作自体は今回成功。
+- 過去専用資料の539／1379等のスイートは今回手元に残っておらず、その過去成功件数を今回の成功へ合算していない。全12書体×全テンプレート等の全組合せも今回網羅していない。
+- renderer5 Sweetの1ピクセル揺らぎは既知の測定上の残課題として保持。重大な新しい製品不具合・修正必須箇所は今回の実行範囲では見つからなかった。
+
+## GitHub保存の対象案（今回はstageしない）
+
+保存候補は以下の8ファイル：
+
+- NailNote/Design/StarRatingView.swift
+- NailNote/Features/Entries/AddEntryView.swift
+- NailNote/Features/Entries/EntryListView.swift
+- NailNote/Features/Plates/PlateEditorView.swift
+- NailNote/Features/Plates/PlateHomeView.swift
+- NailNote/Features/Plates/PlateRepository.swift
+- PROJECT_STATUS.md
+- docs/CHATGPT_HANDOFF.md
+
+既存NailNote.xcodeproj/project.pbxprojのIDE差分（LastUpgradeCheck／STRING_CATALOG_GENERATE_SYMBOLS）、/private/tmpの検証Swift・比較画像・ログ・アプリ・DerivedData、実データや個人設定は除外する。写真拡大の基礎ファイルは既にHEADへ保存済みで、差分がないものを再追加する必要はない。今回の製品変更0件、文書更新2件。dirty9件、stage／untrackedなしを保持する。
+
+次はこの結果と未実施範囲をユーザーが確認し、GitHub保存を別途承認する。希望リストや他機能の開発には進まない。
+
+## 容量・資料
+
+計測は開始2026-11-12T15:26:31.250323+09:00→終了2026-11-12T16:15:38.743205+09:00、同じdf -k /System/Volumes/Data、/dev/disk3s5、10進GB。空き312.9344→312.1152 GB（0.8192 GB減）。今回専用資料約0.438 GB、再利用固定Debug／Release約0.701 GB、前回PlateDrag資料約0.591 GBを保持。今回の増加と以前からの占有量を区別し、du割当量が削除で回復する量とは断定しない。OSやSimulatorの変動を含む。キャッシュ・比較資料・アプリ等の無断削除なし。
+
+専用資料：/private/tmp/NailNoteValidation/FullRegression-20261112/。/private/tmpは永続保証なし。成功・失敗のログ、検証コード、JSON、前後PNGを保持する。連携2文書へ結果を残し、既存sync.zshで2文書だけ同期・クラウド本文照合する。最終同期結果は連携文書・完了報告に記載する。
+
+確認識別子：FullRegression-20261112-Complete。GitHub保存は承認待ち。
+
+### 同期確認（2026-11-12T16:20:34.585476+09:00）
+
+既存sync.zsh終了0・更新2件、元2文書とローカルDriveコピーは完全一致。接続済みDriveから両クラウド本文を読み、FullRegression-20261112-Complete・実機ドラッグ5項目等・UI15項目成功・赤220/219の画像差を照合済み。ChatGPT側でチェック可能。ChatGPTの実際の読了を保証するものではない。この結果追記も再同期する。最終識別子：FullRegressionCloudVerified-20261112。
+
+
+## 2026-11-12：GitHubSave-20261112 保存前確認
+
+2026-11-12T17:00:04.594360+09:00。ユーザーの明示承認により既存変更の8ファイル限定commitと通常pushを実施する。開始main HEAD／origin/main／SSH読み取りGitHub mainは7daeb2663f1204619f65113e451433011e62f2a9。dirty9、stage／untrackedなし。製品6ファイルはFullRegression-20261112の検証hashと一致し、追加修正なし。差分を確認し、秘密情報形式の検出なし。
+
+対象：
+
+- NailNote/Design/StarRatingView.swift
+- NailNote/Features/Entries/AddEntryView.swift
+- NailNote/Features/Entries/EntryListView.swift
+- NailNote/Features/Plates/PlateEditorView.swift
+- NailNote/Features/Plates/PlateHomeView.swift
+- NailNote/Features/Plates/PlateRepository.swift
+- PROJECT_STATUS.md
+- docs/CHATGPT_HANDOFF.md
+
+検証根拠は2026-11-12 FullRegression-20261112（今回再実行ではない）：UI15/15、保存・削除・参照626/626（220＋46＋360）、DTO1352ケース、旧JSON288ケース、Debug Simulator／署名なしRelease成功。画像287/288完全一致、renderer5 Sweetの既知の1ピクセル差は継続記録。ユーザー本人のiPhone 17eで写真拡大10項目・星OK・ドラッグ5項目・C案6項目OK。
+
+既存project.pbxprojのIDE差分、検証アプリ・SQLite・画像・ログ・DerivedData等は含めず、そのまま保持する。予定メッセージ：Finalize NailNote UI improvements and plate drag arrangement。この文書版ではcommit／push未実行であり、成功を事前記載しない。完了後のSHA・push結果はローカル／Driveへ追記し、追加commit／pushしない。

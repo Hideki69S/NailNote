@@ -99,23 +99,12 @@ nonisolated struct PlateFileReference: Codable, Equatable, Sendable {
     var sha256: String
 }
 
-// 新しいサイズ値は、明示nullも未知値として保持する。キー欠落だけを既定値にする。
-@propertyWrapper
-nonisolated struct PlatePreservedSize: Codable, Equatable, Sendable {
-    var wrappedValue: PlateStyleValue?
-    init(wrappedValue: PlateStyleValue?) { self.wrappedValue = wrappedValue }
-    init(from decoder: Decoder) throws { wrappedValue = try PlateStyleValue(from: decoder) }
-    func encode(to encoder: Encoder) throws { try (wrappedValue ?? .null).encode(to: encoder) }
-}
+// サイズの明示nullも未知値として保持する。キー欠落だけを既定値にする。
+// 非隔離の保存DTOでは、プロパティラッパーを使わず同じJSON契約を保つ。
 extension KeyedDecodingContainer {
-    func decode(_ type: PlatePreservedSize.Type, forKey key: Key) throws -> PlatePreservedSize {
-        guard contains(key) else { return PlatePreservedSize(wrappedValue: nil) }
-        return try PlatePreservedSize(from: superDecoder(forKey: key))
-    }
-}
-extension KeyedEncodingContainer {
-    mutating func encode(_ value: PlatePreservedSize, forKey key: Key) throws {
-        if let raw = value.wrappedValue { try encode(raw, forKey: key) }
+    nonisolated func decodeIfPresent(_ type: PlateStyleValue.Type, forKey key: Key) throws -> PlateStyleValue? {
+        guard contains(key) else { return nil }
+        return try decode(type, forKey: key)
     }
 }
 
@@ -146,8 +135,8 @@ nonisolated struct PlateDocument: Codable, Equatable, Sendable {
     var commentTextStyle: PlateTextStyle? = nil
     var itemImageReferences: [String: PlateFileReference]? = nil
     var itemNameTextStyle: PlateTextStyle? = nil
-    @PlatePreservedSize var itemNameFontSize: PlateStyleValue? = nil
-    @PlatePreservedSize var commentFontSize: PlateStyleValue? = nil
+    var itemNameFontSize: PlateStyleValue? = nil
+    var commentFontSize: PlateStyleValue? = nil
     var textStylesSupported: Bool {
         (titleTextStyle?.supported ?? true) && (commentTextStyle?.supported ?? true) && (itemNameTextStyle?.supported ?? true)
         && PlateTextStyle.validSize(itemNameFontSize, range: 7...14) && PlateTextStyle.validSize(commentFontSize, range: 8...16)

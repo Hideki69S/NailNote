@@ -384,22 +384,8 @@ private struct EntryCardRatingView: View {
     let palette: GlassTheme.DesignCardPalette
     @ScaledMetric(relativeTo: .caption) private var starSize: CGFloat = 13
 
-    // 行の明暗に対し、最も読み取りやすい落ち着いたゴールドを選ぶ。
-    private var gold: Color {
-        let candidates = [
-            Color(red: 0.46, green: 0.34, blue: 0.16),
-            Color(red: 0.88, green: 0.77, blue: 0.51)
-        ]
-        let surfaces = [palette.glowFillTop, palette.glowFillMid, palette.glowFillBottom].map(luminance)
-        let preferred = candidates.max { minimumContrast($0, surfaces: surfaces) < minimumContrast($1, surfaces: surfaces) } ?? candidates[0]
-        if minimumContrast(preferred, surfaces: surfaces) >= 4.5 {
-            return preferred
-        }
-        let alternatives = [
-            Color(red: 0.26, green: 0.18, blue: 0.06),
-            Color(red: 0.98, green: 0.89, blue: 0.66)
-        ]
-        return alternatives.max { minimumContrast($0, surfaces: surfaces) < minimumContrast($1, surfaces: surfaces) } ?? preferred
+    private var starEdge: Color {
+        NailRatingStarStyle.edge(on: [palette.glowFillTop, palette.glowFillMid, palette.glowFillBottom])
     }
 
     var body: some View {
@@ -419,12 +405,12 @@ private struct EntryCardRatingView: View {
     }
 
     private var stars: some View {
-        let tint = gold
-        return HStack(spacing: 3) {
+        HStack(spacing: 3) {
             ForEach(1...5, id: \.self) { index in
                 Image(systemName: rating >= Double(index) ? "star.fill" : rating >= Double(index) - 0.5 ? "star.leadinghalf.filled" : "star")
                     .font(.system(size: starSize, weight: .medium))
-                    .foregroundStyle(tint)
+                    .foregroundStyle(NailRatingStarStyle.gradient(at: index))
+                    .shadow(color: starEdge.opacity(NailRatingStarStyle.shadowOpacity), radius: NailRatingStarStyle.shadowRadius, x: 0, y: 0)
             }
         }
     }
@@ -436,20 +422,7 @@ private struct EntryCardRatingView: View {
             .foregroundStyle(palette.titleText)
     }
 
-    private func minimumContrast(_ color: Color, surfaces: [Double]) -> Double {
-        let foreground = luminance(color)
-        return surfaces.map { (max(foreground, $0) + 0.05) / (min(foreground, $0) + 0.05) }.min() ?? 1
-    }
 
-    private func luminance(_ color: Color) -> Double {
-        var red: CGFloat = 0, green: CGFloat = 0, blue: CGFloat = 0, alpha: CGFloat = 0
-        UIColor(color).getRed(&red, green: &green, blue: &blue, alpha: &alpha)
-        func linear(_ value: CGFloat) -> Double {
-            let value = Double(value)
-            return value <= 0.04045 ? value / 12.92 : pow((value + 0.055) / 1.055, 2.4)
-        }
-        return 0.2126 * linear(red) + 0.7152 * linear(green) + 0.0722 * linear(blue)
-    }
 }
 
 // MARK: - Thumbnail

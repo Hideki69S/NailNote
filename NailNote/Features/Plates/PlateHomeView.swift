@@ -491,8 +491,9 @@ struct PlateProductSelectionView: View {
     @FetchRequest(sortDescriptors: [NSSortDescriptor(keyPath: \NailProduct.name, ascending: true)])
     private var products: FetchedResults<NailProduct>
     @State private var query = ""
+    @State private var selectedCategory: NailProductCategory = .color
     @StateObject private var thumbnails = PlateProductThumbnailCache()
-    @ScaledMetric(relativeTo: .body) private var minimumInfoWidth = 140.0
+    @State private var dragSession = UUID()
 
     // 現在のItemは画像参照だけに使用し、保存済み用品の文字や順序へ書き戻さない。
     private var photoSources: [UUID: PlateProductPhotoSource] {
@@ -507,7 +508,10 @@ struct PlateProductSelectionView: View {
     private var availableProducts: [PlateProduct] {
         var seen = Set<UUID>()
         let normalized = query.trimmingCharacters(in: .whitespacesAndNewlines)
-        return products.compactMap { PlateSourceAdapter.product($0) }.filter {
+        return products.filter {
+            let raw = ($0.category ?? "").trimmingCharacters(in: .whitespacesAndNewlines)
+            return (NailProductCategory(rawValue: raw) ?? .other) == selectedCategory
+        }.compactMap { PlateSourceAdapter.product($0) }.filter {
             seen.insert($0.id).inserted && (normalized.isEmpty || $0.name.localizedCaseInsensitiveContains(normalized))
         }
     }
@@ -515,56 +519,9 @@ struct PlateProductSelectionView: View {
     var body: some View {
         let sources = photoSources
         List {
-            Section {
-                Text("選択中：\(draft.products.count)件").font(.headline).accessibilityIdentifier("plate.productCount")
-                Text("選択中のアイテム名・掲載順はプレート内に保持します。元アイテムが変更・削除されても自動更新しません。0件でも編集できます。")
-                    .font(.caption).foregroundStyle(.secondary)
-                if draft.unavailableSourceProducts > 0 {
-                    Text("参照できない使用アイテムが\(draft.unavailableSourceProducts)件あります。元データは変更していません。")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-                if draft.products.count > (draft.layoutVersion == 8 ? PlateLayoutEightItems.limit : PlateDraft.recipeLimit) {
-                    let limit = draft.layoutVersion == 8 ? PlateLayoutEightItems.limit : PlateDraft.recipeLimit
-                    Text("Recipeは先頭\(limit)件を表示します。選択\(draft.products.count)件のうち他\(draft.products.count - limit)件は作品上に表示されません。掲載順・選択数を調整できます。")
-                        .font(.caption).foregroundStyle(.secondary)
-                }
-            }
-            Section("掲載順") {
-                if draft.products.isEmpty { Text("アイテムなしで作成できます").foregroundStyle(.secondary) }
-                ForEach(Array(draft.products.enumerated()), id: \.element.id) { index, product in
-                    let information = HStack(spacing: 8) {
-                        PlateProductThumbnail(source: sources[product.id], category: product.category, cache: thumbnails)
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(product.name).fixedSize(horizontal: false, vertical: true)
-                            Text(draft.inheritedProductIDs.contains(product.id) ? "記録から引き継ぎ" : "追加したアイテム")
-                                .font(.caption).foregroundStyle(.secondary)
-                        }
-                    }
-                    let controls = HStack(spacing: 4) {
-                        Button { draft.moveProduct(id: product.id, offset: -1) } label: {
-                            Image(systemName: "chevron.up").frame(width: 44, height: 44)
-                        }.disabled(index == 0).accessibilityLabel(product.name + "を上へ")
-                            .accessibilityIdentifier("plate.product.up.\(product.id.uuidString)")
-                        Button { draft.moveProduct(id: product.id, offset: 1) } label: {
-                            Image(systemName: "chevron.down").frame(width: 44, height: 44)
-                        }.disabled(index == draft.products.count - 1).accessibilityLabel(product.name + "を下へ")
-                            .accessibilityIdentifier("plate.product.down.\(product.id.uuidString)")
-                        Button { draft.toggleProduct(product) } label: {
-                            Image(systemName: "minus.circle").frame(width: 44, height: 44)
-                        }.accessibilityLabel(product.name + "を解除")
-                            .accessibilityIdentifier("plate.product.remove.\(product.id.uuidString)")
-                    }.buttonStyle(.borderless)
-                    ViewThatFits(in: .horizontal) {
-                        HStack(spacing: 4) { information.frame(minWidth: minimumInfoWidth, alignment: .leading); Spacer(minLength: 4); controls }
-                        VStack(alignment: .leading, spacing: 4) {
-                            information
-                            HStack { Spacer(minLength: 0); controls }
-                        }
-                    }
-                }
-            }
             Section("登録済みのアイテムから選択") {
-                if availableProducts.isEmpty { Text("該当するアイテムがありません").foregroundStyle(.secondary) }
+                categoryTabs
+                if availableProducts.isEmpty { Text("このカテゴリに該当するアイテムがありません").foregroundStyle(.secondary) }
                 ForEach(availableProducts) { product in
                     let selected = draft.products.contains { $0.id == product.id }
                     let displayed = draft.products.first { $0.id == product.id } ?? product
@@ -584,8 +541,231 @@ struct PlateProductSelectionView: View {
                     .accessibilityAddTraits(selected ? .isSelected : [])
                 }
             }
+            Section("掲載アイテムの配置") {
+                Text("選択中：\(draft.products.count)件").font(.headline).accessibilityIdentifier("plate.productCount")
+                Text("長押しして別のブロックへドロップすると掲載順が変わります。解除は上の登録済みアイテムから行えます。")
+                    .font(.caption).foregroundStyle(.secondary)
+                Text("アイテム名・カテゴリ・掲載順は作品内に保持します。元アイテムの変更・削除では更新しません。")
+                    .font(.caption).foregroundStyle(.secondary)
+                if draft.products.isEmpty {
+                    Text("上のカテゴリからアイテムを選択してください。アイテムなしでも作成できます。")
+                        .foregroundStyle(.secondary)
+                } else {
+                    arrangement(sources: sources)
+                }
+                if draft.unavailableSourceProducts > 0 {
+                    Text("参照できない使用アイテムが\(draft.unavailableSourceProducts)件あります。元データは変更していません。")
+                        .font(.caption).foregroundStyle(.secondary)
+                }
+            }
+
         }
         .searchable(text: $query, prompt: "アイテム名を検索")
+    }
+
+    // ドラッグ中はDraftを変更せず、同じ選択画面からのドロップ成立時だけ既存の移動処理へ渡す。
+    private var visibleLimit: Int { draft.layoutVersion == 8 ? PlateLayoutEightItems.limit : 3 }
+
+    private var arrangementColumns: Int {
+        let count = min(visibleLimit, draft.products.count)
+        switch draft.template {
+        case .elegant, .sweet: return count <= 3 ? max(1, count) : 3
+        case .noir, .recipe: return count <= 3 ? 1 : 2
+        }
+    }
+
+    private func arrangementIndex(row: Int, column: Int, rows: Int) -> Int {
+        // Recipeだけ列優先。ほかはrenderer8と同じ行優先で読む。
+        draft.template == .recipe ? column * rows + row : row * arrangementColumns + column
+    }
+
+    private func arrangement(sources: [UUID: PlateProductPhotoSource]) -> some View {
+        let count = min(visibleLimit, draft.products.count)
+        let rows = (count + arrangementColumns - 1) / arrangementColumns
+        return VStack(alignment: .leading, spacing: 10) {
+            Text("掲載対象（先頭\(visibleLimit)件まで）").font(.subheadline.weight(.semibold))
+            Grid(horizontalSpacing: 6, verticalSpacing: 6) {
+                ForEach(0..<rows, id: \.self) { row in
+                    GridRow {
+                        ForEach(0..<arrangementColumns, id: \.self) { column in
+                            let index = arrangementIndex(row: row, column: column, rows: rows)
+                            if index < count {
+                                arrangementBlock(index: index, sources: sources)
+                            } else {
+                                PlateArrangementDropTarget(sessionID: dragSession.uuidString, onDrop: { acceptDrop($0, at: count - 1) }) {
+                                    Text("末尾へ移動").font(.caption2).foregroundStyle(.secondary)
+                                        .frame(maxWidth: .infinity, minHeight: 100)
+                                        .background(.quaternary.opacity(0.4), in: RoundedRectangle(cornerRadius: 10))
+                                }
+                                .accessibilityLabel("空き枠。ドロップすると掲載対象の末尾へ移動")
+                            }
+                        }
+                    }
+                }
+            }
+            if draft.products.count > visibleLimit {
+                Text("掲載対象外（あと\(draft.products.count - visibleLimit)件）")
+                    .font(.subheadline.weight(.semibold))
+                Text("現在の作品には表示されません。掲載対象へドラッグすると入れ替えられます。")
+                    .font(.caption).foregroundStyle(.secondary)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 110))], spacing: 6) {
+                    ForEach(visibleLimit..<draft.products.count, id: \.self) { index in
+                        arrangementBlock(index: index, sources: sources)
+                    }
+                }
+            }
+        }
+    }
+
+    private func arrangementBlock(index: Int, sources: [UUID: PlateProductPhotoSource]) -> some View {
+        let product = draft.products[index]
+        return PlateArrangementDropTarget(sessionID: dragSession.uuidString, dragValue: dragSession.uuidString + ":" + product.id.uuidString, onDrop: { acceptDrop($0, at: index) }) {
+            VStack(alignment: .leading, spacing: 5) {
+                HStack {
+                    Text(String(format: "%02d", index + 1)).font(.caption2.monospacedDigit())
+                    Spacer(minLength: 0)
+                    Image(systemName: "hand.draw").font(.caption2)
+                }.foregroundStyle(.secondary)
+                if index >= visibleLimit {
+                    HStack(alignment: .top, spacing: 6) {
+                        PlateProductThumbnail(source: sources[product.id], category: product.category, cache: thumbnails)
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text(PlateItemCategoryLabel.title(product.category)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                            Text(product.name).font(.caption).lineLimit(2).multilineTextAlignment(.leading)
+                        }.frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                } else {
+                    PlateProductThumbnail(source: sources[product.id], category: product.category, cache: thumbnails)
+                    Text(PlateItemCategoryLabel.title(product.category)).font(.caption2).foregroundStyle(.secondary).lineLimit(1)
+                    Text(product.name).font(.caption).lineLimit(2).multilineTextAlignment(.leading)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                }
+            }
+            .padding(8).frame(maxWidth: .infinity, minHeight: index >= visibleLimit ? 88 : 136, alignment: .topLeading)
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 10))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(GlassTheme.cardStroke, lineWidth: 0.7))
+            .contentShape(RoundedRectangle(cornerRadius: 10))
+        }
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel("掲載順\(index + 1)、" + product.name + "、" + PlateItemCategoryLabel.title(product.category))
+            .accessibilityValue(index < visibleLimit ? "掲載対象" : "掲載対象外")
+            .accessibilityHint("長押しで移動。VoiceOverのアクションでも掲載順を変更できます")
+            .accessibilityAction(named: "掲載順を1つ前へ") { move(product.id, to: index - 1) }
+            .accessibilityAction(named: "掲載順を1つ後へ") { move(product.id, to: index + 1) }
+            .accessibilityIdentifier("plate.arrangement.item." + product.id.uuidString)
+    }
+
+    private func acceptDrop(_ values: [String], at index: Int) -> Bool {
+        guard values.count == 1 else { return false }
+        let parts = values[0].split(separator: ":")
+        guard parts.count == 2, String(parts[0]) == dragSession.uuidString,
+              let id = UUID(uuidString: String(parts[1])), draft.products.contains(where: { $0.id == id }),
+              draft.products.indices.contains(index) else { return false }
+        move(id, to: index)
+        return true
+    }
+
+    private func move(_ id: UUID, to index: Int) {
+        guard let from = draft.products.firstIndex(where: { $0.id == id }), draft.products.indices.contains(index) else { return }
+        withAnimation(.easeInOut(duration: 0.2)) { draft.moveProduct(id: id, offset: index - from) }
+    }
+
+    private var categoryTabs: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 8) {
+                ForEach(NailProductCategory.allCases) { category in
+                    let selected = selectedCategory == category
+                    Button { selectedCategory = category } label: {
+                        Text(category.displayName).font(.caption.weight(selected ? .semibold : .regular))
+                            .padding(.horizontal, 12).frame(minHeight: 44)
+                            .background(selected ? Color.accentColor.opacity(0.18) : Color.secondary.opacity(0.08), in: Capsule())
+                            .overlay(Capsule().stroke(selected ? Color.accentColor : Color.secondary.opacity(0.3), lineWidth: 1))
+                            .foregroundStyle(selected ? Color.accentColor : Color.primary)
+                    }.buttonStyle(.plain)
+                        .accessibilityIdentifier("plate.category.\(category.rawValue)")
+                        .accessibilityValue(selected ? "選択中" : "未選択")
+                        .accessibilityAddTraits(selected ? .isSelected : [])
+                }
+            }
+        }.accessibilityIdentifier("plate.categoryTabs")
+    }
+}
+
+// List内の個別ブロックへ標準UIKitのドラッグ／ドロップを接続する。表示と配列更新はSwiftUI側で管理する。
+private struct PlateArrangementDropTarget<Content: View>: View {
+    let sessionID: String
+    var dragValue: String? = nil
+    let onDrop: ([String]) -> Bool
+    @ViewBuilder let content: () -> Content
+    @State private var targeted = false
+
+    var body: some View {
+        content()
+            .overlay(PlateArrangementInteraction(sessionID: sessionID, value: dragValue, onDrop: onDrop, onTargeted: { targeted = $0 }))
+            .overlay(RoundedRectangle(cornerRadius: 10).strokeBorder(targeted ? Color.accentColor : .clear, lineWidth: 3).allowsHitTesting(false))
+    }
+}
+
+private struct PlateArrangementInteraction: UIViewRepresentable {
+    let sessionID: String
+    let value: String?
+    let onDrop: ([String]) -> Bool
+    let onTargeted: (Bool) -> Void
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+    func makeUIView(context: Context) -> UIView {
+        let view = UIView()
+        view.backgroundColor = .clear
+        view.isAccessibilityElement = false
+        let drag = UIDragInteraction(delegate: context.coordinator)
+        drag.isEnabled = true
+        view.addInteraction(drag)
+        view.addInteraction(UIDropInteraction(delegate: context.coordinator))
+        return view
+    }
+    func updateUIView(_ view: UIView, context: Context) { context.coordinator.owner = self }
+
+    final class Coordinator: NSObject, UIDragInteractionDelegate, UIDropInteractionDelegate {
+        var owner: PlateArrangementInteraction
+        init(_ owner: PlateArrangementInteraction) { self.owner = owner }
+
+        func dragInteraction(_ interaction: UIDragInteraction, itemsForBeginning session: UIDragSession) -> [UIDragItem] {
+            guard let value = owner.value else { return [] }
+            let item = UIDragItem(itemProvider: NSItemProvider(object: value as NSString))
+            item.localObject = value
+            return [item]
+        }
+        func dragInteraction(_ interaction: UIDragInteraction, sessionAllowsMoveOperation session: UIDragSession) -> Bool { true }
+        func dragInteraction(_ interaction: UIDragInteraction, sessionIsRestrictedToDraggingApplication session: UIDragSession) -> Bool { true }
+        func dragInteraction(_ interaction: UIDragInteraction, previewForLifting item: UIDragItem, session: UIDragSession) -> UITargetedDragPreview? {
+            guard let view = interaction.view, let window = view.window else { return nil }
+            let rect = view.convert(view.bounds, to: window)
+            guard let snapshot = window.resizableSnapshotView(from: rect, afterScreenUpdates: false, withCapInsets: .zero) else { return nil }
+            snapshot.layer.cornerRadius = 10; snapshot.clipsToBounds = true
+            let parameters = UIDragPreviewParameters(); parameters.backgroundColor = .clear
+            return UITargetedDragPreview(view: snapshot, parameters: parameters,
+                target: UIDragPreviewTarget(container: window, center: CGPoint(x: rect.midX, y: rect.midY)))
+        }
+        // 外部アプリ・別の選択画面・複数ブロックからのドロップを受け付けない。
+        private func localValue(_ session: UIDropSession) -> String? {
+            guard session.localDragSession != nil, session.items.count == 1,
+                  let value = session.items.first?.localObject as? String,
+                  value.hasPrefix(owner.sessionID + ":") else { return nil }
+            return value
+        }
+        func dropInteraction(_ interaction: UIDropInteraction, canHandle session: UIDropSession) -> Bool { localValue(session) != nil }
+        func dropInteraction(_ interaction: UIDropInteraction, sessionDidEnter session: UIDropSession) { owner.onTargeted(localValue(session) != nil) }
+        func dropInteraction(_ interaction: UIDropInteraction, sessionDidUpdate session: UIDropSession) -> UIDropProposal {
+            UIDropProposal(operation: localValue(session) == nil ? .forbidden : .move)
+        }
+        func dropInteraction(_ interaction: UIDropInteraction, performDrop session: UIDropSession) {
+            defer { owner.onTargeted(false) }
+            guard let value = localValue(session) else { return }
+            _ = owner.onDrop([value])
+        }
+        func dropInteraction(_ interaction: UIDropInteraction, sessionDidExit session: UIDropSession) { owner.onTargeted(false) }
+        func dropInteraction(_ interaction: UIDropInteraction, sessionDidEnd session: UIDropSession) { owner.onTargeted(false) }
+        func dragInteraction(_ interaction: UIDragInteraction, session: UIDragSession, didEndWith operation: UIDropOperation) { owner.onTargeted(false) }
     }
 }
 

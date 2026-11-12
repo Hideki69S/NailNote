@@ -163,7 +163,7 @@ enum PlateTemplate: String, CaseIterable, Identifiable, Codable {
         }
     }
     var photoRadius: CGFloat { self == .sweet ? 65 : (self == .noir ? 4 : 17) }
-    var layoutSixPhotoRect: CGRect {
+    nonisolated var layoutSixPhotoRect: CGRect {
         switch self {
         case .elegant: return CGRect(x: 28, y: 35, width: 304, height: 278)
         case .sweet: return CGRect(x: 40, y: 43, width: 280, height: 270)
